@@ -326,7 +326,7 @@ $ verilore-mcp
 ```json
 {
   "mcpServers": {
-    "mind-palace": {
+    "verilore": {
       "command": "verilore-mcp",
       "env": { "DATABASE_URL": "postgresql://mpadmin:secret@localhost:5432/verilore" }
     }

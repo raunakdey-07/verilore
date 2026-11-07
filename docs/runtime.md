@@ -359,7 +359,7 @@ $ verilore feedback b062424783ba --verdict wrong --note "meant the cache"
 recorded 'wrong' against the query of 2026-10-16T19:56:52+00:00
 
 $ verilore feedback-summary
-log:  /home/you/.mind-palace/logs/queries.jsonl
+log:  /home/you/.verilore/logs/queries.jsonl
 calls: 214    graded: 37
 
   abstained_wrongly    4

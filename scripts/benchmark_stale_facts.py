@@ -637,7 +637,7 @@ def run_benchmark():
                 "documents": len(DOCS),
                 "questions": total,
             },
-            "mind_palace": {
+            "verilore": {
                 "authoritative_top1_accuracy": mp_correct / total,
                 "authoritative_accuracy": mp_correct / total,
                 "top1_accuracy": mp_correct / total,
@@ -694,7 +694,7 @@ def run_benchmark():
             # aliases
             "baseline": None,
             "chunk_rag": None,
-            "mind_palace_accuracy": mp_correct / total,
+            "verilore_accuracy": mp_correct / total,
             "baseline_accuracy": base_correct / total,
         }
         metrics["baseline"] = metrics["plain_rag"]
@@ -715,7 +715,7 @@ def run_benchmark():
 
 def _render_table(m):
     lines = []
-    lines.append("| metric | mind_palace | plain_rag | rag_recency | rag_metadata |")
+    lines.append("| metric | verilore | plain_rag | rag_recency | rag_metadata |")
     lines.append("|---|---|---|---|---|")
     keys = [
         "authoritative_top1_accuracy",
@@ -726,7 +726,7 @@ def _render_table(m):
     ]
     for k in keys:
         vals = []
-        for name in ("mind_palace", "plain_rag", "rag_recency", "rag_metadata"):
+        for name in ("verilore", "plain_rag", "rag_recency", "rag_metadata"):
             v = m.get(name, {}).get(k, 0.0)
             vals.append(f"{v:.3f}")
         lines.append(f"| {k} | " + " | ".join(vals) + " |")

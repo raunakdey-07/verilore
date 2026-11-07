@@ -126,7 +126,7 @@ async def run() -> int:
     except Exception as exc:  # noqa: BLE001 - an unreachable service is a result
         checks.append(Check("the service is reachable", False, f"{type(exc).__name__}: {exc}"))
 
-    print("\nMind Palace integration conformance\n")
+    print("\nVerilore integration conformance\n")
     for check in checks:
         print(check.render())
     failures = [c for c in checks if not c.ok and not c.skipped]

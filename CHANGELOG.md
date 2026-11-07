@@ -211,7 +211,8 @@ bullets is not extracted, so write rules as bullets (#158); inserting a list
 item renumbers the claims after it, which distorts history (#160); no
 metadata filters (#108); no single-claim deletion (withdrawal is a rejected
 version); no comparative benchmark result (not measured for this release;
-the baseline can still run against 1dc88fd).
+the baseline can still run against 1dc88fd); prose without normative
+sentences produces no claims.
 
 ## [v0.9.3] - 2026-10-27
 

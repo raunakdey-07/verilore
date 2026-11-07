@@ -35,6 +35,8 @@ the order a newcomer needs them.
 For wiring Verilore into a coding agent so it tracks your project's decisions and
 runbooks. These commands run in CI against a built wheel (`scripts/cleanroom_quickstart.py`).
 
+Lines starting with `$ ` are the commands CI runs; type them without the `$ `.
+
 ```bash
 # The default install is ONNX, not torch: cold `recall` 1.4 s, install 216 MB.
 git clone https://github.com/raunakdey-07/verilore.git && cd verilore
@@ -94,6 +96,11 @@ for OpenCode, Zed and Claude Code is in [connecting an agent](docs/mcp.md).
 `recall` and `remember` also report a `query_id`. Grade a wrong answer; it appends
 to `~/.verilore/logs/queries.jsonl` and changes nothing else.
 
+```bash
+verilore feedback <query_id> --verdict wrong --note "meant the cache"
+verilore feedback-summary
+```
+
 ## Managing corpora and credentials
 
 - `verilore ingest-repo <path> --delete-removed` retires documents whose source file is gone.
@@ -110,11 +117,6 @@ is running; a remote database is never touched. Connection and authentication
 failures print the specific remediation (start the service, fix the password)
 instead of a traceback. `pytest` auto-detects a local development Postgres, so the
 suite runs with no `DATABASE_URL`.
-
-```bash
-verilore feedback <query_id> --verdict wrong --note "meant the cache"
-verilore feedback-summary
-```
 
 ## Documents and claims
 
@@ -180,9 +182,9 @@ print(f"{memory.claim}  [{memory.status}]")
 
 - **It does not decide what is true.** It records what was written, attributed.
   Correctness of the original source is never established — only its provenance.
-- **It does not infer claims from prose.** A claim is always a line that was in a
-  document or a statement you were told, quoted back. What the structural reader
-  extracts, it does not write.
+- **It does not infer claims.** Every claim is a line from a document (a list
+  item, a `Key: Value` line, or, in a document with no list items, a rule-like
+  sentence) or a statement you gave it, quoted back unchanged.
 - **It is not a vector store.** Retrieval is one stage of a pipeline that ends in
   provenance, not the product.
 - **It does not authenticate its own history.** A receipt proves internal
@@ -199,6 +201,9 @@ print(f"{memory.claim}  [{memory.status}]")
   same key; the archive is append-only.
 - **No comparative benchmark result.** No number in this repository is evidence
   of generalisation.
+- **Prose without normative sentences produces no claims.** A document with no
+  list items and no must/never/always/should sentences ingests as chunks
+  only; recall returns `NO_RELEVANT_MEMORY` (#158).
 - **A supersession retires one claim.** `--supersedes` names it, or `--topic-key`
   retires whatever is live under that key, and either works across files. Where two
   documents disagree under one key and neither is retired, recall reports the
@@ -207,7 +212,7 @@ print(f"{memory.claim}  [{memory.status}]")
   a leading `@` in an evidence quote discards the whole block. Quote the value.
   The ingest now says `frontmatter_unparseable` instead of `no_claims_declared`.
 - **An agent can write memory, and that is a risk.** `memory_remember` is one
-  of 16 MCP tools and the first that writes. Without `file=` the evidence for the
+  of 17 MCP tools and the first that writes. Without `file=` the evidence for the
   claim is the statement itself, so it proves what the agent was told and not that
   it is true ([why, and the review it needs](docs/authoring.md#memory_remember)).
 - **The install is 216 MB, not gigabytes**, unless you ask. Every latency and size
@@ -232,10 +237,10 @@ Two held-out numbers, and neither is superseded by the other:
 | independently authored, 157 questions | **131/157 (83.4%)** | a generalisation figure, and a known limitation |
 
 Both are reported because reporting only the better one would be the dishonest
-choice. This release changed no benchmark input, policy, evaluator semantic,
+choice. v0.9.0 changed no benchmark input, policy, evaluator semantic,
 tokenizer or threshold, and that is measured: all 60 canonical per-question
 decisions are identical to `v0.8.0`. [The reproducibility report](docs/evaluation/m00675-reproducibility.md)
-records one discrepancy this release found and did not paper over.
+records one discrepancy that release found and did not paper over.
 
 ## Head-to-head stale-fact benchmark
 
@@ -253,7 +258,7 @@ answer revalidation, and prints a comparison table.
 
 Latest run (illustrative; re-run to reproduce):
 
-| metric | mind_palace | plain_rag | rag_recency | rag_metadata |
+| metric | verilore | plain_rag | rag_recency | rag_metadata |
 |---|---:|---:|---:|---:|
 | authoritative_top1_accuracy | 0.939 | 0.303 | 0.424 | 0.939 |
 | stale_contamination_rate | 0.000 | 0.970 | 0.758 | 0.000 |
@@ -261,15 +266,19 @@ Latest run (illustrative; re-run to reproduce):
 | abstention_accuracy | 1.000 | 0.500 | 0.500 | 0.500 |
 | cached_revalidation_accuracy | 1.000 | 0.000 | 0.000 | 0.000 |
 
+The corpus and questions were written by this project's author, so the table
+is a regression check, not evidence of comparative quality.
+
 ## Reading order
 
-Three documents, and then stop.
+Four documents, and then stop.
 
 | | | |
 |---|---|---|
 | 1 | This file | what it is, and what it refuses to do |
 | 2 | [Quickstart](docs/quickstart.md) | the commands, expanded; every `$ ` line in it runs in CI |
-| 3 | [Authoring memory](docs/authoring.md) | how to write a document that answers |
+| 3 | [Integration guide](docs/integration/guide.md) | Wiring Verilore into an app |
+| 4 | [Authoring memory](docs/authoring.md) | how to write a document that answers |
 
 ## Everything else — later
 

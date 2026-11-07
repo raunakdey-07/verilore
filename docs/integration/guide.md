@@ -6,7 +6,7 @@ no block is illustrative prose.
 
 Conventions used throughout:
 
-- `VERILORE_URL` is the server base URL (for example `http://mindpalace.internal:8000`)
+- `VERILORE_URL` is the server base URL (for example `http://verilore.internal:8000`)
 - `BRAND_MEMORY_KEY` is the server-side bearer credential for the brand in question
 - All `python` blocks run in one shared namespace, in file order, so later blocks
   may use names defined earlier.
@@ -428,8 +428,6 @@ live server on a hosted runner; runner timings vary — an earlier run,
 `p95 < 1000 ms` is asserted in the test; the measured p95 is an order of
 magnitude below the bound.
 
-Runner timings vary by runner.
-
 ---
 
 ## 9. What it does not do
@@ -450,5 +448,8 @@ Runner timings vary by runner.
   of the same key; the archive is append-only. The prior claim stays in
   `history`.
 - **No comparative benchmark result.** No number in this repository is evidence
-  of generalisation; held-out v1 is burned and there is no independent
-  question set.
+  of generalisation; the held-out questions have been seen, and no unseen
+  question set exists.
+- **Prose without normative sentences produces no claims.** A document with no
+  list items and no must/never/always/should sentences ingests as chunks
+  only; recall returns `NO_RELEVANT_MEMORY` (#158).
