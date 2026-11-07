@@ -212,7 +212,12 @@ item renumbers the claims after it, which distorts history (#160); no
 metadata filters (#108); no single-claim deletion (withdrawal is a rejected
 version); no comparative benchmark result (not measured for this release;
 the baseline can still run against 1dc88fd); prose without normative
-sentences produces no claims.
+sentences produces no claims. A document with no
+list items and no must/never/always/should sentences is stored as text
+only. In a corpus that already holds memory the ingest warns
+`prose_not_extracted`; in a brand-new corpus it only reports
+`no_claims_declared` (#158). Ingesting such a document into a brand-new
+corpus fails because the embedding model is still loaded (#173).
 
 ## [v0.9.3] - 2026-10-27
 

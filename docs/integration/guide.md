@@ -437,10 +437,12 @@ magnitude below the bound.
 - **Authored `claims:` blocks ignore frontmatter `status`.** A `claims:` block
   in frontmatter is the authoring interface and wins outright; file-level
   `status:` does not downgrade its claims (#140).
-- **Prose is read only without bullets.** A document with bullets is read as
-  bullets, `Field: value` lines and tables; its prose paragraphs are not read
-  and not reported. Without bullets, only sentences with words like
-  must/never/always/should are read (#158).
+- **Prose without normative sentences produces no claims.** A document with no
+  list items and no must/never/always/should sentences is stored as text only.
+  In a corpus that already holds memory the ingest warns
+  `prose_not_extracted`; in a brand-new corpus it only reports
+  `no_claims_declared` (#158). Ingesting such a document into a brand-new
+  corpus fails because the embedding model is still loaded (#173).
 - **No token budgets.** `budget` is a character count of the JSON response.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`; there is no
   tag or metadata filter parameter.

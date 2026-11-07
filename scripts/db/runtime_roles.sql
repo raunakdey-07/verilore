@@ -1,6 +1,6 @@
 -- Least-privilege roles for a shared, tenant-scoped deployment.
 --
--- Mind Palace keeps two database identities, and the separation is the point:
+-- Verilore keeps two database identities, and the separation is the point:
 --
 --   mindpalace_owner    owns the schema. Runs migrations. Has BYPASSRLS, because
 --                       a migration legitimately has to read and write across

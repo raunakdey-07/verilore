@@ -5,7 +5,7 @@ explains why; this is for the person who already read it and wants the list.
 
 ```bash
 # 1. Install. Expect about 216 MB; onnxruntime is the default backend.
-git clone https://github.com/raunakdey-07/mind-palace.git && cd mind-palace
+git clone https://github.com/raunakdey-07/verilore.git && cd verilore
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
@@ -259,17 +259,11 @@ This means the receipt still matches the memory it describes. It does not mean t
 Verification needs no server, no database, no embedding model and no network.
 Hand the file to someone who has never heard of Verilore:
 
-<!-- `verilore` is NOT on PyPI. Checked 2026-10-13: pypi.org/pypi/
-     verilore/json returns 404 and the simple index returns 404, so the
-     bare `pip install verilore` fails today. It is the distribution's
-     declared name (pyproject.toml), not a published one. The command above
-     installs the same wheel from the repository instead, which is what actually
-     works. Note also that `mind-palace` on PyPI is a different project -- a
-     note-taking app at 0.1.0 -- so the hyphenated name is not a fallback.
-     Publishing the distribution is the owner's call, not a documentation fix. -->
+<!-- `verilore` is NOT on PyPI. It is distributed as a source install from
+the repository; see the README quickstart for the install command. -->
 
 ```console
-$ pip install "verilore @ git+https://github.com/raunakdey-07/mind-palace.git"
+$ pip install "verilore @ git+https://github.com/raunakdey-07/verilore.git"
 $ verilore-proof verify receipt.json
 VERIFIED
 

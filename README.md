@@ -202,8 +202,11 @@ print(f"{memory.claim}  [{memory.status}]")
 - **No comparative benchmark result.** No number in this repository is evidence
   of generalisation.
 - **Prose without normative sentences produces no claims.** A document with no
-  list items and no must/never/always/should sentences ingests as chunks
-  only; recall returns `NO_RELEVANT_MEMORY` (#158).
+  list items and no must/never/always/should sentences is stored as text only.
+  In a corpus that already holds memory the ingest warns
+  `prose_not_extracted`; in a brand-new corpus it only reports
+  `no_claims_declared` (#158). Ingesting such a document into a brand-new
+  corpus fails because the embedding model is still loaded (#173).
 - **A supersession retires one claim.** `--supersedes` names it, or `--topic-key`
   retires whatever is live under that key, and either works across files. Where two
   documents disagree under one key and neither is retired, recall reports the
@@ -277,7 +280,7 @@ Four documents, and then stop.
 |---|---|---|
 | 1 | This file | what it is, and what it refuses to do |
 | 2 | [Quickstart](docs/quickstart.md) | the commands, expanded; every `$ ` line in it runs in CI |
-| 3 | [Integration guide](docs/integration/guide.md) | Wiring Verilore into an app |
+| 3 | [Integration guide](docs/integration/guide.md) | wiring Verilore into an app |
 | 4 | [Authoring memory](docs/authoring.md) | how to write a document that answers |
 
 ## Everything else — later
