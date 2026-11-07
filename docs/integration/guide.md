@@ -6,7 +6,7 @@ no block is illustrative prose.
 
 Conventions used throughout:
 
-- `VERILORE_URL` is the server base URL (for example `http://mindpalace.internal:8000`)
+- `VERILORE_URL` is the server base URL (for example `http://verilore.internal:8000`)
 - `BRAND_MEMORY_KEY` is the server-side bearer credential for the brand in question
 - All `python` blocks run in one shared namespace, in file order, so later blocks
   may use names defined earlier.
@@ -428,8 +428,6 @@ live server on a hosted runner; runner timings vary — an earlier run,
 `p95 < 1000 ms` is asserted in the test; the measured p95 is an order of
 magnitude below the bound.
 
-Runner timings vary by runner.
-
 ---
 
 ## 9. What it does not do
@@ -439,10 +437,18 @@ Runner timings vary by runner.
 - **Authored `claims:` blocks ignore frontmatter `status`.** A `claims:` block
   in frontmatter is the authoring interface and wins outright; file-level
   `status:` does not downgrade its claims (#140).
-- **Prose is read only without bullets.** A document with bullets is read as
+- **Prose beside bullets is not read.** A document with bullets is read as
   bullets, `Field: value` lines and tables; its prose paragraphs are not read
-  and not reported. Without bullets, only sentences with words like
-  must/never/always/should are read (#158).
+  and not reported. Put every rule and fact in a bullet (#158).
+- **Prose without rule-like sentences produces no claims.** A document with no
+  list items and no must/never/always/should sentences is stored as text only.
+  In a corpus that already holds memory the ingest warns
+  `prose_not_extracted`; in a brand-new corpus it only marks the document
+  `no_claims_declared` (#158).
+- **Lexical mode covers reads, not ingest.** `VERILORE_LEXICAL=1` answers
+  without the embedding model, but ingesting a document that produces no claims
+  still loads it; without the model that document fails with
+  `ModuleNotFoundError` (#173).
 - **No token budgets.** `budget` is a character count of the JSON response.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`; there is no
   tag or metadata filter parameter.
@@ -450,5 +456,5 @@ Runner timings vary by runner.
   of the same key; the archive is append-only. The prior claim stays in
   `history`.
 - **No comparative benchmark result.** No number in this repository is evidence
-  of generalisation; held-out v1 is burned and there is no independent
-  question set.
+  of generalisation; the held-out questions have been seen, and no unseen
+  question set exists.

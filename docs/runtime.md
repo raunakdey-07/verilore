@@ -4,7 +4,8 @@ Two ways to make Verilore fast without a GPU, and an explicit account of what
 each one costs.
 
 The background runtime keeps the embedding model and connection pool warm, so the
-second command onwards is fast. Model-free mode removes the model stack entirely.
+second command onwards is fast. Model-free mode removes the model stack from
+reads; ingesting a document that produces no claims still needs it (#173).
 They are independent: the runtime runs in lexical mode, and a one-shot command
 works either way.
 
@@ -359,7 +360,7 @@ $ verilore feedback b062424783ba --verdict wrong --note "meant the cache"
 recorded 'wrong' against the query of 2026-10-16T19:56:52+00:00
 
 $ verilore feedback-summary
-log:  /home/you/.mind-palace/logs/queries.jsonl
+log:  /home/you/.verilore/logs/queries.jsonl
 calls: 214    graded: 37
 
   abstained_wrongly    4

@@ -211,7 +211,11 @@ bullets is not extracted, so write rules as bullets (#158); inserting a list
 item renumbers the claims after it, which distorts history (#160); no
 metadata filters (#108); no single-claim deletion (withdrawal is a rejected
 version); no comparative benchmark result (not measured for this release;
-the baseline can still run against 1dc88fd).
+the baseline can still run against 1dc88fd); a bullet-free document with no
+rule-like sentence produces no claims, and in a brand-new corpus it is reported
+only as `no_claims_declared`, not `prose_not_extracted` (#158);
+`VERILORE_LEXICAL=1` covers reads, not ingest: a document that produces no
+claims still needs the embedding model (#173).
 
 ## [v0.9.3] - 2026-10-27
 

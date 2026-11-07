@@ -15,7 +15,7 @@ out of a shared or deployed configuration; `docs/security.md` has the boundary.
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "servers": {
-      "mind-palace": {
+      "verilore": {
         "type": "local",
         "command": ["verilore-mcp"],
         "environment": {
@@ -33,7 +33,7 @@ OpenCode v1 puts the server directly under `mcp` instead of under `mcp.servers`,
 and spells the environment block `environment` in both. From a shell:
 
 ```bash
-opencode mcp add mind-palace \
+opencode mcp add verilore \
   --env DATABASE_URL="$DATABASE_URL" \
   --env VERILORE_INGEST_ROOTS="$PWD" \
   -- verilore-mcp
@@ -43,7 +43,7 @@ opencode mcp add mind-palace \
 // .mcp.json, or ~/Library/Application Support/Claude/claude_desktop_config.json
 {
   "mcpServers": {
-    "mind-palace": {
+    "verilore": {
       "command": "verilore-mcp",
       "env": {
         "DATABASE_URL": "postgresql://mpadmin:secret@localhost:5432/verilore",
@@ -58,7 +58,7 @@ opencode mcp add mind-palace \
 // Zed: settings.json, via "agent: open settings" then AI, then MCP Servers
 {
   "context_servers": {
-    "mind-palace": {
+    "verilore": {
       "command": "verilore-mcp",
       "args": [],
       "env": {

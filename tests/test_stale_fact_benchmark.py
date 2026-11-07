@@ -22,11 +22,11 @@ def test_benchmark_runs_and_metrics_valid():
     from scripts.benchmark_stale_facts import run_benchmark
 
     result = run_benchmark()
-    assert "mind_palace" in result
+    assert "verilore" in result
     assert "plain_rag" in result
     assert "rag_recency" in result
     assert "rag_metadata" in result
-    for name in ("mind_palace", "plain_rag", "rag_recency", "rag_metadata"):
+    for name in ("verilore", "plain_rag", "rag_recency", "rag_metadata"):
         m = result[name]
         for key in (
             "authoritative_top1_accuracy",
@@ -37,5 +37,5 @@ def test_benchmark_runs_and_metrics_valid():
         ):
             assert key in m
             assert 0.0 <= m[key] <= 1.0
-    mp = result["mind_palace"]
+    mp = result["verilore"]
     assert mp["stale_cache_miss_rate"] == 0.0
