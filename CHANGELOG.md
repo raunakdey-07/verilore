@@ -211,13 +211,11 @@ bullets is not extracted, so write rules as bullets (#158); inserting a list
 item renumbers the claims after it, which distorts history (#160); no
 metadata filters (#108); no single-claim deletion (withdrawal is a rejected
 version); no comparative benchmark result (not measured for this release;
-the baseline can still run against 1dc88fd); prose without normative
-sentences produces no claims. A document with no
-list items and no must/never/always/should sentences is stored as text
-only. In a corpus that already holds memory the ingest warns
-`prose_not_extracted`; in a brand-new corpus it only reports
-`no_claims_declared` (#158). Ingesting such a document into a brand-new
-corpus fails because the embedding model is still loaded (#173).
+the baseline can still run against 1dc88fd); a bullet-free document with no
+rule-like sentence produces no claims, and in a brand-new corpus it is reported
+only as `no_claims_declared`, not `prose_not_extracted` (#158);
+`VERILORE_LEXICAL=1` covers reads, not ingest: a document that produces no
+claims still needs the embedding model (#173).
 
 ## [v0.9.3] - 2026-10-27
 

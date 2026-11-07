@@ -437,12 +437,18 @@ magnitude below the bound.
 - **Authored `claims:` blocks ignore frontmatter `status`.** A `claims:` block
   in frontmatter is the authoring interface and wins outright; file-level
   `status:` does not downgrade its claims (#140).
-- **Prose without normative sentences produces no claims.** A document with no
+- **Prose beside bullets is not read.** A document with bullets is read as
+  bullets, `Field: value` lines and tables; its prose paragraphs are not read
+  and not reported. Put every rule and fact in a bullet (#158).
+- **Prose without rule-like sentences produces no claims.** A document with no
   list items and no must/never/always/should sentences is stored as text only.
   In a corpus that already holds memory the ingest warns
-  `prose_not_extracted`; in a brand-new corpus it only reports
-  `no_claims_declared` (#158). Ingesting such a document into a brand-new
-  corpus fails because the embedding model is still loaded (#173).
+  `prose_not_extracted`; in a brand-new corpus it only marks the document
+  `no_claims_declared` (#158).
+- **Lexical mode covers reads, not ingest.** `VERILORE_LEXICAL=1` answers
+  without the embedding model, but ingesting a document that produces no claims
+  still loads it; without the model that document fails with
+  `ModuleNotFoundError` (#173).
 - **No token budgets.** `budget` is a character count of the JSON response.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`; there is no
   tag or metadata filter parameter.
@@ -452,6 +458,3 @@ magnitude below the bound.
 - **No comparative benchmark result.** No number in this repository is evidence
   of generalisation; the held-out questions have been seen, and no unseen
   question set exists.
-- **Prose without normative sentences produces no claims.** A document with no
-  list items and no must/never/always/should sentences ingests as chunks
-  only; recall returns `NO_RELEVANT_MEMORY` (#158).

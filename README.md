@@ -74,7 +74,8 @@ $ verilore verify receipt.json
 The first `recall` builds an ONNX session: about 1.4 s, then 0.3 s. A background
 runtime holds it and the connection pool warm after that;
 `verilore runtime status` says whether one is up. `VERILORE_RUNTIME=0` turns
-it off, and `VERILORE_LEXICAL=1` turns the model off entirely.
+it off, and `VERILORE_LEXICAL=1` turns the model off for reads (ingesting a
+document that produces no claims still needs it, #173).
 
 `pip install -e '.[cli,mcp]'` resolves 79 distributions totalling 216 MB, of which
 the three embedding packages are 79 MB. `sentence-transformers` and torch are the
@@ -201,12 +202,15 @@ print(f"{memory.claim}  [{memory.status}]")
   same key; the archive is append-only.
 - **No comparative benchmark result.** No number in this repository is evidence
   of generalisation.
-- **Prose without normative sentences produces no claims.** A document with no
+- **Prose without rule-like sentences produces no claims.** A document with no
   list items and no must/never/always/should sentences is stored as text only.
   In a corpus that already holds memory the ingest warns
-  `prose_not_extracted`; in a brand-new corpus it only reports
-  `no_claims_declared` (#158). Ingesting such a document into a brand-new
-  corpus fails because the embedding model is still loaded (#173).
+  `prose_not_extracted`; in a brand-new corpus it only marks the document
+  `no_claims_declared` (#158).
+- **Lexical mode covers reads, not ingest.** `VERILORE_LEXICAL=1` answers
+  without the embedding model, but ingesting a document that produces no claims
+  still loads it; without the model that document fails with
+  `ModuleNotFoundError` (#173).
 - **A supersession retires one claim.** `--supersedes` names it, or `--topic-key`
   retires whatever is live under that key, and either works across files. Where two
   documents disagree under one key and neither is retired, recall reports the
