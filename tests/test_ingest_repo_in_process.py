@@ -53,7 +53,7 @@ def _invoke(args, roots: str | None):
     """Run the CLI with a controlled ingest-root environment."""
     import os
 
-    from cli.main import app
+    from verilore.cli.main import app
 
     env = dict(os.environ)
     env.pop("DATABASE_URL", None)

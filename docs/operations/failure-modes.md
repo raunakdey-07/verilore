@@ -270,7 +270,7 @@ options below need an owner decision.
 
 ### What actually exists
 
-`python -m cli.main --help` lists both, and they do different jobs:
+`python -m verilore.cli.main --help` lists both, and they do different jobs:
 
 | Command | Kind | Does |
 |---|---|---|

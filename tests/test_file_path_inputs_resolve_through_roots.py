@@ -32,7 +32,7 @@ def _run(args, roots):
     }
     env.pop("MEMORY_TEST_DATABASE_URL", None)
     return subprocess.run(
-        [sys.executable, "-m", "cli.main", *args],
+        [sys.executable, "-m", "verilore.cli.main", *args],
         cwd=ROOT,
         env=env,
         capture_output=True,
@@ -81,7 +81,7 @@ def test_remember_accepts_a_relative_path_inside_the_root(tmp_path):
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "remember",
             "--file",
             "note.md",

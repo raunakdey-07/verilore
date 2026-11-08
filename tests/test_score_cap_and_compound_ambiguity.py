@@ -7,9 +7,9 @@ an ambiguous near-tie.
 
 from datetime import datetime, timezone
 
-from api.models.memory import Claim, Evidence, MemoryResponse
-from api.services.memory_query import adjudicate
-from api.services.memory_relevance import RelevancePolicy
+from verilore.api.models.memory import Claim, Evidence, MemoryResponse
+from verilore.api.services.memory_query import adjudicate
+from verilore.api.services.memory_relevance import RelevancePolicy
 
 NOW = datetime.now(timezone.utc)
 

@@ -3,7 +3,7 @@
 
 """The memory client this integration uses: HTTP and the public REST API.
 
-Nothing here imports `api.services`, a repository, a table, or an embedding
+Nothing here imports `verilore.api.services`, a repository, a table, or an embedding
 internals. That is not tidiness -- it is the claim the example exists to
 demonstrate. An application that has to know how Verilore stores things
 cannot be moved to a different deployment of it, and would break the day the

@@ -324,8 +324,8 @@ def main() -> int:
         print("   installed:", wheel.name)
 
         if not args.bare:
-            migrations = work / "migrations"
-            shutil.copytree(ROOT / "migrations", migrations)
+            migrations = work / "verilore/migrations"
+            shutil.copytree(ROOT / "verilore/migrations", migrations)
 
         print("== migrate ==")
         if args.bare:
@@ -343,7 +343,7 @@ def main() -> int:
             )
         else:
             runner.sh(
-                f'"{python}" -m alembic -c migrations/alembic.ini upgrade head',
+                f'"{python}" -m alembic -c verilore/migrations/alembic.ini upgrade head',
                 label="alembic upgrade head",
             )
         checks.append(("migrations apply", True, ""))

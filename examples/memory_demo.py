@@ -81,16 +81,16 @@ async def reserve_corpus(name):
     # The SDK has no create-only operation or live-document inspection method.
     # Reserve via corpus management before sync; reject ALL existing names,
     # including empty live indexes with retained history. Never delete a corpus.
-    from api.services.corpora import create_corpus
-    from api.services.db import session_scope
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import session_scope
 
     async with session_scope() as db:
         return await create_corpus(db, name, description="M005 Dispatch evolving demo")
 
 
 def run(args):
-    from api.models.memory import MemoryRequest
-    from verilore_sdk import Verilore
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.sdk import Verilore
 
     MemoryRequest(corpus=args.corpus)  # Validate before any persistent write.
     check(bool(os.environ.get("DATABASE_URL")), "Set DATABASE_URL explicitly before running")

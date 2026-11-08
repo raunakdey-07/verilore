@@ -28,7 +28,7 @@ A running Verilore database. `verilore init` prints the two commands:
 
 ```bash
 docker compose up -d postgresql
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
 ```
 

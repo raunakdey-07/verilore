@@ -44,6 +44,24 @@ trap cleanup EXIT
 
 say() { printf '  %s\n' "$*"; }
 
+# alembic.ini for a tree: old releases keep migrations/alembic.ini, the new
+# layout lives at verilore/migrations/alembic.ini. Pick by what exists so the
+# same script works against the v0.9.0 tree and against this branch's head.
+alembic_ini_for() {
+  local tree="$1"
+  if [ -f "$tree/verilore/migrations/alembic.ini" ]; then
+    echo "$tree/verilore/migrations/alembic.ini"
+  elif [ -f "$tree/migrations/alembic.ini" ]; then
+    echo "$tree/migrations/alembic.ini"
+  else
+    echo "::error::no alembic.ini found in $tree" >&2
+    return 1
+  fi
+}
+
+OLD_INI="$(alembic_ini_for "$OLD")"
+NEW_INI="$(alembic_ini_for "$REPO")"
+
 [ -n "${DATABASE_URL:-}" ] || { echo "::error::DATABASE_URL is required"; exit 1; }
 
 # 1. The old release, from its tag. Not from a branch: the tag is what users
@@ -55,7 +73,7 @@ git -C "$REPO" worktree add --detach --force "$OLD" v0.9.0 >/dev/null 2>&1 \
 # 2. v0.9.0's schema. Its head is 007; the branch's is 010.
 say "migrating the fresh database to v0.9.0's head (007)"
 ( cd "$OLD" && DATABASE_URL="$DATABASE_URL" PYTHONPATH="$OLD" \
-    "$PY" -m alembic -c migrations/alembic.ini upgrade head >/dev/null )
+    "$PY" -m alembic -c "$OLD_INI" upgrade head >/dev/null )
 
 # 3 + 4. Write through the OLD code, and export the proof with the OLD code.
 say "populating through v0.9.0's own write path and exporting its proof"
@@ -64,8 +82,7 @@ SRC="$OLD" "$PY" "$REPO/scripts/release/make_upgrade_fixture.py" \
 
 # 5. The upgrade, with this branch.
 say "upgrading to this branch's head"
-"$PY" -m alembic -c "$REPO/migrations/alembic.ini" \
-  -x script_location="$REPO/migrations" upgrade head >/dev/null
+"$PY" -m alembic -c "$NEW_INI" upgrade head >/dev/null
 
 # 6a. The RUNTIME-ROLE assertions.
 #
@@ -166,10 +183,8 @@ SRC="$REPO" "$PY" "$REPO/scripts/release/make_upgrade_fixture.py" \
 #    downgrade that destroys tenants is a documented consequence, not a failure,
 #    so the assertions after it are about memory, not about principals.
 say "downgrading to 007 and back up again"
-"$PY" -m alembic -c "$REPO/migrations/alembic.ini" \
-  -x script_location="$REPO/migrations" downgrade 007_claim_embedding_cache >/dev/null
-"$PY" -m alembic -c "$REPO/migrations/alembic.ini" \
-  -x script_location="$REPO/migrations" upgrade head >/dev/null
+"$PY" -m alembic -c "$NEW_INI" downgrade 007_claim_embedding_cache >/dev/null
+"$PY" -m alembic -c "$NEW_INI" upgrade head >/dev/null
 
 ROUND="$WORK/roundtrip"
 SRC="$REPO" "$PY" "$REPO/scripts/release/make_upgrade_fixture.py" \

@@ -24,7 +24,7 @@ from uuid import uuid4
 # Keep the example runnable from a checkout without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from verilore_sdk import Verilore  # noqa: E402
+from verilore.sdk import Verilore  # noqa: E402
 
 CORPUS_PREFIX = "decision-memory"
 

@@ -97,7 +97,7 @@ def _run_child(code: str, timeout: float = 180) -> dict[str, Any]:
 
 
 def run_semantic() -> dict[str, Any]:
-    from api.services.embedder import Embedder
+    from verilore.api.services.embedder import Embedder
 
     started = time.perf_counter()
     embedder = Embedder()
@@ -123,7 +123,7 @@ def run_semantic() -> dict[str, Any]:
 def run_startup() -> dict[str, Any]:
     probes = {
         "sdk_import": (
-            "import json,resource,sys,time; s=time.perf_counter(); import verilore_sdk; "
+            "import json,resource,sys,time; s=time.perf_counter(); import verilore.sdk; "
             "print(json.dumps({'wall_ms':(time.perf_counter()-s)*1000,"
             "'module_count':len(sys.modules),"
             "'rss_kb':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,"
@@ -132,7 +132,7 @@ def run_startup() -> dict[str, Any]:
             "'transformers_loaded':'transformers' in sys.modules}))"
         ),
         "api_main_import": (
-            "import json,resource,sys,time; s=time.perf_counter(); import api.main; "
+            "import json,resource,sys,time; s=time.perf_counter(); import verilore.api.main; "
             "print(json.dumps({'wall_ms':(time.perf_counter()-s)*1000,"
             "'module_count':len(sys.modules),"
             "'rss_kb':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,"
@@ -176,9 +176,9 @@ async def _operation_run(
 ) -> dict[str, Any]:
     from sqlalchemy import event
 
-    from api.models.memory import MemoryRequest
-    from api.services.memory_benchmark import memory_benchmark_workload
-    from api.services.memory_feed import feed
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_benchmark import memory_benchmark_workload
+    from verilore.api.services.memory_feed import feed
 
     async with memory_benchmark_workload(
         "eval/memory_benchmarks.yaml", embeddings="fixture", database_url=database_url

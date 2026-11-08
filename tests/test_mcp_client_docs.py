@@ -100,7 +100,7 @@ def test_every_tool_the_document_advertises_actually_exists():
     """A doc that lists a tool the server does not have costs a debugging session."""
     import asyncio
 
-    import mcp_server
+    import verilore.mcp_server
 
     tools = asyncio.run(mcp_server.mcp.list_tools())
     tools = tools.tools if hasattr(tools, "tools") else tools

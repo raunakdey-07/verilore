@@ -8,7 +8,7 @@ import pytest
 
 
 def test_mcp_server_preserves_legacy_tools():
-    from mcp_server import mcp
+    from verilore.mcp_server import mcp
 
     tools = __import__("asyncio").run(mcp.list_tools())
     names = {t.name for t in tools}
@@ -81,12 +81,12 @@ document_type: "note"
 Zephyr quantum calibration requires hourly wobble checks.
 """)
 
-        from verilore_sdk import Verilore
+        from verilore.sdk import Verilore
 
         mp = Verilore("mcp-test-corpus")
         mp.sync(str(docs))
 
-        from mcp_server import mcp
+        from verilore.mcp_server import mcp
 
         raw = asyncio.run(
             mcp.call_tool(
@@ -116,7 +116,7 @@ def test_mcp_search_tool_shape(tmp_path):
 
     import asyncio
 
-    from mcp_server import _clients, mcp
+    from verilore.mcp_server import _clients, mcp
 
     _clients.clear()  # drop cached clients holding stale corpus state
 

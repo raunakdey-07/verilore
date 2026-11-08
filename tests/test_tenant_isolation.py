@@ -269,10 +269,10 @@ async def world(monkeypatch):
     to it. The fixture's own seeding runs as the migration role, because a
     fixture has to be able to create what a tenant cannot.
     """
-    from api.main import app
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.remember import remember
+    from verilore.api.main import app
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.remember import remember
     from tenant_harness import require_auth_mode
 
     require_auth_mode(monkeypatch)
@@ -372,7 +372,7 @@ def scoped(principal, db_module):
 
 
 def principal_for(world, corpus_name: str, role: str = "read_only"):
-    from api.services.authz import Principal
+    from verilore.api.services.authz import Principal
 
     return Principal(
         id="test",
@@ -427,7 +427,7 @@ async def test_a_revoked_credential_stops_working_immediately(world, raw_runtime
     `memory_principals` at all, so an operator revokes with the maintenance role
     and the application role discovers the change on its next request.
     """
-    from api.services.authz import ADMIN_PRINCIPAL, revoke_credential
+    from verilore.api.services.authz import ADMIN_PRINCIPAL, revoke_credential
 
     async with world.db_module.admin_session_scope() as db:
         with world.db_module.principal_scope(ADMIN_PRINCIPAL):
@@ -711,7 +711,7 @@ async def test_an_omitted_corpus_cannot_mean_another_tenant(world):
 
 async def test_the_runtime_role_sees_nothing_without_a_tenant_scope(world, raw_runtime):
     """Fail closed: no context, no rows. A raw query, no service code involved."""
-    from api.services.authz import Principal
+    from verilore.api.services.authz import Principal
 
     empty = Principal("none", "none", "read_only", frozenset(), frozenset())
     async with raw_runtime() as db:

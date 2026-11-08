@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 
-from cli import errors as cli_errors
-from cli import postgres as cli_postgres
+from verilore.cli import errors as cli_errors
+from verilore.cli import postgres as cli_postgres
 
 
 def test_wsl2_detected_from_proc_version(monkeypatch, tmp_path):

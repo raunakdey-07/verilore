@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from verilore_errors import (
+from verilore.errors import (
     ProviderError,
     ProviderIncompatibleModelError,
     ProviderMalformedResponseError,
@@ -69,7 +69,7 @@ def _normalised(vector: list[float]) -> bool:
 
 
 def _providers() -> list:
-    from api.services.embedder import Embedder
+    from verilore.api.services.embedder import Embedder
 
     return [DeterministicEmbedder(), Embedder()]
 
@@ -247,7 +247,7 @@ def test_a_timeout_is_retryable_and_distinct_from_an_outage():
 
 def test_provider_failures_are_distinguishable_from_memory_errors():
     """A provider outage must not be classifiable as anything else."""
-    from verilore_errors import InternalError, NotFoundError, ValidationError
+    from verilore.errors import InternalError, NotFoundError, ValidationError
 
     for error in (
         ProviderUnavailableError("down"),
@@ -277,7 +277,7 @@ def test_classification_never_forwards_the_providers_own_words(raised):
     hand-written message. `classify_provider_error` chooses the wording; the
     original text is only ever inspected to pick a category, never copied.
     """
-    from verilore_errors import classify_provider_error
+    from verilore.errors import classify_provider_error
 
     secret = "sk-secret"
     error = classify_provider_error(raised, operation="recall")
@@ -294,7 +294,7 @@ def test_classification_never_forwards_the_providers_own_words(raised):
 def test_the_categories_are_the_ones_that_change_retry_policy():
     """Each classification must be decidable by looking at it, not by reading a
     traceback -- otherwise an integrator has no way to choose a backoff."""
-    from verilore_errors import classify_provider_error
+    from verilore.errors import classify_provider_error
 
     cases = [
         (TimeoutError("timeout"), "vl_provider_timeout", True),

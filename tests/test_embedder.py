@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from types import ModuleType, SimpleNamespace
 
-from api.services.embedder import Embedder
+from verilore.api.services.embedder import Embedder
 
 
 def test_embedder_singleton():
@@ -87,7 +87,7 @@ def test_constructing_an_embedder_loads_no_backend_at_all(monkeypatch):
     constructor that eagerly built an ONNX session. `loaded` is the flag the rest
     of the product asks, so it is the flag worth asserting.
     """
-    from api.services.embedder import backend_name
+    from verilore.api.services.embedder import backend_name
 
     previous = Embedder._instance
     Embedder._instance = None

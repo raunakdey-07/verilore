@@ -13,7 +13,7 @@ is currently scattered across `CHANGELOG.md`, `docs/STATUS.md` and `docs/researc
 ```bash
 pip install -e .
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 python examples/project-log/project_log.py
 ```
 
@@ -23,7 +23,7 @@ memory, so a second run reports `already recorded` and changes nothing.
 
 ## What it uses
 
-`verilore_sdk.Verilore` and nothing else. Every call is a public method:
+`verilore.Verilore` and nothing else. Every call is a public method:
 
 | call | what the example does with it |
 |---|---|

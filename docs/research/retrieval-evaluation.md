@@ -147,8 +147,8 @@ index, and inference runs off the event loop via `asyncio.to_thread`.
 
 ## Quality gate
 
-`python -m cli.main eval strategies --candidates 10,20,50` produces
-machine-readable per-strategy metrics, and `python -m cli.main eval gate
+`python -m verilore.cli.main eval strategies --candidates 10,20,50` produces
+machine-readable per-strategy metrics, and `python -m verilore.cli.main eval gate
 --baseline baseline.json` computes per-query paired differences against a
 committed baseline. The gate exits non-zero only when a paired-difference
 confidence interval excludes zero on the negative side, so noise never fails the
@@ -184,11 +184,11 @@ frozen and were not modified by either program.
 
 ```bash
 # Live retrieval strategies and gate
-python -m cli.main eval strategies --candidates 10,20,50 --details
-python -m cli.main eval gate --baseline baseline.json
+python -m verilore.cli.main eval strategies --candidates 10,20,50 --details
+python -m verilore.cli.main eval gate --baseline baseline.json
 
 # Memory semantics with real cached embeddings
-HF_HUB_OFFLINE=1 python -m cli.main eval memory --embeddings cached \
+HF_HUB_OFFLINE=1 python -m verilore.cli.main eval memory --embeddings cached \
   --repetitions 20 --sizes 100,500,1000 \
   --save eval/results/memory-cached-manual.json
 

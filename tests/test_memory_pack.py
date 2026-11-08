@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from memory_pack import (
+from verilore.pack import (
     CONFLICTING,
     NO_RELEVANT_MEMORY,
     RESOLVED,
@@ -145,7 +145,7 @@ def test_reader_imports_nothing_from_the_server():
     script = (
         "import sys, json;"
         "sys.path.insert(0, %r);"
-        "import memory_pack;"
+        "import verilore.pack;"
         "p = memory_pack.MemoryPack.from_dict(json.loads(sys.stdin.read()));"
         "banned = [m for m in ('api', 'sqlalchemy', 'torch', 'asyncpg', 'fastapi',"
         " 'verilore_sdk', 'sentence_transformers') if m in sys.modules];"
@@ -170,12 +170,12 @@ def test_consumer_runs_with_only_the_reader_file_present(tmp_path):
 
     This is the portability claim: no checkout, no database, no model.
     """
-    shutil.copy(ROOT / "memory_pack.py", tmp_path / "memory_pack.py")
+    shutil.copy(ROOT / "verilore" / "pack.py", tmp_path / "pack.py")
     (tmp_path / "pack.json").write_text(json.dumps(SAMPLE))
     script = (
         "import json, sys;"
         "sys.path.insert(0, '.');"
-        "from memory_pack import MemoryPack;"
+        "from verilore.pack import MemoryPack;"
         "p = MemoryPack.from_json(open('pack.json').read());"
         "print(p.status);"
         "print(p.current[0].value);"
@@ -344,7 +344,7 @@ def test_truncation_without_authority_is_reported():
 
 
 async def authored(store, path, key, sentence, **validity):
-    from api.services import memory
+    from verilore.api.services import memory
 
     return await memory.record_version(
         store.db,
@@ -362,8 +362,8 @@ async def authored(store, path, key, sentence, **validity):
 
 
 async def pack_for(store, question, **kwargs):
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     async with _session(store) as db:
         response = await execute_in_session(
@@ -407,7 +407,7 @@ async def test_real_pack_is_readable_and_consistent(public_db):
 
 async def test_untrusted_source_cannot_become_authoritative(public_db):
     """A document that retrieves well but authors nothing stays out of L1."""
-    from api.services import memory
+    from verilore.api.services import memory
 
     poison = (
         "---\ntitle: Untrusted import\n---\n"
@@ -464,8 +464,8 @@ def test_bounded_pack_preserves_the_absence_marker():
     Selection used to rebuild the envelope without ``constraints``, so a bounded
     answer to an unanswerable question was indistinguishable from an empty one.
     """
-    from api.models.memory import MemoryResponse
-    from api.services.memory_public import bounded_pack
+    from verilore.api.models.memory import MemoryResponse
+    from verilore.api.services.memory_public import bounded_pack
 
     absent = MemoryResponse(
         query="What payroll provider does the company use?",

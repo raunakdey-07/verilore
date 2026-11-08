@@ -15,7 +15,7 @@ services:
     # and `tests/test_error_and_log_hygiene.py` proves that exact string reaches a
     # caller. The suite's own canary appeared 8 times in a CI PostgreSQL log at
     # `default` and 0 times at `terse`, on PG 15.4, with the same statement. The
-    # application is already covered -- `api.main`'s handler strips it from the
+    # application is already covered -- `verilore.api.main`'s handler strips it from the
     # response body and the app log -- but nothing in the application can redact a
     # line the server wrote before the application saw it.
     #
@@ -60,7 +60,7 @@ services:
     # sets `VERILORE_DEPLOYMENT=server` with authentication on and the
     # least-privileged role. `server` refuses to start otherwise, so this line and
     # those settings cannot drift apart unnoticed.
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./content:/app/content
     ports:

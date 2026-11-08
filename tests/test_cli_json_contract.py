@@ -79,9 +79,9 @@ def seeded_corpus():
     """A corpus with one current claim, so every command below has something to say."""
     import asyncio
 
-    from api.services import remember as remember_service
-    from api.services.corpora import get_or_create_corpus
-    from api.services.db import async_engine, session_scope
+    from verilore.api.services import remember as remember_service
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.db import async_engine, session_scope
 
     name = f"m016-json-{os.getpid()}"
 
@@ -102,7 +102,7 @@ def seeded_corpus():
 
 def run(argv: list[str]) -> dict:
     """Invoke the CLI and return the parsed JSON, failing loudly on anything else."""
-    from cli.main import app
+    from verilore.cli.main import app
 
     result = CliRunner().invoke(app, argv)
     assert (
@@ -142,7 +142,7 @@ def test_the_explain_bundle_verifies_against_its_own_response(seeded_corpus):
     exporting a receipt: someone who has never heard of Verilore must be able to
     check it.
     """
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     payload = run(["explain", "When do we run backups?", "--corpus", seeded_corpus, "--json"])
     checked = verify_response_receipt(payload["receipt"], payload["response"])

@@ -10,7 +10,7 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from api.models.memory import MemoryResponse
+from verilore.api.models.memory import MemoryResponse
 
 
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="requires migrated DATABASE_URL")
@@ -18,7 +18,7 @@ async def test_memory_tools_over_stdio():
     corpus = os.getenv("MCP_SMOKE_CORPUS", "default")
     params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "mcp_server"],
+        args=["-m", "verilore.mcp_server"],
         cwd=Path(__file__).resolve().parents[1],
         env={**os.environ, "HF_HUB_OFFLINE": "1"},
     )

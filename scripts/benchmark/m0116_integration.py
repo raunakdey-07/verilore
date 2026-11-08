@@ -24,8 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 PY_APP = """\
-from verilore_sdk import Verilore
-from memory_pack import MemoryPack
+from verilore.sdk import Verilore
+from verilore.pack import MemoryPack
 
 memory = Verilore("integration-demo", base_url=os.environ["MP_BASE_URL"])
 raw = memory.memory.query(corpus="integration-demo", query=QUESTION)
@@ -36,8 +36,8 @@ print(len(pack.current), "current", len(pack.conflicts), "conflict")
 
 FASTAPI_APP = """\
 from fastapi import FastAPI
-from verilore_sdk import Verilore
-from memory_pack import MemoryPack
+from verilore.sdk import Verilore
+from verilore.pack import MemoryPack
 
 app = FastAPI()
 memory = Verilore("integration-demo", base_url=os.environ["MP_BASE_URL"])
@@ -159,7 +159,7 @@ def _live(url: str) -> dict:
     )
 
     def migrate(conn):
-        for path in sorted((ROOT / "migrations/versions").glob("*.py")):
+        for path in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
             spec = importlib.util.spec_from_file_location(path.stem, path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -183,7 +183,7 @@ def _live(url: str) -> dict:
                     text("INSERT INTO corpora(id, name) VALUES (:i, :n)"),
                     {"i": corpus_id, "n": "integration-demo"},
                 )
-                from api.services.ingestion import IngestionService
+                from verilore.api.services.ingestion import IngestionService
 
                 service = IngestionService()
                 for path, content in [(p.path, p.content) for p in build_corpus()[:3]] + [
@@ -193,9 +193,9 @@ def _live(url: str) -> dict:
                         bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
                     ) as db:
                         await service._ingest_content(db, content, path, corpus_id)
-                from api.models.memory import MemoryRequest
-                from api.services.memory_public import execute_in_session
-                from memory_pack import MemoryPack
+                from verilore.api.models.memory import MemoryRequest
+                from verilore.api.services.memory_public import execute_in_session
+                from verilore.pack import MemoryPack
 
                 async with AsyncSession(
                     bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False

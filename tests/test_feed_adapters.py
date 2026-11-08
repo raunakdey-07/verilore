@@ -11,11 +11,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
-from api.models.memory import FeedItem, FeedResponse
-from api.services.memory_feed import decode_cursor, encode_cursor
-from api.services.memory_public import MemoryError
-from verilore_sdk import MemoryClientError, Verilore
+from verilore.api.main import app
+from verilore.api.models.memory import FeedItem, FeedResponse
+from verilore.api.services.memory_feed import decode_cursor, encode_cursor
+from verilore.api.services.memory_public import MemoryError
+from verilore.sdk import MemoryClientError, Verilore
 
 SECRET = "m009-adapter-test-secret-" + "x" * 48
 STAMP = "2026-01-01T00:00:00Z"
@@ -150,8 +150,8 @@ def test_sdk_feed_returns_typed_page_and_omits_absent_cursor_parameter(monkeypat
 
 
 def test_rest_feed_uses_shared_boundary_and_sanitizes_database_failure(monkeypatch):
-    import api.services.db as db_module
-    import api.services.memory_feed as feed_module
+    import verilore.api.services.db as db_module
+    import verilore.api.services.memory_feed as feed_module
 
     class Session:
         async def __aenter__(self):
@@ -199,8 +199,8 @@ def test_rest_feed_uses_shared_boundary_and_sanitizes_database_failure(monkeypat
 
 
 def test_feed_logging_reports_bounded_operational_fields(monkeypatch, caplog):
-    import api.services.db as db_module
-    import api.services.memory_feed as feed_module
+    import verilore.api.services.db as db_module
+    import verilore.api.services.memory_feed as feed_module
 
     class Session:
         async def __aenter__(self):

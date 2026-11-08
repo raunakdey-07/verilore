@@ -1,9 +1,9 @@
 # Public memory API (schema version 1)
 
 The implemented contract is `api/models/memory.py`, with operation validation,
-transaction ownership, projection, and packing in `api/services/memory_public.py`.
-REST (`api/routers/memory.py`), SDK (`verilore_sdk.py`), MCP (`mcp_server.py`),
-and CLI (`cli/memory.py`) delegate ordinary memory operations to that boundary.
+transaction ownership, projection, and packing in `verilore/api/services/memory_public.py`.
+REST (`verilore/api/routers/memory.py`), SDK (`verilore/sdk.py`), MCP (`verilore/mcp_server.py`),
+and CLI (`verilore/cli/memory.py`) delegate ordinary memory operations to that boundary.
 The M009 feed is a separate operational read contract over the same archive and
 is exposed through REST, SDK, and CLI. This is persistent, evidence-backed
 **source assertion memory**, not perfect truth or semantic contradiction
@@ -64,7 +64,7 @@ for the complete consistency model and polling limitation at the final page.
 The SDK and CLI expose the same method/command:
 
 ```python
-from verilore_sdk import Verilore
+from verilore import Verilore
 page = Verilore(base_url="http://127.0.0.1:8000").memory.feed(
     corpus="my-corpus", page_size=50
 )
@@ -120,7 +120,7 @@ or `valid_at`. Claim and snapshot IDs are 64 lowercase hexadecimal characters.
 ### Question retrieval (M006.5)
 
 `POST /api/memory/query`, SDK `memory.query`, MCP `memory_query`, and CLI
-`memory query` share `api/services/memory_query.py` through the public boundary.
+`memory query` share `verilore/api/services/memory_query.py` through the public boundary.
 This returns a typed, budgeted `MemoryResponse`, not an LLM answer. M006.5 adds
 no database schema or migration; response `schema_version` remains **1**.
 
@@ -235,12 +235,12 @@ Query additionally requires the same embedding model/runtime, question, and inte
 
 ### Reading a pack without Verilore
 
-A pack is an interchange format. `memory_pack.py` at the repository root reads one
+A pack is an interchange format. `verilore/pack.py` reads one
 using only the standard library: no database, no model, no network, and no import from
 `api`. Copy that single file into a consuming project.
 
 ```python
-from memory_pack import MemoryPack
+from verilore.pack import MemoryPack
 
 pack = MemoryPack.from_json(open("pack.json").read())
 
@@ -290,7 +290,7 @@ legacy retrieval initialization. Remote clients use HTTP for memory only; remote
 `sync`, `search`, and `context` are not supported.
 
 ```python
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 # Use the corpus name printed by a completed demo, or your own existing corpus.
 mp = Verilore()  # local memory-only client; no corpus created
@@ -338,7 +338,7 @@ and `status_code`. Remote adapter codes additionally include `timeout` (504),
 Start the installed application separately on a trusted interface:
 
 ```bash
-uvicorn api.main:app --host 127.0.0.1 --port 8000
+uvicorn verilore.api.main:app --host 127.0.0.1 --port 8000
 ```
 
 Example read (substitute your existing corpus name):
@@ -358,15 +358,15 @@ and prints canonical response JSON. Every command accepts `--base-url` and
 `--query`. Use actual returned IDs/timestamps for the illustrative placeholders:
 
 ```bash
-python -m cli.main memory current --corpus my-corpus --query streaming
-python -m cli.main memory history --corpus my-corpus --query streaming
-python -m cli.main memory changes --corpus my-corpus --query streaming
-python -m cli.main memory evidence --corpus my-corpus --claim-id CLAIM_ID
-python -m cli.main memory as-of --corpus my-corpus --as-of AWARE_TIMESTAMP --query streaming
-python -m cli.main memory snapshot --corpus my-corpus
-python -m cli.main memory replay --corpus my-corpus --snapshot-id SNAPSHOT_ID
-python -m cli.main memory pack --corpus my-corpus --query streaming --budget 8000
-python -m cli.main memory query --corpus my-corpus \
+python -m verilore.cli.main memory current --corpus my-corpus --query streaming
+python -m verilore.cli.main memory history --corpus my-corpus --query streaming
+python -m verilore.cli.main memory changes --corpus my-corpus --query streaming
+python -m verilore.cli.main memory evidence --corpus my-corpus --claim-id CLAIM_ID
+python -m verilore.cli.main memory as-of --corpus my-corpus --as-of AWARE_TIMESTAMP --query streaming
+python -m verilore.cli.main memory snapshot --corpus my-corpus
+python -m verilore.cli.main memory replay --corpus my-corpus --snapshot-id SNAPSHOT_ID
+python -m verilore.cli.main memory pack --corpus my-corpus --query streaming --budget 8000
+python -m verilore.cli.main memory query --corpus my-corpus \
   --query "What carries Dispatch events now?" --intent current --budget 8000
 verilore memory feed --corpus my-corpus --page-size 50
 ```
@@ -381,7 +381,7 @@ an unavailable backend is not an empty successful read.
 
 ## MCP
 
-Run `python -m mcp_server` with `DATABASE_URL` configured. Memory tools are
+Run `python -m verilore.mcp_server` with `DATABASE_URL` configured. Memory tools are
 `memory_current`, `memory_history`, `memory_changes`, `memory_evidence`,
 `memory_as_of`, `memory_snapshot`, `memory_replay`, `memory_pack`, and
 `memory_query`. Each accepts one `request` object using the contract fields.

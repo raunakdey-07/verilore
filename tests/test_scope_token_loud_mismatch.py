@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app, enforce_startup_posture, readiness
+from verilore.api.main import app, enforce_startup_posture, readiness
 
 _DEV_SECRET = "dev-scope-secret"
 _RANDOM_SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -61,8 +61,8 @@ async def _fake_inspect(db):
 @pytest.fixture(autouse=True)
 def _clean_posture(monkeypatch):
     """Make posture.clean so tests are gated only on scope-token, not role."""
-    import api.services.posture as _posture_mod
-    import api.main as _main_mod
+    import verilore.api.services.posture as _posture_mod
+    import verilore.api.main as _main_mod
 
     monkeypatch.setattr(_posture_mod, "inspect", _fake_inspect, raising=True)
     monkeypatch.setattr(_main_mod, "inspect_posture", _fake_inspect, raising=True)
@@ -323,7 +323,7 @@ async def test_scope_token_secret_matches_readiness_ready(monkeypatch):
     await _set_db_secret(database_url, _RANDOM_SECRET)
     await _set_enforcement(database_url, True)
     try:
-        import api.main as _main_mod
+        import verilore.api.main as _main_mod
 
         monkeypatch.setattr(_main_mod, "inspect_posture", _fake_inspect, raising=True)
         resp = await readiness()
@@ -353,8 +353,8 @@ async def test_scope_token_probe_returns_none_when_function_dropped(monkeypatch)
     in PostgreSQL)."""
     database_url = os.environ["DATABASE_URL"]
     snapshot = await _snapshot_secrets(database_url)
-    from api.services.db import session_scope
-    from api.main import _probe_scope_token
+    from verilore.api.services.db import session_scope
+    from verilore.api.main import _probe_scope_token
 
     async with session_scope() as db:
         await db.execute(sa.text("DROP FUNCTION IF EXISTS mp_scope_enforcement_status(TEXT, TEXT)"))
@@ -379,7 +379,7 @@ async def test_scope_token_probe_unavailable_fail_closed(monkeypatch):
     await _set_db_secret(database_url, _RANDOM_SECRET)
     await _set_enforcement(database_url, True)
     try:
-        import api.main as _main_mod
+        import verilore.api.main as _main_mod
 
         async def _probe_none(db):  # noqa: ARG001
             return None

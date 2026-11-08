@@ -12,8 +12,8 @@ from alembic.operations import Operations
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from api.models.memory import MemoryRequest, State
-from api.services import memory, memory_public
+from verilore.api.models.memory import MemoryRequest, State
+from verilore.api.services import memory, memory_public
 
 try:
     from tests import test_memory_core as core
@@ -26,7 +26,7 @@ memory_db = core.memory_db
 
 
 async def migrate(db, direction):
-    path = Path(__file__).parents[1] / "migrations/versions/005_multiple_evidence.py"
+    path = Path(__file__).parents[1] / "verilore/migrations/versions/005_multiple_evidence.py"
     spec = importlib.util.spec_from_file_location("multiple_evidence_migration", path)
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)

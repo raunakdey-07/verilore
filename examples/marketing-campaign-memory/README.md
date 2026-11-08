@@ -58,7 +58,7 @@ Two earlier versions failed that test and were fixed rather than excepted:
   public. It was not: an adopter needing those imports could not be pointed at a
   different deployment, and would break when the storage changed under a contract
   that did not;
-* the provisioning step and the demo each imported `api.main.app` and drove it
+* the provisioning step and the demo each imported `verilore.api.main.app` and drove it
   through `httpx.ASGITransport`, and the test carried a written list of exactly
   those four permitted lines. A test with an exception list has already decided
   what it is willing to miss.
@@ -77,8 +77,8 @@ point.
 
 ```bash
 # 1. The service, in one shell.
-alembic -c migrations/alembic.ini upgrade head
-VERILORE_AUTH_MODE=required uvicorn api.main:app --host 127.0.0.1 --port 8000
+alembic -c verilore/migrations/alembic.ini upgrade head
+VERILORE_AUTH_MODE=required uvicorn verilore.api.main:app --host 127.0.0.1 --port 8000
 
 # 2. The demo, in another.
 python examples/marketing-campaign-memory/demo.py

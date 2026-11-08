@@ -20,10 +20,10 @@ transaction, so a failure here is a failure of the product and not of a fixture.
 
 import os
 
-from api.models.memory import MemoryRequest
-from api.services import memory_public
-from api.services.markdown_claims import claims_for
-from api.services.parser import (
+from verilore.api.models.memory import MemoryRequest
+from verilore.api.services import memory_public
+from verilore.api.services.markdown_claims import claims_for
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
     parse_markdown,
@@ -52,7 +52,7 @@ QUESTION = "How did the default embedding backend and install size change?"
 
 async def _ingest_file(store, body: str, path: str) -> None:
     """Archive one document, the way `ingest-repo` does."""
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import ingestion as ingestion_service
 
     await ingestion_service.IngestionService(
         memory_enabled=True, require_embeddings=False
@@ -85,7 +85,7 @@ async def test_history_anchored_on_a_retired_claim_walks_forward(store):
     newer claim never entered the timeline and the retired claim was reported
     as the one that is true now.
     """
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     await _ingest_file(store, f"- {OLD_CLAIM}\n", "install.md")
     target = next(
@@ -115,7 +115,7 @@ async def test_history_reports_the_successor_when_the_anchor_is_the_older_claim(
     chain is walked in both directions, so the answer does not depend on which
     end of it the question happened to name.
     """
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     await _ingest_file(store, f"- {OLD_CLAIM}\n", "install.md")
     target = next(
@@ -140,7 +140,7 @@ async def test_a_retired_claim_is_never_reported_as_current_now(store):
     Whatever the question was, the line that says what is true now has to name
     a claim the archive still holds live.
     """
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     await _ingest_file(store, f"- {OLD_CLAIM}\n", "install.md")
     target = next(
@@ -161,7 +161,7 @@ async def test_a_retired_claim_is_never_reported_as_current_now(store):
 
 async def test_history_does_not_select_a_chain_with_no_individual_anchor(store):
     """A chain whose only relevance is the union of its nodes is not a lineage."""
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     await remember("first claim about apple", corpus=store.name)
     first = next(
@@ -185,7 +185,7 @@ async def test_history_does_not_select_a_chain_with_no_individual_anchor(store):
 
 async def test_explain_includes_history_for_every_answer_claim(store):
     """A multi-claim answer does not drop claims from HISTORY."""
-    from cli.render import render_explain
+    from verilore.cli.render import render_explain
 
     body = (
         "# Widgets\n\n"
@@ -217,7 +217,7 @@ async def test_explain_includes_history_for_every_answer_claim(store):
             )
             if not current:
                 continue
-            from api.models.memory import Change
+            from verilore.api.models.memory import Change
 
             changes.append(
                 Change(
@@ -241,13 +241,13 @@ async def test_explain_includes_history_for_every_answer_claim(store):
 
 
 async def _live_claims(store) -> list[dict]:
-    from api.services.memory import _active_claims
+    from verilore.api.services.memory import _active_claims
 
     return await _active_claims(store.db, store.corpus, limit=None)
 
 
 def _render(response) -> str:
-    from cli.render import render_history
+    from verilore.cli.render import render_history
 
     return render_history(response)
 
@@ -299,7 +299,7 @@ def test_a_table_claim_reads_with_the_heading_above_it():
     makes it the SDK's bundle size, and the archive records that heading on the
     chunk the claim was quoted from.
     """
-    from api.services.memory_relevance import claim_headings
+    from verilore.api.services.memory_relevance import claim_headings
 
     body = (
         "## SDK bundle\n" "\n" "| File | Gzip |\n" "| --- | --- |\n" "| `embed.js` | 20.40 kB |\n"
@@ -363,7 +363,7 @@ def test_a_chunk_does_not_end_on_a_conjunction():
     A chunk that stops mid-phrase holds half a sentence, and the claim read
     out of it inherits the cut.
     """
-    from api.services.parser import _trim_trailing_word
+    from verilore.api.services.parser import _trim_trailing_word
 
     assert _trim_trailing_word("the measured baseline, PDF and") == "the measured baseline, PDF"
     assert _trim_trailing_word("the measured baseline, PDF") == "the measured baseline, PDF"
@@ -457,7 +457,7 @@ async def test_a_representation_already_cached_is_not_encoded_again(store, monke
     encode that claim again: the vector is a function of the text, and the
     archive already has it.
     """
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import ingestion as ingestion_service
 
     recorded: list[str] = []
 
@@ -519,7 +519,7 @@ def test_a_row_that_appears_in_two_tables_is_quoted_from_the_right_one():
     for in the first table, was not found there, and the document was refused
     outright. Two of this repository's own documents were refused that way.
     """
-    from api.services import memory
+    from verilore.api.services import memory
 
     body = (
         "# Measurements\n"

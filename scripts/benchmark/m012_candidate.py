@@ -44,7 +44,7 @@ DATABASE = "postgresql://mpadmin:secret@localhost:5432/verilore"
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -76,8 +76,8 @@ def cheap_gate(versions: list[dict], question: str, intent: str, embedder):
     stand-in response holding lightweight row views. Key selection is therefore
     identical to the shipped path by construction; only the object type differs.
     """
-    from api.models.memory import MemoryRequest, MemoryResponse, State
-    from api.services.memory_relevance import RelevancePolicy, relevance
+    from verilore.api.models.memory import MemoryRequest, MemoryResponse, State
+    from verilore.api.services.memory_relevance import RelevancePolicy, relevance
 
     claims = [RowView(c, v["path"]) for v in versions for c in v["claims"]]
     if not claims:
@@ -107,9 +107,9 @@ def narrow(versions: list[dict], keys: set[str]) -> list[dict]:
 
 
 async def answer(db, schema: str, question: str, intent: str, versions):
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import State, project
-    from api.services.memory_query import query as run_query
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_query import query as run_query
 
     request = MemoryRequest(
         corpus=schema, query=question, valid_at=VALID_AT, budget=128000, intent=intent
@@ -124,13 +124,13 @@ async def answer(db, schema: str, question: str, intent: str, versions):
 async def run(scale: int) -> dict:
     from m0117_scale import Offline, build_documents
 
-    from api.models.memory import MemoryRequest
-    from api.services.corpora import get_corpus_by_name
-    from api.services.embedder import Embedder
-    from api.services.ingestion import IngestionService
-    from api.services.memory import _load
-    from api.services.memory_public import State, project
-    from api.services.memory_query import query as run_query
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.memory import _load
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_query import query as run_query
 
     embedder = Embedder()
     engine = create_async_engine(

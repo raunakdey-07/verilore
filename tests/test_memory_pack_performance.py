@@ -10,9 +10,9 @@ from time import perf_counter
 
 import pytest
 
-from api.models.memory import Change, Claim, Conflict, Evidence, MemoryResponse, Snapshot, State
-from api.services import memory_public
-from api.services.memory_public import MemoryError, _attach, _claims, bounded_pack
+from verilore.api.models.memory import Change, Claim, Conflict, Evidence, MemoryResponse, Snapshot, State
+from verilore.api.services import memory_public
+from verilore.api.services.memory_public import MemoryError, _attach, _claims, bounded_pack
 
 
 def reference_pack(full: MemoryResponse, budget: int) -> MemoryResponse:

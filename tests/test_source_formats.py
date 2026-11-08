@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from api.services.source_formats import parse_file
+from verilore.api.services.source_formats import parse_file
 
 
 def test_markdown_passthrough(tmp_path):

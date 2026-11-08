@@ -1,6 +1,6 @@
 """Tests for the text chunker."""
 
-from api.services.chunker import chunk_by_headings, chunk_by_size, chunk_document
+from verilore.api.services.chunker import chunk_by_headings, chunk_by_size, chunk_document
 
 
 def test_chunk_by_headings():

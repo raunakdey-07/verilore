@@ -13,7 +13,7 @@ makes it safe: weighting changes how much fires, not what is found.
 
 import math
 
-from api.services import similarity
+from verilore.api.services import similarity
 
 
 def docs(*texts):
@@ -133,8 +133,8 @@ def test_both_callers_use_this_measure():
     """
     import inspect
 
-    from api.services.memory import _phrase_matches
-    from api.services.remember import related_active
+    from verilore.api.services.memory import _phrase_matches
+    from verilore.api.services.remember import related_active
 
     hint = inspect.getsource(related_active)
     phrase = inspect.getsource(_phrase_matches)

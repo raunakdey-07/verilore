@@ -3,7 +3,7 @@
 Acceptance tests for v0.10.0 PR-3. Every test owns a corpus created over HTTP
 (`POST /api/corpora`, asserted 201) and passes that corpus to every remember and
 read call. Reads use the in-process client (httpx ASGITransport over
-`api.main.app`), exactly as tests/test_withholding.py does.
+`verilore.api.main.app`), exactly as tests/test_withholding.py does.
 
 Statements are at least 12 characters. Optional fields are read with `.get()`.
 """
@@ -16,8 +16,8 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app
-from api.services.remember import memory_path
+from verilore.api.main import app
+from verilore.api.services.remember import memory_path
 
 API_BASE = "http://test"
 
@@ -261,7 +261,7 @@ async def test_no_state_no_scope_is_today_exactly():
         body = await remember(client, corpus, statement=statement, key=key)
     assert body["event"] == "NEW", body
     assert body["path"] == memory_path(body["key"]), body
-    from api.services.remember import render_statement
+    from verilore.api.services.remember import render_statement
 
     rendered = render_statement(statement, key)
     assert "status:" not in rendered
@@ -300,7 +300,7 @@ async def test_scope_isolates_the_same_key():
 
 def test_file_with_state_raises_value_error():
     corpus = corpus_name()
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     mp = Verilore(corpus, base_url="http://127.0.0.1:9")
     with pytest.raises(ValueError):
@@ -319,12 +319,12 @@ def test_file_with_state_raises_value_error():
 
 @pytest.mark.asyncio
 async def test_runtime_dispatch_forwards_state_and_scope():
-    import api.runtime
+    import verilore.api.runtime
 
     corpus = corpus_name()
     async with AsyncClient(transport=ASGITransport(app=app), base_url=API_BASE) as client:
         await create_corpus(client, corpus)
-        result = await api.runtime._dispatch_scoped(
+        result = await verilore.api.runtime._dispatch_scoped(
             "remember",
             {
                 "corpus": corpus,
@@ -348,7 +348,7 @@ async def test_runtime_dispatch_forwards_state_and_scope():
 
 def test_cli_remember_records_state_and_scope():
     corpus = corpus_name()
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     Verilore(corpus)
     result = _invoke(
@@ -419,7 +419,7 @@ async def test_scoped_topic_key_is_retired_by_scope():
 
 
 def test_scoped_key_unit_checks():
-    from api.services.remember import scoped_key
+    from verilore.api.services.remember import scoped_key
 
     assert scoped_key(None, "k") == "k"
     assert scoped_key("a/b", "k") == "a/b/k"
@@ -586,7 +586,7 @@ async def test_supersedes_phrase_with_several_matches_is_422():
 
 
 def _invoke(args, base_url_env: str | None = None):
-    from cli.main import app
+    from verilore.cli.main import app
 
     env = dict(os.environ)
     env["VERILORE_RUNTIME"] = "0"

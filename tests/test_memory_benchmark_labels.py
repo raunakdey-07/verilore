@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from api.services.parser import (
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
     parse_markdown,

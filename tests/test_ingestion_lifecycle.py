@@ -15,8 +15,8 @@ import os
 import pytest
 import sqlalchemy as sa
 
-from api.services.parser import parse_markdown
-from api.services.repository import content_hash, deterministic_doc_id
+from verilore.api.services.parser import parse_markdown
+from verilore.api.services.repository import content_hash, deterministic_doc_id
 
 DEFAULT_CORPUS_ID = "00000000000000000000000000000000000000000000000000000000default"
 
@@ -95,7 +95,7 @@ def _fresh_engine_per_test():
     """
     import asyncio
 
-    from api.services.db import async_engine
+    from verilore.api.services.db import async_engine
 
     # dispose any connections left over from a previous loop
     try:
@@ -149,13 +149,13 @@ Brand new section about epsilon.
 
 
 async def _get_service():
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     return IngestionService()
 
 
 async def _counts(db, doc_id: str | None = None):
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     async with session_scope() as db:
         if doc_id:
@@ -187,7 +187,7 @@ async def _manifest_entry(db, path: str):
 
 @requires_db
 async def test_new_document_fully_indexed():
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
     async with session_scope() as db:
@@ -211,7 +211,7 @@ async def test_new_document_fully_indexed():
 
 @requires_db
 async def test_unchanged_document_skipped_without_duplicates():
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
     async with session_scope() as db:
@@ -232,7 +232,7 @@ async def test_unchanged_document_skipped_without_duplicates():
 
 @requires_db
 async def test_changed_document_updates_and_removes_stale_chunks():
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
     async with session_scope() as db:
@@ -274,7 +274,7 @@ async def test_metadata_only_change_is_detected():
     frontmatter-only edit is correctly detected. Run this against a corpus another
     test has already written to and it fails on its premise, not on a defect.
     """
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     meta_a = DOC_V1.replace('summary: "First version"', 'summary: "Changed summary"')
     assert meta_a != DOC_V1
@@ -292,7 +292,7 @@ async def test_metadata_only_change_is_detected():
 
 @requires_db
 async def test_empty_document_is_skipped_gracefully():
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
     for name, content in [
@@ -308,7 +308,7 @@ async def test_empty_document_is_skipped_gracefully():
 @requires_db
 async def test_malformed_document_does_not_corrupt_state():
     """A file failing mid-pipeline must not leave a manifest entry claiming success."""
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
 
@@ -341,7 +341,7 @@ async def test_malformed_document_does_not_corrupt_state():
 
 @requires_db
 async def test_duplicate_paths_deterministic_ids():
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     svc = await _get_service()
     async with session_scope() as db:

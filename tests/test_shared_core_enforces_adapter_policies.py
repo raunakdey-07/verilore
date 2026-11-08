@@ -35,7 +35,7 @@ def _env(**extra):
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="needs DATABASE_URL")
 def test_sdk_sync_refuses_a_path_outside_the_ingest_roots(tmp_path, monkeypatch):
     """The SDK and MCP `sync` are not special: they obey the same policy."""
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     allowed = tmp_path / "allowed"
     allowed.mkdir()
@@ -55,7 +55,7 @@ def test_sdk_sync_refuses_a_path_outside_the_ingest_roots(tmp_path, monkeypatch)
 @pytest.mark.skipif(not os.getenv("DATABASE_URL"), reason="needs DATABASE_URL")
 def test_sdk_sync_still_works_inside_the_ingest_roots(tmp_path, monkeypatch):
     """A fix that refuses everything must not pass the test above."""
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     allowed = tmp_path / "allowed"
     allowed.mkdir()
@@ -77,7 +77,7 @@ def test_a_read_only_credential_cannot_snapshot_through_the_sdk(capsys):
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "credential",
             "issue",
             "ro-probe",
@@ -100,7 +100,7 @@ def test_a_read_only_credential_cannot_snapshot_through_the_sdk(capsys):
     assert secret, "could not issue a read-only credential"
 
     probe = (
-        "from verilore_sdk import Verilore\n"
+        "from verilore.sdk import Verilore\n"
         f"c = Verilore('default', api_key={secret!r})\n"
         "try:\n"
         "    c.memory.snapshot(corpus='default')\n"

@@ -11,7 +11,7 @@ MAX_CONTEXT_CHARS. Contracts tested here:
 
 from __future__ import annotations
 
-import api.routers.query as qmod
+import verilore.api.routers.query as qmod
 
 
 def _chunk(text: str, title: str = "Doc"):
@@ -32,7 +32,7 @@ def _chunk(text: str, title: str = "Doc"):
 
 
 def test_budget_drops_lowest_ranked_chunks():
-    from api.services.retrieval import RetrievalResult  # noqa: F401
+    from verilore.api.services.retrieval import RetrievalResult  # noqa: F401
 
     results = [_chunk("a" * 1000, "A"), _chunk("b" * 1000, "B"), _chunk("c" * 1000, "C")]
     # Reproduce the router's budgeting logic against a tiny budget.

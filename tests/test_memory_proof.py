@@ -14,8 +14,8 @@ import json
 
 import pytest
 
-from memory_pack import MemoryPack
-from memory_proof import (
+from verilore.pack import MemoryPack
+from verilore.proof import (
     ProofError,
     build_proof,
     canonical_bytes,

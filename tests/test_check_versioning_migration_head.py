@@ -34,7 +34,7 @@ def _status_text() -> str:
 
 
 def _real_versions_dir() -> Path:
-    return ROOT / "migrations" / "versions"
+    return ROOT / "verilore/migrations" / "versions"
 
 
 def _write_migration(tmp_path: Path, name: str, revision: str, down_revision) -> None:
@@ -79,7 +79,7 @@ def test_real_alembic_head_returns_real_head():
 
     module = _check_versioning()
     oracle = ScriptDirectory.from_config(
-        Config(str(ROOT / "migrations" / "alembic.ini"))
+        Config(str(ROOT / "verilore/migrations" / "alembic.ini"))
     ).get_current_head()
     assert module.real_alembic_head(_real_versions_dir()) == oracle
 

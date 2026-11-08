@@ -36,7 +36,7 @@ def test_a_local_deployment_may_use_the_defaults(monkeypatch):
     `postgresql://mpadmin:secret@localhost:5432/verilore` the README
     already tells people to use.
     """
-    from api.services.authz import server_mode_errors
+    from verilore.api.services.authz import server_mode_errors
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "local")
     monkeypatch.setenv("VERILORE_RUNTIME_PASSWORD", "verilore-local-runtime-password")
@@ -55,7 +55,7 @@ def test_a_server_deployment_refuses_the_runtime_password_default(server_env):
     repository. A server that accepts it accepts a credential that is not
     one.
     """
-    from api.services.authz import server_mode_errors
+    from verilore.api.services.authz import server_mode_errors
 
     server_env.setenv("VERILORE_RUNTIME_PASSWORD", "verilore-local-runtime-password")
 
@@ -70,7 +70,7 @@ def test_a_server_deployment_refuses_the_cursor_secret_default(server_env):
     A known signing key means a cursor anyone can mint, which is a cursor
     that carries no authority.
     """
-    from api.services.authz import server_mode_errors
+    from verilore.api.services.authz import server_mode_errors
 
     server_env.setenv(
         "VERILORE_CURSOR_SECRET",
@@ -88,6 +88,6 @@ def test_a_server_deployment_with_real_secrets_is_allowed(server_env):
     Without this, a check that always fires would look identical to one that
     works.
     """
-    from api.services.authz import server_mode_errors
+    from verilore.api.services.authz import server_mode_errors
 
     assert server_mode_errors() == []

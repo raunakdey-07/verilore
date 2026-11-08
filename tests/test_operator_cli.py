@@ -30,7 +30,7 @@ def _run(*args: str) -> tuple[int, str]:
     import sys
 
     completed = subprocess.run(
-        [sys.executable, "-m", "cli.main", *args],
+        [sys.executable, "-m", "verilore.cli.main", *args],
         capture_output=True,
         text=True,
         timeout=180,

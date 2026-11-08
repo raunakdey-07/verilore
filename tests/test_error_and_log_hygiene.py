@@ -102,7 +102,7 @@ def unauthenticated_probe(monkeypatch):
     Scoped to the test rather than added to the production prefix list, so no
     unprefixed route is left unauthenticated even for the duration of one test.
     """
-    import api.main as main_module
+    import verilore.api.main as main_module
 
     monkeypatch.setattr(
         main_module, "_UNAUTHENTICATED_PREFIXES", main_module._UNAUTHENTICATED_PREFIXES + ("/__",)
@@ -117,8 +117,8 @@ async def _constraint_error() -> Exception:
     """
     from sqlalchemy.exc import IntegrityError
 
-    from api.services import authz
-    from api.services.db import principal_scope, session_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import principal_scope, session_scope
 
     async with session_scope() as db:
         with principal_scope(authz.LOCAL_PRINCIPAL):
@@ -151,7 +151,7 @@ async def test_an_unhandled_database_error_returns_no_memory_and_no_detail(
     api_logs, unauthenticated_probe
 ):
     """The response body an integrator sees must carry nothing from the row."""
-    from api.main import app
+    from verilore.api.main import app
 
     exc = await _constraint_error()
     remove = _mount_failing_route(app, exc)
@@ -178,7 +178,7 @@ async def test_an_unhandled_database_error_returns_no_memory_and_no_detail(
 
 async def test_an_unhandled_database_error_logs_no_memory(api_logs, unauthenticated_probe):
     """The half that matters more: the log outlives the request."""
-    from api.main import app
+    from verilore.api.main import app
 
     exc = await _constraint_error()
     remove = _mount_failing_route(app, exc)
@@ -206,8 +206,8 @@ async def test_the_embedding_cache_warnings_do_not_print_claim_text(caplog):
     `exc_info=True` on a statement carrying claim text. Driven through their real
     call paths so this fails if the logging ever goes back to a traceback.
     """
-    from api.services import authz
-    from api.services.db import principal_scope, session_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import principal_scope, session_scope
 
     caplog.set_level(logging.DEBUG)
 
@@ -224,7 +224,7 @@ async def test_the_embedding_cache_warnings_do_not_print_claim_text(caplog):
 
     import logging as _logging
 
-    for module in ("api.services.ingestion", "api.services.memory_query", "api.services.rehydrate"):
+    for module in ("verilore.api.services.ingestion", "verilore.api.services.memory_query", "verilore.api.services.rehydrate"):
         logger = _logging.getLogger(module)
         logger.error(
             "claim_embedding_cache_fill_failed", extra={"error": type(caught.value).__name__}
@@ -242,7 +242,7 @@ async def test_health_endpoints_reveal_no_deployment_internals():
     endpoint is the one surface a load balancer, a sidecar and a stranger may
     all be able to read.
     """
-    from api.main import app
+    from verilore.api.main import app
 
     async with AsyncClient(
         transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t"

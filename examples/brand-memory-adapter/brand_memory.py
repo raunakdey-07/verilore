@@ -3,7 +3,7 @@
 
 """SDK-only adapter for brand memory in a content app.
 
-No imports from `api.services`, no SQL, no model. The four functions are the
+No imports from `verilore.api.services`, no SQL, no model. The four functions are the
 whole surface a FastAPI app needs to wire Verilore into generation:
 
 - `load_documents` — ingest (path, content) pairs over HTTP
@@ -21,7 +21,7 @@ import os
 
 import httpx
 
-from verilore_sdk import MemoryClientError, Verilore
+from verilore.sdk import MemoryClientError, Verilore
 
 
 def _client(tenant: str) -> Verilore:

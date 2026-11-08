@@ -54,7 +54,7 @@ PAGE_SIZE_CONCURRENCY = 5
 PAGE_SIZE_BENCHMARK = 50
 BENCHMARK_ITERATIONS = 20
 BENCHMARK_WARMUPS = 2
-M009_MIGRATION_FILE = ROOT / "migrations" / "alembic.ini"
+M009_MIGRATION_FILE = ROOT / "verilore/migrations" / "alembic.ini"
 HEX_ID_RE = re.compile(r"\b[0-9a-f]{64}\b")
 TIMESTAMP_LITERAL_RE = re.compile(r"'[^']+'::timestamp with time zone")
 
@@ -265,7 +265,7 @@ def run_migrations(database_url: str, cursor_secret: str) -> str:
     from alembic.script import ScriptDirectory
 
     config = Config(str(M009_MIGRATION_FILE))
-    config.set_main_option("script_location", str(ROOT / "migrations"))
+    config.set_main_option("script_location", str(ROOT / "verilore/migrations"))
     head = ScriptDirectory.from_config(config).get_current_head()
     require(head is not None, "Alembic has no migration head")
     migration_head = str(head)
@@ -625,13 +625,13 @@ def reproducibility(
             "name": "<created-and-dropped>",
             "credentials": "redacted",
         },
-        "migrations": {
+        "verilore/migrations": {
             "command": [
                 "python",
                 "-m",
                 "alembic",
                 "-c",
-                "migrations/alembic.ini",
+                "verilore/migrations/alembic.ini",
                 "upgrade",
                 "head",
             ],
@@ -653,7 +653,7 @@ def reproducibility(
     }
     if server_port is not None:
         result["server"] = {
-            "command": ["uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", "<free-port>"],
+            "command": ["uvicorn", "verilore.api.main:app", "--host", "127.0.0.1", "--port", "<free-port>"],
             "host": "127.0.0.1",
             "port": server_port,
         }
@@ -698,7 +698,7 @@ class UvicornServer:
             str(executable),
             "-m",
             "uvicorn",
-            "api.main:app",
+            "verilore.api.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -812,7 +812,7 @@ def rest_traversal(base_url: str, corpus: str) -> tuple[list[dict[str, Any]], li
 
 
 def sdk_error(base_url: str, corpus: str, cursor: str) -> str:
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     client = Verilore(base_url=base_url, timeout=15.0)
     try:
@@ -823,7 +823,7 @@ def sdk_error(base_url: str, corpus: str, cursor: str) -> str:
 
 
 def sdk_traversal(base_url: str, corpus: str) -> tuple[list[dict[str, Any]], list[int], list[str]]:
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     client = Verilore(base_url=base_url, timeout=15.0)
     items: list[dict[str, Any]] = []
@@ -1019,7 +1019,7 @@ class AsyncFeedRunner:
         event.listen(
             self.engine.sync_engine, "after_cursor_execute", self.timer.after_cursor_execute
         )
-        from api.services.memory_feed import feed
+        from verilore.api.services.memory_feed import feed
 
         self.feed = feed
 
@@ -1299,7 +1299,7 @@ def fixture_rows_for_benchmark(engine, corpus: str) -> list[dict[str, Any]]:
 
 
 def encode_boundary_cursor(corpus: str, row: dict[str, Any]) -> str:
-    from api.services.memory_feed import encode_cursor
+    from verilore.api.services.memory_feed import encode_cursor
 
     return encode_cursor(corpus, row["observed_at"], str(row["id"]).strip())
 
@@ -1352,7 +1352,7 @@ def explain_case(
     label: str,
     sensitive: Sequence[str],
 ) -> dict[str, Any]:
-    from api.services.memory_feed import build_feed_query
+    from verilore.api.services.memory_feed import build_feed_query
 
     with engine.connect() as connection:
         corpus_id = connection.execute(

@@ -26,8 +26,8 @@ import os
 
 import pytest
 
-from api.services.markdown_claims import is_declaration, supersession_references
-from api.services.parser import (
+from verilore.api.services.markdown_claims import is_declaration, supersession_references
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
     parse_markdown,
@@ -41,7 +41,7 @@ DOGFOOD_DOCS = ("README.md", "docs/authoring.md", "docs/runtime.md", "docs/mcp.m
 
 def _archive(path: str):
     """The claims and warnings the archive would produce for one real document."""
-    from api.services.markdown_claims import claims_for
+    from verilore.api.services.markdown_claims import claims_for
 
     metadata, body = parse_markdown(_read(path))
     records = [

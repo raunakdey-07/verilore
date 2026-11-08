@@ -35,9 +35,9 @@ def _issue_cred(label: str, corpus: str, role: str = "read_write") -> str:
     issue one credential, return its secret."""
 
     async def _issue() -> str:
-        from api.services import authz
-        from api.services.db import admin_session_scope, principal_scope
-        from api.services.authz import ADMIN_PRINCIPAL
+        from verilore.api.services import authz
+        from verilore.api.services.db import admin_session_scope, principal_scope
+        from verilore.api.services.authz import ADMIN_PRINCIPAL
 
         async with admin_session_scope(url=os.environ["DATABASE_URL"]) as db:
             with principal_scope(ADMIN_PRINCIPAL):
@@ -122,7 +122,7 @@ def live_server(tmp_path_factory):
                 sys.executable,
                 "-m",
                 "uvicorn",
-                "api.main:app",
+                "verilore.api.main:app",
                 "--host",
                 "127.0.0.1",
                 "--port",

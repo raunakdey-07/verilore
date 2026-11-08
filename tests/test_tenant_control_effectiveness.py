@@ -48,12 +48,12 @@ def _forget_application_check(monkeypatch) -> None:
     only one would leave the check in place and make this test prove nothing.
     """
     monkeypatch.setattr(
-        "api.services.authz.require_corpus",
+        "verilore.api.services.authz.require_corpus",
         lambda principal, corpus, write=False: None,
         raising=True,
     )
     monkeypatch.setattr(
-        "api.services.corpora.require_corpus",
+        "verilore.api.services.corpora.require_corpus",
         lambda principal, corpus, write=False: None,
         raising=True,
     )
@@ -70,7 +70,7 @@ def _forget_row_level_policy(monkeypatch) -> None:
     stronger for it, not weaker, and `_remove_every_database_control` is where
     all of it comes off.
     """
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     monkeypatch.setattr(db_module, "_scope_value", lambda: "{*}", raising=True)
 
@@ -137,8 +137,8 @@ async def _replace_scope_function_with_trusting_body() -> None:
     global _installed_scope_function
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import admin_session_scope, principal_scope
 
     async with admin_session_scope() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -169,8 +169,8 @@ async def _restore_scope_function():
         return
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import admin_session_scope, principal_scope
 
     async with admin_session_scope() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -199,8 +199,8 @@ async def _remove_every_database_control(monkeypatch) -> None:
     """
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import admin_session_scope, principal_scope
 
     async with admin_session_scope() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -221,8 +221,8 @@ async def _restore_rls():
     yield
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import admin_session_scope, principal_scope
 
     async with admin_session_scope() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -234,21 +234,21 @@ async def _restore_rls():
 def _forget_role_check(monkeypatch) -> None:
     """Treat every credential as read-write."""
     monkeypatch.setattr(
-        "api.services.authz.Principal.can_write", property(lambda self: True), raising=True
+        "verilore.api.services.authz.Principal.can_write", property(lambda self: True), raising=True
     )
 
 
 def _forget_authentication(monkeypatch) -> None:
     """Let the middleware accept any request."""
     monkeypatch.setattr(
-        "api.services.authz.resolve_principal",
+        "verilore.api.services.authz.resolve_principal",
         _unauthenticated_local_principal,
         raising=True,
     )
 
 
 async def _unauthenticated_local_principal(db, authorization=None):
-    from api.services.authz import LOCAL_PRINCIPAL
+    from verilore.api.services.authz import LOCAL_PRINCIPAL
 
     return LOCAL_PRINCIPAL
 

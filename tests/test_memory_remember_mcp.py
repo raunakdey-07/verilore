@@ -52,7 +52,7 @@ def loop():
 
 def _call(loop, **kwargs):
     """Call the tool the way an MCP client does: by name, through the server."""
-    import mcp_server
+    import verilore.mcp_server
 
     return loop.run_until_complete(mcp_server.mcp.call_tool("memory_remember", kwargs))
 
@@ -93,7 +93,7 @@ def fresh_corpus():
 
 
 def test_the_tool_is_registered_and_documented():
-    import mcp_server
+    import verilore.mcp_server
 
     tools = asyncio.run(mcp_server.mcp.list_tools())
     tool = next(t for t in tools if t.name == "memory_remember")
@@ -234,7 +234,7 @@ def test_rejected_remember_under_scope_is_withheld(fresh_corpus, loop):
     body = _payload(result)
     assert body["path"].startswith("campaigns/spring/memory/"), body
 
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     current = Verilore(fresh_corpus).memory.current(query="")
     assert current.withheld_counts.get("rejected") == 1, current.withheld_counts
@@ -290,7 +290,7 @@ def _refused(loop, **kwargs):
     credential without write access cannot cause a write, not which layer
     reports it -- the structured shape is pinned by the other tests here.
     """
-    import mcp_server
+    import verilore.mcp_server
 
     try:
         result = loop.run_until_complete(mcp_server.mcp.call_tool("memory_remember", kwargs))
@@ -313,10 +313,10 @@ def test_a_read_only_credential_cannot_remember(world, monkeypatch, loop):
     reader could perform a full archive write into a corpus it was granted. The
     same choke point has to fire for `memory_remember`.
     """
-    import mcp_server
+    import verilore.mcp_server
 
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", world.credentials["alpha-reviewer"]["secret"])
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
 
     refused, detail = _refused(
         loop,
@@ -330,7 +330,7 @@ def test_a_read_only_credential_cannot_remember(world, monkeypatch, loop):
 def test_no_credential_is_refused_in_required_mode(world, monkeypatch, loop):
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     monkeypatch.delenv("VERILORE_MCP_CREDENTIAL", raising=False)
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
 
     refused, detail = _refused(
         loop, statement="Written with no credential at all.", corpus=ALPHA_CORPORA["brand"]

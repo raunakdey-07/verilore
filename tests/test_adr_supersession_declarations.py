@@ -27,16 +27,16 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services import ingestion as ingestion_service
-from api.services import remember as remember_service
-from api.services.memory import (
+from verilore.api.services import ingestion as ingestion_service
+from verilore.api.services import remember as remember_service
+from verilore.api.services.memory import (
     _active_claims,
     _load,
     _query_result,
     _resolve_claim_id,
     memory_document_id,
 )
-from api.services.markdown_claims import supersession_references
+from verilore.api.services.markdown_claims import supersession_references
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -100,7 +100,7 @@ async def store(monkeypatch):
                     import importlib.util
                     from pathlib import Path
 
-                    for path in sorted((Path(ROOT) / "migrations" / "versions").glob("*.py")):
+                    for path in sorted((Path(ROOT) / "verilore/migrations" / "versions").glob("*.py")):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
@@ -120,7 +120,7 @@ async def store(monkeypatch):
                 async def sessions():
                     yield db
 
-                from api.services import db as db_module
+                from verilore.api.services import db as db_module
 
                 for module in (ingestion_service, remember_service, db_module):
                     if hasattr(module, "session_scope"):
@@ -224,10 +224,10 @@ async def test_the_unrelated_adr_gets_no_edge(store):
 
 async def test_recall_answers_from_0002_only(store):
     """The product-level half of the deliverable: 0002 is the current truth."""
-    from api.models.memory import MemoryRequest
-    from api.services.embedder import Embedder
-    from api.services.memory_public import State, project
-    from api.services.memory_query import interpret, select
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_query import interpret, select
 
     await ingest_repo(store)
     request = MemoryRequest(corpus=store.name, query="What is the primary datastore?")
@@ -350,10 +350,10 @@ async def test_recall_is_unaffected_by_the_history_fallback(store):
     everything and the fallback never runs. Asserted, because a relaxed `matches`
     that leaked into `recall` would quietly widen every answer.
     """
-    from api.models.memory import MemoryRequest
-    from api.services.embedder import Embedder
-    from api.services.memory_public import State, project
-    from api.services.memory_query import interpret, select
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_query import interpret, select
 
     await ingest_repo(store)
     versions = await _load(store.db, store.corpus)

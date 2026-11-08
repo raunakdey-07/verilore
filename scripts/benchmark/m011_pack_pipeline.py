@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from project_corpus import CORPUS, QUESTIONS  # noqa: E402
 
-from memory_pack import NO_RELEVANT_MEMORY, MemoryPack  # noqa: E402
+from verilore.pack import NO_RELEVANT_MEMORY, MemoryPack  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 VALID_AT = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -57,7 +57,7 @@ RELATIONSHIP_QUESTIONS = (
 
 
 def _migrate(sync_conn):
-    for path in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for path in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -80,9 +80,9 @@ def _session(conn):
 async def breakdown(conn, schema: str, question: str, repeats: int) -> dict:
     """Time the pack pipeline in stages. Model inference is excluded from
     ``authority_ms`` only by being already warm; it is reported separately."""
-    from api.models.memory import MemoryRequest
-    from api.services import memory_query
-    from api.services.memory_public import State, bounded_pack, project
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory_query
+    from verilore.api.services.memory_public import State, bounded_pack, project
 
     totals = {k: 0.0 for k in ("load", "interpret", "authority", "pack", "serialize", "digest")}
     last = None
@@ -90,8 +90,8 @@ async def breakdown(conn, schema: str, question: str, repeats: int) -> dict:
     for _ in range(repeats):
         t0 = time.perf_counter()
         async with _session(conn) as db:
-            from api.services import memory
-            from api.services.corpora import get_corpus_by_name
+            from verilore.api.services import memory
+            from verilore.api.services.corpora import get_corpus_by_name
 
             corpus = await get_corpus_by_name(db, schema)
             versions = await memory._load(db, corpus["id"])
@@ -127,8 +127,8 @@ async def breakdown(conn, schema: str, question: str, repeats: int) -> dict:
 
 
 async def relationship_probe(conn, schema: str) -> list[dict]:
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     rows = []
     for question in RELATIONSHIP_QUESTIONS:
@@ -155,8 +155,8 @@ async def relationship_probe(conn, schema: str) -> list[dict]:
 
 async def poisoning_probe(conn, schema: str) -> dict:
     """The untrusted document retrieves well. Read the pack with no database."""
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     question = "What is the current database?"
     async with _session(conn) as db:
@@ -190,7 +190,7 @@ async def poisoning_probe(conn, schema: str) -> dict:
 
 
 async def run(url: str, repeats: int) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(_async_url(url), poolclass=NullPool)
     schema = "m011p_" + uuid4().hex[:12]
@@ -219,8 +219,8 @@ async def run(url: str, repeats: int) -> dict:
                 async with _session(conn) as db:
                     await service._ingest_content(db, content, path, corpus_id)
 
-            from api.models.memory import MemoryRequest
-            from api.services.memory_public import execute_in_session
+            from verilore.api.models.memory import MemoryRequest
+            from verilore.api.services.memory_public import execute_in_session
 
             for question in QUESTIONS:
                 async with _session(conn) as db:

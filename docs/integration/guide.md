@@ -28,7 +28,7 @@ docker compose up -d postgresql
 ```
 
 ```bash
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 ```
 
 Provision the runtime role (idempotent):
@@ -52,7 +52,7 @@ psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SET ROLE mindpalace_owner; SEL
 ```
 
 ```bash
-VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn api.main:app --host 0.0.0.0 --port 8000
+VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 **Rotation order and the brief outage window.** Update the database row first,
@@ -167,7 +167,7 @@ provenance. **Always pass a `path_prefix`** — without it, the pack sees the wh
 corpus, including sibling campaigns and unapproved drafts.
 
 ```python
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 mp = Verilore(
     os.environ["BRAND_CORPUS"],
@@ -335,7 +335,7 @@ Configure the client with `timeout=3, retries=1` on the generation path. On
 "brand memory unavailable".
 
 ```python
-from verilore_sdk import MemoryClientError
+from verilore import MemoryClientError
 
 gen_client = Verilore(
     os.environ["BRAND_CORPUS"],

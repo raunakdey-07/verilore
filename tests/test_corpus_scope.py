@@ -9,11 +9,11 @@ import pytest
 from fastapi import HTTPException, Response
 from sqlalchemy.exc import OperationalError
 
-import api.routers.context as context_router
-import api.routers.query as query_router
-import api.routers.search as search_router
-import api.services.context_service as context_service
-from api.models.schemas import (
+import verilore.api.routers.context as context_router
+import verilore.api.routers.query as query_router
+import verilore.api.routers.search as search_router
+import verilore.api.services.context_service as context_service
+from verilore.api.models.schemas import (
     AskRequest,
     ContextPackResponse,
     InterviewRequest,
@@ -21,12 +21,12 @@ from api.models.schemas import (
     SearchResponse,
     SummarizeRequest,
 )
-from api.services.corpora import (
+from verilore.api.services.corpora import (
     CorpusScopeNotFound,
     CorpusScopeRequired,
     resolve_corpus_scope,
 )
-from api.services.retrieval import RetrievalService
+from verilore.api.services.retrieval import RetrievalService
 
 
 class _Result:

@@ -1,9 +1,9 @@
-from api.services.memory_decision_benchmark import (
+from verilore.api.services.memory_decision_benchmark import (
     build_review_queue,
     compare_runs,
     run_provider,
 )
-from api.services.memory_decision_spike import DeterministicDecisionProvider
+from verilore.api.services.memory_decision_spike import DeterministicDecisionProvider
 
 
 def test_benchmark_preserves_same_candidate_rows_and_unknown_labels():

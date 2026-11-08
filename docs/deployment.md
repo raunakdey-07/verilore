@@ -234,7 +234,7 @@ psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SET ROLE mindpalace_owner; SEL
 ```
 
 ```bash
-VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn api.main:app --host 0.0.0.0 --port 8000
+VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 The safe rotation order is: update the DB row first, then roll the environment
@@ -285,7 +285,7 @@ default from becoming an unauthenticated-looking shared service:
 ```bash
 VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \
 VERILORE_INGEST_ROOTS=/srv/content \
-    uvicorn api.main:app --host 0.0.0.0
+    uvicorn verilore.api.main:app --host 0.0.0.0
 ```
 
 In that profile the process refuses to start — before it accepts a request — if

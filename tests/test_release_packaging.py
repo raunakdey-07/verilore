@@ -52,21 +52,17 @@ def test_the_runtime_surface_is_still_included():
     include = set(config["tool"]["setuptools"]["packages"]["find"]["include"])
     modules = set(config["tool"]["setuptools"]["py-modules"])
 
-    assert {"api*", "cli*"} <= include, include
+    assert {"verilore*"} <= include, include
     for required in (
         "verilore_sdk",
-        "verilore_runtime",
-        "memory_receipt",
-        "memory_proof",
-        "memory_proof_cli",
-        "memory_pack",
-        "mcp_server",
+        "verilore_errors",
     ):
         assert required in modules, f"{required} is no longer a py-module; the wheel loses it"
 
     scripts = config["project"]["scripts"]
-    assert scripts["verilore"] == "cli.main:app", scripts
-    assert scripts["verilore-proof"] == "memory_proof_cli:main", scripts
+    assert scripts["verilore"] == "verilore.cli.main:app", scripts
+    assert scripts["verilore-proof"] == "verilore.proof_cli:main", scripts
+    assert scripts["verilore-mcp"] == "verilore.mcp_server:main", scripts
 
 
 def test_nothing_outside_scripts_imports_the_scripts_package():
@@ -77,16 +73,12 @@ def test_nothing_outside_scripts_imports_the_scripts_package():
     which is fine. Nothing that ships in the wheel may do the same, because the
     wheel no longer contains it.
     """
-    shipped = [ROOT / "api", ROOT / "cli"]
+    shipped = [ROOT / "verilore"]
     shipped += [
         ROOT / f"{name}.py"
         for name in (
             "verilore_sdk",
-            "mcp_server",
-            "memory_pack",
-            "memory_proof",
-            "memory_proof_cli",
-            "memory_receipt",
+            "verilore_errors",
         )
     ]
 
@@ -118,7 +110,7 @@ def test_each_console_script_declares_the_extra_it_needs():
     This is not hypothetical. The wheel CI job asserted `verilore-mcp --help`
     against a **bare** install, which cannot supply `mcp` -- it is a declared extra.
     The job failed with `ModuleNotFoundError: No module named 'mcp'`, and its
-    `|| import mcp_server` fallback could not have saved it, for the same reason.
+    `|| import verilore.mcp_server` fallback could not have saved it, for the same reason.
 
     `typer` is the interesting counter-case, and the reason this test is worth having.
     It is also an extra, so `verilore` ought to be uninstallable without it -- but a

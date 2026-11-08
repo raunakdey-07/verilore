@@ -37,11 +37,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.models.memory import MemoryRequest, MemoryResponse
-from api.services import ingestion, memory_public
-from api.services import remember as remember_service
-from api.services.remember import RememberError, remember
-from api.services.memory_public import execute_in_session
+from verilore.api.models.memory import MemoryRequest, MemoryResponse
+from verilore.api.services import ingestion, memory_public
+from verilore.api.services import remember as remember_service
+from verilore.api.services.remember import RememberError, remember
+from verilore.api.services.memory_public import execute_in_session
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,7 +59,7 @@ def isolated_runtime(tmp_path, monkeypatch):
     monkeypatch.setenv("VERILORE_STATE_DIR", str(tmp_path))
     yield
     subprocess.run(
-        [sys.executable, "-m", "cli.main", "runtime", "stop"],
+        [sys.executable, "-m", "verilore.cli.main", "runtime", "stop"],
         cwd=ROOT,
         env={
             "PATH": "/usr/bin:/bin",
@@ -109,7 +109,7 @@ async def store(monkeypatch):
                 await conn.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
 
                 def migrate(sync_conn):
-                    for path in sorted((ROOT / "migrations" / "versions").glob("*.py")):
+                    for path in sorted((ROOT / "verilore/migrations" / "versions").glob("*.py")):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
@@ -161,12 +161,12 @@ async def surfaces(store, monkeypatch):
     transaction via savepoints.
     """
     import httpx
-    import mcp_server
+    import verilore.mcp_server
     from typer.testing import CliRunner
 
-    from api.main import app
-    from cli.main import app as cli_app
-    from verilore_sdk import Verilore
+    from verilore.api.main import app
+    from verilore.cli.main import app as cli_app
+    from verilore.sdk import Verilore
 
     loop = asyncio.get_running_loop()
 
@@ -275,7 +275,7 @@ async def test_a_write_succeeds_without_an_embedding_model(store, monkeypatch):
     write has to work in the same conditions, or "install and remember" is really
     "install, download a model, and remember".
     """
-    from api.services.embedder import SEMANTIC_DEPENDENCY_ERRORS, Embedder
+    from verilore.api.services.embedder import SEMANTIC_DEPENDENCY_ERRORS, Embedder
 
     def unavailable(self, texts):
         raise OSError("model weights are not available offline")
@@ -342,7 +342,7 @@ async def live_schema(monkeypatch):
             await conn.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
 
             def migrate(sync_conn):
-                for path in sorted((ROOT / "migrations" / "versions").glob("*.py")):
+                for path in sorted((ROOT / "verilore/migrations" / "versions").glob("*.py")):
                     spec = importlib.util.spec_from_file_location(path.stem, path)
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
@@ -648,7 +648,7 @@ async def test_a_write_never_loads_the_embedding_model(store, monkeypatch):
     merely reaching for one that is cached would pay `import sentence_transformers`,
     measured at 10.8 s. A first memory must not depend on either.
     """
-    from api.services.embedder import Embedder
+    from verilore.api.services.embedder import Embedder
 
     def refuse(self, texts):
         raise AssertionError("remember loaded an embedding model")
@@ -673,8 +673,8 @@ async def test_a_read_warms_its_own_cache_and_the_next_read_is_served_from_it(st
     would re-encode the whole corpus: 3.2 s per recall at 200 statements. This is
     the fix -- the first read pays, the second does not.
     """
-    from api.services import claim_embeddings
-    from api.services.embedder import Embedder
+    from verilore.api.services import claim_embeddings
+    from verilore.api.services.embedder import Embedder
 
     for index in range(6):
         await remember(f"Statement number {index} concerns topic {index % 3}.", corpus=store.name)
@@ -797,7 +797,7 @@ def test_a_dead_database_says_what_to_do(monkeypatch):
     """
     from sqlalchemy.exc import OperationalError
 
-    from cli.errors import explain, render
+    from verilore.cli.errors import explain, render
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/verilore")
     failure = OperationalError("SELECT 1", {}, Exception("Connection refused"))
@@ -814,7 +814,7 @@ def test_a_dead_database_says_what_to_do(monkeypatch):
 
 def test_verbose_mode_keeps_the_technical_detail(monkeypatch):
     """Advanced users keep the detail; the default output does not bury them in it."""
-    from cli.errors import explain, render
+    from verilore.cli.errors import explain, render
 
     monkeypatch.setenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/verilore")
     failure = RuntimeError("could not translate host name")
@@ -827,8 +827,8 @@ def test_verbose_mode_keeps_the_technical_detail(monkeypatch):
 
 def test_error_text_survives_an_unreadable_database_url(monkeypatch):
     """Advice must never itself raise, whatever DATABASE_URL contains."""
-    from api.errors import storage_unavailable
-    from cli.errors import explain, render
+    from verilore.api.errors import storage_unavailable
+    from verilore.cli.errors import explain, render
 
     monkeypatch.setenv("DATABASE_URL", "not a url at all :::")
     assert "PostgreSQL" in storage_unavailable()
@@ -956,7 +956,7 @@ async def test_the_cli_history_shows_the_supersession_chain(store, surfaces):
 #: database, no model and no network -- the property the CLI must not weaken.
 VERIFY_SNIPPET = """
 import sys
-from memory_receipt import verify_response_receipt, verify_trust
+from verilore.receipt import verify_response_receipt, verify_trust
 import json
 
 payload = json.load(open(sys.argv[1]))
@@ -973,7 +973,7 @@ print("authenticity:", "established" if trust["authenticated"] else "not establi
 def _verify_offline(receipt: Path, recorder_path: str, *extra: str) -> subprocess.CompletedProcess:
     """Verify with no database at all, which is what verification must allow."""
     return subprocess.run(
-        [sys.executable, "-m", "cli.main", "verify", str(receipt), *extra],
+        [sys.executable, "-m", "verilore.cli.main", "verify", str(receipt), *extra],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -996,7 +996,7 @@ async def test_verify_reports_each_property_and_stops_short_of_truth(
     store, surfaces, tmp_path, recorder_path
 ):
     """`VERIFIED` must never read as "this fact is correct"."""
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     await remember("The API version is v1.", key="api.version")
     result = await read_all(store)
@@ -1093,7 +1093,7 @@ async def test_a_self_contained_receipt_verifies_with_only_the_shipped_package(
     embedding model, no network. `verilore-proof` is the tool for that, and it
     must read the file `verilore receipt` writes.
     """
-    from memory_proof_cli import main as proof_main
+    from verilore.proof_cli import main as proof_main
 
     await remember("The API version is v1.", key="api.version")
     explained = await execute_in_session(
@@ -1232,8 +1232,8 @@ async def test_receipts_from_before_this_milestone_still_verify(store):
     A receipt produced by the existing library must verify exactly as before, and
     the new response-level bundle must not alter the pack digest the receipt covers.
     """
-    from memory_pack import MemoryPack
-    from memory_receipt import RECEIPT_SCHEMA_VERSION, verify_response_receipt
+    from verilore.pack import MemoryPack
+    from verilore.receipt import RECEIPT_SCHEMA_VERSION, verify_response_receipt
 
     assert RECEIPT_SCHEMA_VERSION == 1
 
@@ -1253,12 +1253,12 @@ async def test_receipts_from_before_this_milestone_still_verify(store):
     assert verify_response_receipt(explained.receipt, payload)["verified"] is True
 
     # An existing v0.8.0-shaped receipt verifies with the same entry points.
-    from memory_receipt import build_receipt
+    from verilore.receipt import build_receipt
 
     pack = MemoryPack.from_dict(payload)
     legacy = build_receipt(pack, "api.version", query="api version")
     assert legacy["receipt_version"] == 1
-    from memory_receipt import verify_receipt
+    from verilore.receipt import verify_receipt
 
     assert verify_receipt(legacy, pack)["verified"] is True
 
@@ -1269,7 +1269,7 @@ async def test_the_wheel_ships_what_verification_needs():
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     modules = pyproject["tool"]["setuptools"]["py-modules"]
-    for required in ("memory_receipt", "memory_proof", "memory_pack", "verilore_sdk"):
+    for required in ("verilore.receipt", "verilore.proof", "verilore.pack", "verilore.sdk"):
         assert required in modules, f"{required} must ship in the wheel"
 
 
@@ -1292,7 +1292,7 @@ def test_the_cli_works_from_a_clean_environment(tmp_path, recorder_path, isolate
 
     def cli(*args: str, expect: int = 0) -> str:
         completed = subprocess.run(
-            [sys.executable, "-m", "cli.main", *args, "--corpus", corpus],
+            [sys.executable, "-m", "verilore.cli.main", *args, "--corpus", corpus],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -1311,7 +1311,7 @@ def test_the_cli_works_from_a_clean_environment(tmp_path, recorder_path, isolate
         return completed.stdout
 
     init = subprocess.run(
-        [sys.executable, "-m", "cli.main", "init"],
+        [sys.executable, "-m", "verilore.cli.main", "init"],
         cwd=ROOT,
         capture_output=True,
         text=True,

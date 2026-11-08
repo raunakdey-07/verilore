@@ -66,7 +66,7 @@ async def test_the_runtime_socket_has_no_authorization_concept(world, monkeypatc
     """
     from pathlib import Path
 
-    import api.runtime as runtime_module
+    import verilore.api.runtime as runtime_module
 
     source = Path(runtime_module.__file__).read_text(encoding="utf-8")
     # The socket resolves a principal and scopes every dispatch with it.
@@ -89,8 +89,8 @@ async def test_the_runtime_refuses_every_corpus_without_a_credential(world, monk
     name. Asserted against the resolver the socket calls, because driving a real
     socket needs a started runtime and the defect is in the dispatch path.
     """
-    from api.services import authz
-    from api.runtime import _runtime_principal
+    from verilore.api.services import authz
+    from verilore.api.runtime import _runtime_principal
 
     monkeypatch.delenv("VERILORE_RUNTIME_CREDENTIAL", raising=False)
     with pytest.raises(authz.AuthorizationError):
@@ -109,12 +109,12 @@ async def test_a_runtime_credential_cannot_read_another_organisation(world, monk
     the request; the principal must still refuse it, and the database must
     refuse it again underneath.
     """
-    from api.runtime import _dispatch, _Runtime
+    from verilore.api.runtime import _dispatch, _Runtime
 
     monkeypatch.setenv("VERILORE_RUNTIME_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
 
-    from api.services import authz
+    from verilore.api.services import authz
 
     with pytest.raises(authz.AuthorizationError):
         await _dispatch(
@@ -147,7 +147,7 @@ def run_sdk(action):
     import asyncio
     import concurrent.futures
 
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from tenant_harness import apply_as_runtime, runtime_url
@@ -192,7 +192,7 @@ async def test_an_unnamed_local_client_cannot_be_constructed_in_required_mode(wo
     unrestricted, with a `{*}` database scope, even under
     `VERILORE_AUTH_MODE=required`.
     """
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     with pytest.raises(MemoryClientError) as caught:
@@ -206,7 +206,7 @@ async def test_a_named_local_client_needs_a_credential_in_required_mode(world, m
     `create_if_missing=False` keeps the client from touching the database, so
     this asserts the constructor and not the corpus bootstrap.
     """
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
 
@@ -222,7 +222,7 @@ async def test_a_named_local_client_needs_a_credential_in_required_mode(world, m
 
 async def test_a_local_client_cannot_read_a_corpus_it_was_not_granted(world, monkeypatch):
     """End to end through the SDK, which is how an integrator reaches memory."""
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     client = run_sdk(
@@ -246,7 +246,7 @@ async def test_the_runtime_shortcut_runs_inside_the_client_scope(world, monkeypa
     """
     import inspect
 
-    from verilore_sdk import MemoryClient
+    from verilore.sdk import MemoryClient
 
     source = inspect.getsource(MemoryClient._execute)
     runtime_call = source.index("_through_runtime")
@@ -268,11 +268,11 @@ async def test_mcp_resolves_its_credential_as_a_bearer_header(world, monkeypatch
     passing the secret alone failed the scheme check and every MCP tool answered
     401 -- including with a correctly configured credential.
     """
-    import mcp_server
+    import verilore.mcp_server
 
     monkeypatch.setenv("VERILORE_RUNTIME_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
 
     principal = await mcp_server._resolved_principal()
     assert principal.unrestricted is False
@@ -280,12 +280,12 @@ async def test_mcp_resolves_its_credential_as_a_bearer_header(world, monkeypatch
 
 
 async def test_mcp_refuses_every_tool_without_a_credential_in_required_mode(world, monkeypatch):
-    import mcp_server
-    from api.services import authz
+    import verilore.mcp_server
+    from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     monkeypatch.delenv("VERILORE_MCP_CREDENTIAL", raising=False)
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
     with pytest.raises(authz.AuthorizationError):
         await mcp_server._resolved_principal()
 
@@ -299,7 +299,7 @@ async def test_mcp_hands_its_credential_to_the_clients_it_builds(world, monkeypa
     were correctly scoped. Asserted on the constructed client, which is where the
     credential has to arrive.
     """
-    import mcp_server
+    import verilore.mcp_server
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
@@ -345,10 +345,10 @@ async def test_a_read_only_credential_cannot_reindex(world, tmp_path):
     does is rehydrate unconditionally; what it must do first is resolve the
     corpus with the role the reindex needs.
     """
-    from api.services import authz
-    from api.services.authz import Principal
-    from api.services.corpora import get_corpus_by_name
-    from api.services.rehydrate import rehydrate_corpus
+    from verilore.api.services import authz
+    from verilore.api.services.authz import Principal
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.rehydrate import rehydrate_corpus
 
     async with world.db_module.admin_session_scope() as db:
         # What the CLI does today: an administrative write with no role check.
@@ -380,13 +380,13 @@ def test_a_server_deployment_refuses_to_start_unauthenticated(monkeypatch):
 
     `VERILORE_DEPLOYMENT=server` with `VERILORE_AUTH_MODE=off` is an
     unauthenticated service on a network, and it is what a bare `uvicorn
-    api.main:app` or `docker compose up` produces. There was no guard at all, so
+    verilore.api.main:app` or `docker compose up` produces. There was no guard at all, so
     the safe-looking default was the unsafe one.
 
     `VERILORE_INGEST_ROOTS` is set so this isolates the authentication
     question; the directory guard is tested on its own below.
     """
-    from api.services import authz
+    from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "off")
@@ -405,7 +405,7 @@ def test_a_server_deployment_refuses_to_start_unauthenticated(monkeypatch):
 
 def test_a_local_deployment_is_never_refused(monkeypatch):
     """The point of the guard is the server case; local use must not regress."""
-    from api.services import authz
+    from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "local")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "off")
@@ -419,7 +419,7 @@ def test_the_app_refuses_to_build_as_an_unauthenticated_server(monkeypatch):
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "off")
     monkeypatch.setenv("VERILORE_INGEST_ROOTS", "/srv/content")
-    import api.main as main_module
+    import verilore.api.main as main_module
 
     with pytest.raises(RuntimeError, match="refusing to start"):
         main_module.create_app()
@@ -448,7 +448,7 @@ async def test_readiness_reports_that_a_superuser_bypasses_the_policies(monkeypa
     `not_ready` to a developer running the documented single-user setup would
     break the convenient path for a problem that cannot occur there.
     """
-    from api.main import app
+    from verilore.api.main import app
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -483,7 +483,7 @@ async def test_readiness_still_answers_in_local_mode(world, monkeypatch):
     above pass for the wrong reason, and would take the convenient local path
     with it.
     """
-    from api.main import app
+    from verilore.api.main import app
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "local")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -504,7 +504,7 @@ async def test_readiness_reports_a_restricted_role_as_effective(world):
     asserts what an operator in the intended configuration sees: the policies are
     in force. Two roles, one endpoint, two different honest answers.
     """
-    from api.main import app
+    from verilore.api.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         body = (await client.get("/health/ready")).json()
@@ -525,7 +525,7 @@ async def test_the_role_check_agrees_with_the_role_provision_script():
     not exist in the shape the script creates, or the reverse: a healthy role
     reported as broken.
     """
-    from api.services.posture import inspect
+    from verilore.api.services.posture import inspect
 
     engine = apply_as_runtime(runtime_url())
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -560,7 +560,7 @@ async def test_posture_reports_a_policy_that_is_not_forced(world):
     """
     import sqlalchemy as sa
 
-    from api.services.posture import inspect
+    from verilore.api.services.posture import inspect
 
     engine = sa.create_engine(sync_url())
     try:
@@ -569,7 +569,7 @@ async def test_posture_reports_a_policy_that_is_not_forced(world):
     finally:
         engine.dispose()
     try:
-        from api.services.db import AsyncSessionLocal
+        from verilore.api.services.db import AsyncSessionLocal
 
         async with AsyncSessionLocal() as db:
             posture = await inspect(db)
@@ -590,7 +590,7 @@ async def test_readiness_says_the_schema_is_missing_without_leaking(world, monke
     The posture check runs after the schema check, so a session that reports a
     missing table must still produce a readiness answer rather than a traceback.
     """
-    from api.main import app
+    from verilore.api.main import app
 
     class MissingSchemaSession:
         async def __aenter__(self):
@@ -602,7 +602,7 @@ async def test_readiness_says_the_schema_is_missing_without_leaking(world, monke
         async def execute(self, _query):
             return type("Result", (), {"one": lambda self: (False, False, False)})()
 
-    monkeypatch.setattr("api.services.db.session_scope", lambda: MissingSchemaSession())
+    monkeypatch.setattr("verilore.api.services.db.session_scope", lambda: MissingSchemaSession())
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health/ready")
     assert response.status_code == 503
@@ -621,7 +621,7 @@ async def test_a_local_client_in_required_mode_cannot_read_another_tenant(world,
     Without the fix, `Verilore()` -- the CLI's own construction -- reached every
     corpus in the database under `VERILORE_AUTH_MODE=required`.
     """
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     with pytest.raises(MemoryClientError) as caught:
@@ -635,7 +635,7 @@ async def test_credential_management_never_returns_a_hash_or_secret(world):
     On the maintenance role, because listing is an enumeration and the runtime
     role is deliberately denied it -- see the posture check.
     """
-    from api.services import authz
+    from verilore.api.services import authz
 
     async with world.db_module.admin_session_scope() as db:
         with world.db_module.principal_scope(authz.ADMIN_PRINCIPAL):
@@ -657,7 +657,7 @@ async def test_credential_management_never_returns_a_hash_or_secret(world):
 
 async def test_revoking_by_prefix_revokes_exactly_one(world):
     """`list_credentials` prints a prefix, so revoke has to accept one."""
-    from api.services import authz
+    from verilore.api.services import authz
 
     async with world.db_module.admin_session_scope() as db:
         with world.db_module.principal_scope(authz.ADMIN_PRINCIPAL):
@@ -675,7 +675,7 @@ async def test_revoking_by_prefix_revokes_exactly_one(world):
 
 async def test_a_revoked_credential_stops_the_sdk_client(world, monkeypatch):
     """Revocation has to reach an already-constructed local client."""
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     secret = world.credentials["alpha-creator"]["secret"]
@@ -692,7 +692,7 @@ async def test_a_revoked_credential_stops_the_sdk_client(world, monkeypatch):
     with pytest.raises(MemoryClientError):
         run_sdk(build)
     # ... and so must the HTTP path, immediately, with nothing cached.
-    from api.main import app
+    from verilore.api.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
         response = await http.post(
@@ -712,7 +712,7 @@ def test_no_environment_variable_is_logged_or_echoed():
     """
     from pathlib import Path
 
-    import api.runtime as runtime_module
+    import verilore.api.runtime as runtime_module
 
     source = Path(runtime_module.__file__).read_text(encoding="utf-8")
     assert "VERILORE_RUNTIME_CREDENTIAL" in source, "the runtime must read it"
@@ -734,7 +734,7 @@ def test_the_mcp_credential_is_read_from_the_environment_not_a_tool_argument():
     """
     import inspect
 
-    import mcp_server
+    import verilore.mcp_server
 
     source = inspect.getsource(mcp_server)
     assert "VERILORE_MCP_CREDENTIAL" in source
@@ -779,7 +779,7 @@ def test_corpus_ids_are_derived_not_supplied(world=None):
 
 
 async def authz_revoke(db, principal_id):
-    from api.services.authz import revoke_credential
+    from verilore.api.services.authz import revoke_credential
 
     return await revoke_credential(db, principal_id)
 
@@ -822,7 +822,7 @@ def test_no_unauthenticated_admin_endpoint_exists():
     Both are administrative and local: a network route that mints a tenant
     boundary or a credential is the thing the whole design exists to avoid.
     """
-    import api.main as main_module
+    import verilore.api.main as main_module
 
     paths = {route.path for route in main_module.app.routes if hasattr(route, "path")}
     forbidden = {
@@ -848,7 +848,7 @@ def test_an_ingest_path_outside_the_allowed_roots_is_refused(tmp_path, monkeypat
     into a corpus it does own. Narrow (`*.md` only), and still not something a
     tenant should be able to do.
     """
-    from api.services.ingest_paths import IngestPathRefused, require_permitted
+    from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
 
     inside = tmp_path / "content"
     inside.mkdir()
@@ -867,7 +867,7 @@ def test_an_ingest_path_cannot_escape_through_a_symlink(tmp_path, monkeypatch):
     `/data/link -> /etc` starts with the allowed root as a string and is not in
     it. `Path.resolve()` follows the link first, so the check sees `/etc`.
     """
-    from api.services.ingest_paths import IngestPathRefused, require_permitted
+    from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
 
     allowed = tmp_path / "data"
     allowed.mkdir()
@@ -884,7 +884,7 @@ def test_an_ingest_path_cannot_escape_through_a_symlink(tmp_path, monkeypatch):
 
 def test_an_ingest_path_refusal_does_not_disclose_the_allowed_roots(tmp_path, monkeypatch):
     """A caller refused a path should not learn the directory layout from it."""
-    from api.services.ingest_paths import IngestPathRefused, require_permitted
+    from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
 
     monkeypatch.setenv("VERILORE_INGEST_ROOTS", str(tmp_path / "very-secret-place"))
     with pytest.raises(IngestPathRefused) as caught:
@@ -894,7 +894,7 @@ def test_an_ingest_path_refusal_does_not_disclose_the_allowed_roots(tmp_path, mo
 
 def test_unset_roots_preserve_the_local_single_operator_capability(monkeypatch):
     """Local use is not narrowed by a control that only matters when shared."""
-    from api.services.ingest_paths import require_permitted
+    from verilore.api.services.ingest_paths import require_permitted
 
     monkeypatch.delenv("VERILORE_INGEST_ROOTS", raising=False)
     assert require_permitted("/tmp").as_posix() == "/tmp"
@@ -902,7 +902,7 @@ def test_unset_roots_preserve_the_local_single_operator_capability(monkeypatch):
 
 def test_a_server_deployment_refuses_to_start_without_ingest_roots(monkeypatch):
     """Same class of problem as authentication off, refused the same way."""
-    from api.services import authz
+    from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
@@ -919,7 +919,7 @@ def test_a_server_deployment_refuses_to_start_without_ingest_roots(monkeypatch):
 
 
 def test_a_local_deployment_is_not_refused_for_ingest_roots(monkeypatch):
-    from api.services import authz
+    from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "local")
     monkeypatch.delenv("VERILORE_INGEST_ROOTS", raising=False)
@@ -947,7 +947,7 @@ async def test_the_sync_route_refuses_a_path_outside_the_roots(world, tmp_path, 
 
 async def test_ingested_content_has_a_bound(world, monkeypatch):
     """One request must not be able to hand the embedder an unbounded string."""
-    from api.models.schemas import MAX_INGEST_CHARS, IngestFileRequest
+    from verilore.api.models.schemas import MAX_INGEST_CHARS, IngestFileRequest
 
     assert MAX_INGEST_CHARS > 0
     with pytest.raises(Exception):
@@ -1105,10 +1105,10 @@ def test_every_registered_memory_operation_is_read_or_write():
     through the SDK. An operation nobody classified defaults to read, which is
     the wrong direction for a write.
     """
-    from api.routers.memory import WRITE_OPERATIONS as ROUTER_WRITES
-    from api.services.memory_public import OPERATIONS
-    from mcp_server import WRITE_OPERATIONS as MCP_WRITES
-    from api.services import memory_public
+    from verilore.api.routers.memory import WRITE_OPERATIONS as ROUTER_WRITES
+    from verilore.api.services.memory_public import OPERATIONS
+    from verilore.mcp_server import WRITE_OPERATIONS as MCP_WRITES
+    from verilore.api.services import memory_public
 
     every = set(OPERATIONS)
     assert every, "no memory operations registered"
@@ -1146,7 +1146,7 @@ async def test_a_read_only_credential_is_refused_on_every_surface(
     A read-only identity that can write on one door and not another is the
     defect, not the write.
     """
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     secret = world.credentials["alpha-reviewer"]["secret"]
 
@@ -1222,7 +1222,7 @@ async def test_a_read_only_credential_is_refused_on_mcp_and_the_runtime_socket(
     # way the existing MCP identity tests do it, so the tool sees a real
     # read_only credential rather than a hand-built principal. A hand-built
     # principal has no secret, and `_client()` needs one to build the SDK client.
-    monkeypatch.setattr("api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", secret)
 
     # --- MCP --------------------------------------------------------------
@@ -1242,8 +1242,8 @@ async def test_a_read_only_credential_is_refused_on_mcp_and_the_runtime_socket(
         import sys as _sys
 
         program = (
-            "import json, sys, mcp_server\n"
-            "from api.models.memory import MemoryRequest\n"
+            "import json, sys, verilore.mcp_server as mcp_server\n"
+            "from verilore.api.models.memory import MemoryRequest\n"
             f"corpus = {corpus!r}\n"
             f"tool = {tool!r}\n"
             "if tool == '_snapshot_probe':\n"
@@ -1326,7 +1326,7 @@ async def test_a_read_only_credential_is_refused_on_mcp_and_the_runtime_socket(
         # fresh one against the URL in `env`.
         program = (
             "import json, os, pathlib, subprocess, sys, time\n"
-            "from api import runtime\n"
+            "from verilore.api import runtime\n"
             f"payload = {payload!r}\n"
             "# A runtime daemon refuses to start without a token, and the token is\n"
             "# minted by the documented command. So start it the documented way,\n"
@@ -1335,7 +1335,7 @@ async def test_a_read_only_credential_is_refused_on_mcp_and_the_runtime_socket(
             "state = pathlib.Path(os.environ['VERILORE_STATE_DIR'])\n"
             "state.mkdir(parents=True, exist_ok=True)\n"
             "started = subprocess.run(\n"
-            "    [sys.executable, '-m', 'cli.main', 'runtime', 'start'],\n"
+            "    [sys.executable, '-m', 'verilore.cli.main', 'runtime', 'start'],\n"
             "    env=dict(os.environ), capture_output=True, text=True, timeout=180)\n"
             "deadline = time.time() + 120\n"
             "reply = None\n"
@@ -1436,9 +1436,9 @@ CORPUS = {MCP_CORPUS!r}
 OTHER = {MCP_OTHER_CORPUS!r}
 os.environ["VERILORE_AUTH_MODE"] = "off"
 
-from api.services import authz
-from api.services.db import AsyncSessionLocal
-from verilore_sdk import Verilore
+from verilore.api.services import authz
+from verilore.api.services.db import AsyncSessionLocal
+from verilore.sdk import Verilore
 
 Verilore(CORPUS, runtime=False)
 Verilore(OTHER, runtime=False)
@@ -1462,7 +1462,7 @@ issued = asyncio.run(issue())
 os.environ["VERILORE_AUTH_MODE"] = "required"
 os.environ["VERILORE_MCP_CREDENTIAL"] = issued["secret"]
 
-import mcp_server
+import verilore.mcp_server
 
 mcp_server._clients.clear()
 
@@ -1522,7 +1522,7 @@ def test_the_cli_thread_hop_keeps_the_callers_identity():
     import asyncio
     import contextvars
 
-    from cli.main import _run
+    from verilore.cli.main import _run
 
     whoami: contextvars.ContextVar[str] = contextvars.ContextVar("whoami", default="<nobody>")
     whoami.set("the caller")

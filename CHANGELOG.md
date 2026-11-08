@@ -4,6 +4,30 @@ All notable public releases are listed here. Milestone identifiers are
 preserved inside each release entry and map to the public semantic version
 through [`docs/release-map.md`](docs/release-map.md).
 
+## [Unreleased]
+
+### Changed
+
+**Package layout.** The wheel now installs a single top-level namespace,
+`verilore` (plus the two one-release shims `verilore_sdk` and
+`verilore_errors`). The `api/`, `cli/` and `migrations/` directories and the
+standalone modules moved into the `verilore` package
+(`verilore/api/`, `verilore/cli/`, `verilore/migrations/`,
+`verilore/sdk.py`, `verilore/errors.py`, `verilore/runtime.py`,
+`verilore/mcp_server.py`, `verilore/pack.py`, `verilore/proof.py`,
+`verilore/proof_cli.py`, `verilore/receipt.py`). No other top-level module or
+package ships, so a consumer's own `api/` package no longer collides.
+
+**Import.** The documented import is now `from verilore import Verilore`.
+The top-level `verilore_sdk` and `verilore_errors` modules remain as deprecated
+shims for v0.11 (they emit a `DeprecationWarning` and are removed in v0.12).
+
+**Migrations.** Alembic now runs from the packaged migrations:
+`python -m alembic -c verilore/migrations/alembic.ini upgrade head`
+(CI, README, quickstart, deployment, and the CLI all use the packaged path;
+`script_location = %(here)s` in `alembic.ini` is unchanged). Migration
+revision ids do not change.
+
 ## [v0.10.0] - 2026-11-07
 
 ### Renamed

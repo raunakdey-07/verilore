@@ -607,12 +607,12 @@ Two settings, and the second is what stops the first from being a trap:
 ```bash
 VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \
 VERILORE_INGEST_ROOTS=/srv/content \
-    uvicorn api.main:app --host 0.0.0.0
+    uvicorn verilore.api.main:app --host 0.0.0.0
 ```
 
 `local` with `off` is the default because a developer's first five minutes should
 not involve credentials. The hazard is that it is also what a bare
-`uvicorn api.main:app` and a default `docker compose up` produce, and those bind
+`uvicorn verilore.api.main:app` and a default `docker compose up` produce
 a published port. `server` is a promise the code holds the operator to: the
 application factory exits with a reason rather than coming up answering anyone.
 The mode is never inferred from a socket or a `DATABASE_URL`, because both
@@ -679,7 +679,7 @@ docker run -p 8000:8000 \
   -e VERILORE_INGEST_ROOTS=/content \
   -e DATABASE_URL=... \
   verilore \
-  uvicorn api.main:app --host 0.0.0.0 --port 8000
+  uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 `server` refuses to start unless authentication is on and the database role
@@ -1050,7 +1050,7 @@ filesystem from a caller, and whether it goes through that one resolver.
 | SDK `Verilore.sync(path)` | a directory | yes | yes — `api/services/ingestion.py:694` |
 | SDK `Verilore.remember(file=…)` | one file | yes | yes — `api/services/remember.py:563` |
 | MCP `sync(corpus, path)` | a directory | yes | yes — same `sync_repo` |
-| MCP `memory_remember(file=…)` | one file | yes | yes — `mcp_server.py:262` |
+| MCP `memory_remember(file=…)` | one file | yes | yes — `verilore/mcp_server.py:262` |
 | `verilore verify <receipt>` | a receipt the caller produced | **no, deliberately** | n/a |
 | `verilore receipt -o <file>` | writes; not a read | n/a | n/a |
 | benchmark `--baseline <file>` | a previous report, for comparison | **no, deliberately** | n/a |

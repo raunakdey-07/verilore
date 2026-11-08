@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from api.models.memory import MemoryRequest
-from api.services import corpora, memory_public
-from api.services.memory_benchmark import _claims
+from verilore.api.models.memory import MemoryRequest
+from verilore.api.services import corpora, memory_public
+from verilore.api.services.memory_benchmark import _claims
 
 try:
     from tests import test_memory_benchmark_interfaces as benchmark
@@ -28,7 +28,7 @@ QUESTION = "Which architecture decisions apply?"
 
 @pytest.fixture(autouse=True)
 def offline_embedder(monkeypatch):
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     class FakeEmbedder:
         def __init__(self):

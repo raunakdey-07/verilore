@@ -15,8 +15,8 @@ dependencies = [
     "asyncpg==0.30.0",
     "pydantic>=2.0.0",
     "python-frontmatter>=1.1.0",
-    # Declared here, not only in requirements.txt. `pip install verilore-os`
-    # is a documented install path in the README, and the documented migrate step
+    # Declared here, not only in requirements.txt. `pip install verilore` is a
+    # documented install path in the README, and the documented migrate step
     # is `python -m alembic ...`. Without this the bare wheel has no alembic and
     # that step fails with "No module named alembic" on a clean machine.
     "alembic>=1.13.0",
@@ -35,7 +35,7 @@ dependencies = [
     "langchain-text-splitters>=1.0.0",
     # Typer is core because `verilore` is an unconditional console script in
     # [project.scripts], and a conditional entry point is not something setuptools
-    # can express. Declared as an extra, a bare `pip install verilore-os` created
+    # can express. Declared as an extra, a bare `pip install verilore` created
     # a `verilore` executable that died with ModuleNotFoundError on `import typer`
     # -- and the wheel job never caught it, because `transformers` depends on typer
     # and `transformers` used to arrive with `sentence-transformers`. Removing that
@@ -46,7 +46,6 @@ dependencies = [
     # true by hand.
     "typer>=0.9.0",
 ]
-
 [project.optional-dependencies]
 # Empty, and kept because the README, the quickstart and every operator's notes say
 # `pip install -e '.[cli,mcp]'`. Removing it would break those install lines to save
@@ -71,60 +70,49 @@ dev = [
 ]
 
 [project.scripts]
-verilore = "cli.main:app"
+# The console scripts resolve through the installed `verilore` package, so a
+# bare `pip install verilore` gives working `verilore`, `verilore-proof` and
+# `verilore-mcp` executables with no generic top-level names on the path.
+verilore = "verilore.cli.main:app"
 # Standalone, dependency-free proof tooling. A separate entry point, not a
 # subcommand of the Typer CLI, because Typer is an optional extra: anyone who
 # installs the package must be able to verify a proof without it.
-verilore-proof = "memory_proof_cli:main"
+verilore-proof = "verilore.proof_cli:main"
 # The MCP server, as a command an agent can actually launch. Same reason: an
 # agent configuration should not have to know a module path or a virtualenv.
-verilore-mcp = "mcp_server:main"
+verilore-mcp = "verilore.mcp_server:main"
 
 [tool.setuptools]
-# Top-level single-file modules alongside the api/cli packages.
-# memory_pack ships deliberately: it is the dependency-free reader a consumer
-# copies or imports to understand a pack without the server.
-# memory_proof and memory_proof_cli ship for the same reason: verifying a
-# recorded memory must not require the server, the database or a model.
+# Only the `verilore` package ships, plus the two one-release shims below.
+# memory_pack, memory_proof, memory_proof_cli, memory_receipt and mcp_server now
+# live inside the verilore package (verilore.pack, verilore.proof, ...), so they
+# are not top-level names any more and no longer collide with a consumer's own
+# `api/` package.
 py-modules = [
-    "verilore_errors",
     "verilore_sdk",
-    "mcp_server",
-    "memory_pack",
-    "memory_proof",
-    "memory_proof_cli",
-    "memory_receipt",
-    # The local runtime's entry point. The CLI starts it as
-    # `sys.executable -m verilore_runtime`, which guarantees it runs the same
-    # interpreter and the same installed Verilore as the command that started it.
-    # A console script would depend on PATH, and `pip install --user` beside a
-    # virtualenv is a good way to end up with a socket served by the wrong build.
-    # Without this module in the wheel, the runtime silently never starts on an
-    # installed package and every command is 6 seconds.
-    "verilore_runtime",
+    "verilore_errors",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-# Only the runtime surface ships. `scripts/` is release, benchmark and
+# Only the verilore package ships. `scripts/` is release, benchmark and
 # research tooling that nothing imports at runtime -- 48 of the 54 files there
 # are `scripts/benchmark/`. It stayed in the distribution because `scripts*` has
 # been in this list since v0.6.0. Removing it takes the wheel from 425 KB / 129
 # files to 227 KB / 74, measured, and no installed consumer loses anything:
-# the console scripts, `py-modules` and every `api`/`cli` import are unaffected.
-# The repository still ships them, which is where `check_versioning.py`,
-# `check_evidence.py` and the benchmark harnesses run from.
-include = ["api*", "cli*", "migrations*"]
+# the console scripts, `py-modules` and every `verilore.api`/`verilore.cli`
+# import are unaffected. The repository still ships them, which is where
+# `check_versioning.py`, `check_evidence.py` and the benchmark harnesses run from.
+include = ["verilore*"]
 
 [tool.setuptools.package-data]
-# `migrations/` is a package (see its `__init__.py`) for exactly this reason: a
-# wheel that ships no migration scripts cannot apply its own schema, and the
-# documented third step of the README -- `python -m alembic -c
-# migrations/alembic.ini upgrade head` -- has nothing to point at. Measured: the
-# bare wheel was 13 MB with no alembic and no migrations, so `pip install
-# verilore-os` could not reach a working first command.
-migrations = ["alembic.ini", "*.mako", "versions/*.py", "versions/*.mako"]
-
+# `verilore/migrations` is a package (see its `__init__.py`) for exactly this
+# reason: a wheel that ships no migration scripts cannot apply its own schema,
+# and the documented third step of the README -- `python -m alembic -c
+# verilore/migrations/alembic.ini upgrade head` -- has nothing to point at.
+# Measured: the bare wheel was 13 MB with no alembic and no migrations, so
+# `pip install verilore` could not reach a working first command.
+"verilore.migrations" = ["alembic.ini", "*.mako", "versions/*.py", "versions/*.mako"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

@@ -32,9 +32,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from api.models.memory import MemoryResponse
-from api.services.parser import parse_markdown
-from memory_proof_cli import EXIT_OK, EXIT_REJECTED
+from verilore.api.models.memory import MemoryResponse
+from verilore.api.services.parser import parse_markdown
+from verilore.proof_cli import EXIT_OK, EXIT_REJECTED
 
 try:
     from scripts.benchmark import project_corpus
@@ -108,7 +108,7 @@ def _verify(pack_path, receipt_path, cwd):
     return subprocess.run(
         [
             sys.executable,
-            str(ROOT / "memory_proof_cli.py"),
+            str(ROOT / "verilore" / "proof_cli.py"),
             "verify",
             receipt_path.name,
             "--pack",

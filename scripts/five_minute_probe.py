@@ -37,11 +37,11 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 from sqlalchemy.pool import NullPool  # noqa: E402
 
-from api.models.memory import MemoryRequest  # noqa: E402
-from api.services import ingestion, memory_public  # noqa: E402
-from api.services import remember as remember_service  # noqa: E402
-from api.services.memory_public import execute_in_session  # noqa: E402
-from api.services.remember import remember  # noqa: E402
+from verilore.api.models.memory import MemoryRequest  # noqa: E402
+from verilore.api.services import ingestion, memory_public  # noqa: E402
+from verilore.api.services import remember as remember_service  # noqa: E402
+from verilore.api.services.memory_public import execute_in_session  # noqa: E402
+from verilore.api.services.remember import remember  # noqa: E402
 
 #: Statements shaped like the decisions a team actually records, so the measured
 #: relevance path is a realistic one rather than a single exact key.
@@ -92,7 +92,7 @@ async def build(url: str, schema: str):
     setup = await engine.connect()
     transaction = await setup.begin()
     await setup.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
-    for path in sorted((ROOT / "migrations" / "versions").glob("*.py")):
+    for path in sorted((ROOT / "verilore/migrations" / "versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -204,7 +204,7 @@ def measure_verify(receipt_path: Path, corpus: str, repetitions: int) -> list[fl
 
     snippet = """
 import json, sys, time
-from memory_receipt import verify_response_receipt
+from verilore.receipt import verify_response_receipt
 payload = json.load(open(sys.argv[1]))
 times = []
 for _ in range(int(sys.argv[2])):

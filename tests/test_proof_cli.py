@@ -18,20 +18,20 @@ from pathlib import Path
 
 import pytest
 
-from memory_pack import MemoryPack
-from memory_proof import build_proof
-from memory_proof_cli import EXIT_BAD_INPUT, EXIT_OK, EXIT_REJECTED
-from memory_receipt import build_receipt
+from verilore.pack import MemoryPack
+from verilore.proof import build_proof
+from verilore.proof_cli import EXIT_BAD_INPUT, EXIT_OK, EXIT_REJECTED
+from verilore.receipt import build_receipt
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: Every top-level module the standalone reader and verifier are made of. All of
-#: them must reach the installed environment, not just the source checkout.
+#: Every module the standalone reader and verifier are made of. They now live
+#: inside the `verilore` package and reach the installed environment through it.
 STANDALONE_MODULES = (
-    "memory_pack.py",
-    "memory_proof.py",
-    "memory_receipt.py",
-    "memory_proof_cli.py",
+    "verilore/pack.py",
+    "verilore/proof.py",
+    "verilore/receipt.py",
+    "verilore/proof_cli.py",
 )
 
 #: A pack with a real supersession chain: c-old was valid until c-new replaced it.
@@ -148,7 +148,7 @@ def workspace(tmp_path) -> Path:
 def _run(argv, cwd):
     """Invoke the CLI as a subprocess, the way a developer would."""
     return subprocess.run(
-        [sys.executable, str(ROOT / "memory_proof_cli.py"), *argv],
+        [sys.executable, str(ROOT / "verilore" / "proof_cli.py"), *argv],
         capture_output=True,
         text=True,
         cwd=str(cwd),
@@ -460,17 +460,17 @@ def test_cli_explain_reports_both_honest_limits(workspace):
 def test_standalone_modules_are_declared_for_shipping():
     """The exact failure mode: works in the source tree, absent from the wheel."""
     text = (ROOT / "pyproject.toml").read_text()
+    assert "verilore*" in text, "verilore package is not in the wheel include list"
     for module in STANDALONE_MODULES:
-        stem = module.removesuffix(".py")
-        assert f'"{stem}"' in text, f"{module} is not declared in py-modules"
-    assert 'verilore-proof = "memory_proof_cli:main"' in text
+        assert (ROOT / module).exists(), f"{module} is not part of the verilore package"
+    assert 'verilore-proof = "verilore.proof_cli:main"' in text
 
 
 def test_cli_and_proof_import_nothing_heavy():
     """Import isolation: the receipt path must not pull in the runtime."""
     code = (
         "import sys;"
-        "import memory_pack, memory_proof, memory_proof_cli, memory_receipt;"
+        "import verilore.pack, verilore.proof, verilore.proof_cli, verilore.receipt;"
         "heavy=[m for m in ('fastapi','sqlalchemy','asyncpg','torch',"
         "'sentence_transformers','pgvector','psycopg','pydantic','alembic') "
         "if m in sys.modules];"
@@ -523,7 +523,7 @@ def test_built_wheel_contains_the_standalone_modules(wheel):
         .read([n for n in names if n.endswith("entry_points.txt")][0])
         .decode()
     )
-    assert "verilore-proof = memory_proof_cli:main" in entry
+    assert "verilore-proof = verilore.proof_cli:main" in entry
 
 
 def test_the_installed_wheel_verifies_without_the_runtime(wheel, tmp_path):
@@ -575,7 +575,7 @@ def test_the_installed_wheel_verifies_without_the_runtime(wheel, tmp_path):
         [
             str(python),
             "-c",
-            "import memory_pack, memory_proof, memory_receipt;print(memory_proof.__file__)",
+            "import verilore, verilore.pack, verilore.proof, verilore.receipt;print(verilore.proof.__file__)",
         ],
         capture_output=True,
         text=True,

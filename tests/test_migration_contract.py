@@ -115,7 +115,7 @@ def test_migration_at_head():
     from alembic.script import ScriptDirectory
 
     current = _scalar("SELECT version_num FROM alembic_version")
-    cfg = Config("migrations/alembic.ini")
+    cfg = Config("verilore/migrations/alembic.ini")
     script = ScriptDirectory.from_config(cfg)
     head = script.get_current_head()
     assert current == head

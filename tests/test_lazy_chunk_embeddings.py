@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import os
 
-from api.services.embedder import (
+from verilore.api.services.embedder import (
     MAX_PADDING_RATIO,
     ONNX_BATCH_SIZE,
     _batches,
@@ -55,7 +55,7 @@ This is an introduction section with prose in it and nothing claim-shaped.
 
 async def _ingest(store, body: str, path: str, *, embed_chunks: bool | None = None):
     """Archive one document, the way `ingest-repo` does."""
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import ingestion as ingestion_service
 
     service = ingestion_service.IngestionService(memory_enabled=True)
     return await service.ingest_file(
@@ -152,8 +152,8 @@ async def test_a_chunk_search_fills_the_index_and_answers(store):
     The search gives them one before it looks, so it answers instead of
     silently returning nothing for a corpus full of text.
     """
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     await _ingest(store, CLAIM_BEARING, "chunk-vectors/search.md")
     assert all(vector is None for vector in await _chunk_vectors(store, "chunk-vectors/search.md"))
@@ -182,7 +182,7 @@ async def test_the_claim_vectors_are_the_same_either_way(store):
 
     from sqlalchemy import text
 
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import ingestion as ingestion_service
 
     other = hashlib.sha256(uuid4().bytes).hexdigest()
     await store.db.execute(
@@ -250,7 +250,7 @@ def test_the_session_is_told_to_optimise_the_graph():
     """The ONNX session optimises the graph at every level the runtime knows."""
     import onnxruntime as ort
 
-    from api.services.embedder import _session_options
+    from verilore.api.services.embedder import _session_options
 
     options = _session_options()
     assert options.graph_optimization_level == ort.GraphOptimizationLevel.ORT_ENABLE_ALL

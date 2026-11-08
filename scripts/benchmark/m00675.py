@@ -27,11 +27,11 @@ SOURCES = (
 # post-release migrations are deliberately excluded so infrastructure changes do
 # not rewrite the released research result or its fixture identity.
 FROZEN_MIGRATIONS = (
-    ROOT / "migrations/versions/001_initial_schema.py",
-    ROOT / "migrations/versions/002_corpora.py",
-    ROOT / "migrations/versions/003_manifest_corpus.py",
-    ROOT / "migrations/versions/004_memory.py",
-    ROOT / "migrations/versions/005_multiple_evidence.py",
+    ROOT / "verilore/migrations/versions/001_initial_schema.py",
+    ROOT / "verilore/migrations/versions/002_corpora.py",
+    ROOT / "verilore/migrations/versions/003_manifest_corpus.py",
+    ROOT / "verilore/migrations/versions/004_memory.py",
+    ROOT / "verilore/migrations/versions/005_multiple_evidence.py",
 )
 FIXTURE_FILES = (
     ROOT / "eval/memory_benchmarks.yaml",

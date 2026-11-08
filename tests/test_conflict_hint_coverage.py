@@ -17,12 +17,12 @@ import uuid
 
 from sqlalchemy import text
 
-from api.services import claim_embeddings, memory
-from api.services.claim_embeddings import representation_hash, representation_of
-from api.services.corpora import get_or_create_corpus
-from api.services.db import session_scope
-from api.services.embedder import Embedder
-from api.services.remember import related_active
+from verilore.api.services import claim_embeddings, memory
+from verilore.api.services.claim_embeddings import representation_hash, representation_of
+from verilore.api.services.corpora import get_or_create_corpus
+from verilore.api.services.db import session_scope
+from verilore.api.services.embedder import Embedder
+from verilore.api.services.remember import related_active
 
 
 async def _corpus() -> tuple[str, str]:
@@ -225,7 +225,7 @@ def test_the_neighbour_query_is_shaped_for_the_index():
 
 async def test_a_stale_cached_vector_is_not_reported():
     """A score computed from text the claim no longer has is not evidence."""
-    from api.services.remember import _vector_channel
+    from verilore.api.services.remember import _vector_channel
 
     corpus_id, _name = await _corpus()
     embedder = Embedder()

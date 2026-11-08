@@ -63,7 +63,7 @@ def _git() -> str:
 
 
 async def run(url: str) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(_async_url(url), poolclass=NullPool)
     schema = "m130_" + uuid4().hex[:12]

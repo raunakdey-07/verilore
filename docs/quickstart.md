@@ -19,7 +19,7 @@ docker compose up -d postgresql
 
 # 3. Point at it and apply the schema.
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 
 # 4. Write one fact and ask about it.
 verilore init
@@ -369,7 +369,7 @@ Fifteen tools are advertised. `memory_recall`, `memory_explain`, `memory_current
 ## From Python
 
 ```python
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 client = Verilore()                              # no configuration required
 
@@ -498,14 +498,16 @@ api/            FastAPI app, services, and the authoritative memory model
   models/       the public v1 contract; no persistence models exposed
   routers/      REST adapters
   services/     memory archive, ingestion, retrieval, relevance
-cli/            Typer CLI, rendering, error text
-migrations/     Alembic migrations
-memory_pack.py  dependency-free portable memory reader
-memory_receipt.py  the receipt contract, standard library only
-memory_proof.py    proof construction and verification
-memory_proof_cli.py standalone verifier, no optional dependencies
-verilore_sdk.py  the SDK
-mcp_server.py   MCP server
+cli/            Typer CLI, rendering, error text (inside verilore/)
+verilore/       the verilore package: api/, cli/, migrations/, pack.py,
+                proof.py, proof_cli.py, receipt.py, sdk.py, errors.py, runtime/
+verilore_sdk.py  the SDK (deprecated top-level shim for this release)
+verilore_errors.py  error taxonomy (deprecated top-level shim for this release)
+mcp_server.py   MCP server (inside verilore/)
+memory_pack.py  dependency-free portable memory reader (inside verilore/)
+memory_receipt.py  the receipt contract, standard library only (inside verilore/)
+memory_proof.py    proof construction and verification (inside verilore/)
+memory_proof_cli.py standalone verifier, no optional dependencies (inside verilore/)
 tests/          the suite, against real PostgreSQL
 examples/       runnable examples
 docs/           status, operations, research, release notes

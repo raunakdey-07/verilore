@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from api.models.memory import Candidate, Claim, Evidence, MemoryResponse
-from api.services.memory_query import adjudicate
-from api.services.memory_relevance import RelevancePolicy
+from verilore.api.models.memory import Candidate, Claim, Evidence, MemoryResponse
+from verilore.api.services.memory_query import adjudicate
+from verilore.api.services.memory_relevance import RelevancePolicy
 
 NOW = datetime.now(timezone.utc)
 
@@ -175,7 +175,7 @@ def test_the_canonical_json_digest_does_not_depend_on_the_ranking():
 
 def test_a_bad_threshold_setting_is_ignored(monkeypatch):
     """A non-finite or out-of-range setting must not make every answer ambiguous."""
-    from api.services.memory_relevance import DEFAULT_MARGIN, margin_threshold
+    from verilore.api.services.memory_relevance import DEFAULT_MARGIN, margin_threshold
 
     assert margin_threshold() == DEFAULT_MARGIN
     for bad in ("nan", "inf", "-1", "5", "not-a-number"):
@@ -185,6 +185,6 @@ def test_a_bad_threshold_setting_is_ignored(monkeypatch):
 
 def test_the_threshold_setting_is_honoured_when_it_is_sane(monkeypatch):
     monkeypatch.setenv("MEMORY_QUERY_MARGIN", "0.5")
-    from api.services.memory_relevance import margin_threshold
+    from verilore.api.services.memory_relevance import margin_threshold
 
     assert margin_threshold() == 0.5

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import text
 
-from api.services import memory
+from verilore.api.services import memory
 
 try:
     from tests import test_memory_ingestion as ing
@@ -67,7 +67,7 @@ def _doc(title: str, claims: list[tuple[str, str]], body: str = "") -> str:
 
 async def _seed(store):
     """A corpus with every shape the rewrite could get wrong."""
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     sessions, corpus = store
     service = IngestionService(memory_enabled=True)

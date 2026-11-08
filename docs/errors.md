@@ -11,7 +11,7 @@ Every failure Verilore raises on purpose is a subclass of `VeriloreError`,
 importable from the public SDK:
 
 ```python
-from verilore_sdk import (
+from verilore.errors import (
     VeriloreError,
     MindPalaceValidationError,   # 422, memory
     MindPalaceNotFoundError,     # 404, memory

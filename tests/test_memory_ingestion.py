@@ -18,9 +18,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services import ingestion, memory
-from api.services.rehydrate import rehydrate_corpus
-from api.services.retrieval import RetrievalService
+from verilore.api.services import ingestion, memory
+from verilore.api.services.rehydrate import rehydrate_corpus
+from verilore.api.services.retrieval import RetrievalService
 
 
 def source(value):
@@ -68,7 +68,7 @@ async def memory_ingestion_db(monkeypatch):
 
                 def migrate(sync_conn):
                     for path in sorted(
-                        (Path(__file__).parents[1] / "migrations/versions").glob("*.py")
+                        (Path(__file__).parents[1] / "verilore/migrations/versions").glob("*.py")
                     ):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)

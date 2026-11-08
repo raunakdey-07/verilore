@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import json
 
-import verilore_errors as taxonomy
-from verilore_errors import (
+import verilore.errors as taxonomy
+from verilore.errors import (
     COMPONENTS,
     VeriloreError,
     ValidationError,
@@ -155,7 +155,7 @@ def test_the_request_id_survives_every_error():
 def test_the_existing_sdk_error_still_catches_everything():
     """Compatibility. Integrators wrote `except MemoryClientError` against the
     documented contract, and that must keep working for every new failure."""
-    import verilore_sdk
+    import verilore.sdk
 
     assert issubclass(VeriloreError, Exception)
     assert hasattr(verilore_sdk, "MemoryClientError")

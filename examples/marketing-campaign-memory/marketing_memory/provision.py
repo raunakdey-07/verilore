@@ -21,8 +21,8 @@ Two things happen here, and the distinction matters:
 Both commands are invoked as subprocesses rather than imported. That is the point
 of the example: an integrating application uses Verilore's published surface,
 so this file uses the published surface too, and a test can assert that nothing
-here reaches past it. An earlier version imported `api.services.corpora` and
-`api.services.authz` directly, which worked and proved nothing about whether an
+here reaches past it. An earlier version imported `verilore.api.services.corpora` and
+`verilore.api.services.authz` directly, which worked and proved nothing about whether an
 independent application could do the same.
 
 Run it with `python demo.py`, or import `provision` from a test.
@@ -155,7 +155,7 @@ def _verilore(*arguments: str) -> str:
     example cannot quietly grow a dependency the way a real integration would.
     """
     result = subprocess.run(
-        [sys.executable, "-m", "cli.main", *arguments],
+        [sys.executable, "-m", "verilore.cli.main", *arguments],
         capture_output=True,
         text=True,
         cwd=_repository_root(),
@@ -182,7 +182,7 @@ def create_corpus(name: str, description: str = "") -> None:
     corpus that already exists, and that is a success here.
     """
     existing = subprocess.run(
-        [sys.executable, "-m", "cli.main", "corpus", "create", name, "-d", description],
+        [sys.executable, "-m", "verilore.cli.main", "corpus", "create", name, "-d", description],
         capture_output=True,
         text=True,
         cwd=_repository_root(),

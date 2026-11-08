@@ -13,7 +13,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from api.services import memory
+from verilore.api.services import memory
 
 try:
     from tests import test_memory_core as core
@@ -28,7 +28,7 @@ memory_db = core.memory_db
 
 
 async def migrate(db, name: str, direction: str = "upgrade") -> None:
-    path = ROOT / "migrations" / "versions" / name
+    path = ROOT / "verilore/migrations" / "versions" / name
     spec = importlib.util.spec_from_file_location(path.stem, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -84,7 +84,7 @@ def test_snapshot_seal_is_applied_but_a_later_migration_may_be_head():
     chain position is what matters, and the head must still be a descendant of
     the seal rather than a branch that dropped it.
     """
-    script = ScriptDirectory.from_config(Config(str(ROOT / "migrations" / "alembic.ini")))
+    script = ScriptDirectory.from_config(Config(str(ROOT / "verilore/migrations" / "alembic.ini")))
     head = script.get_current_head()
     revisions = {r.revision for r in script.walk_revisions("base", head)}
     assert {"004_memory", "005_multiple_evidence", "006_snapshot_membership_seal"} <= revisions

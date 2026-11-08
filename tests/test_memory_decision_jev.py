@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from api.services.memory_decision_spike import (
+from verilore.api.services.memory_decision_spike import (
     DecisionProviderError,
     DecisionResult,
     DecisionTrace,

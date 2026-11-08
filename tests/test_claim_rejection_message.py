@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import pytest
 
-from api.services import memory
+from verilore.api.services import memory
 
 CHUNKS = [
     {"text": "The checkout service uses PostgreSQL. We moved it in March.", "order_index": 0},

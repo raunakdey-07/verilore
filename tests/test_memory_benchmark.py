@@ -14,9 +14,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.models.memory import MemoryRequest, MemoryResponse
-from api.services.corpora import corpus_id_for_name
-from api.services.memory_benchmark import (
+from verilore.api.models.memory import MemoryRequest, MemoryResponse
+from verilore.api.services.corpora import corpus_id_for_name
+from verilore.api.services.memory_benchmark import (
     FixtureEmbedder,
     _performance,
     budget_baseline,
@@ -29,7 +29,7 @@ from api.services.memory_benchmark import (
     score_expectations,
     text_availability,
 )
-from api.services.memory_public import MemoryError
+from verilore.api.services.memory_public import MemoryError
 
 
 def source(value):
@@ -228,7 +228,7 @@ def test_baseline_budget_counts_envelope_and_preserves_whole_unicode_text():
     ],
 )
 def test_gate_includes_all_pack_safety_and_performance_not_recall(violation):
-    from api.services.memory_benchmark import _apply_gate
+    from verilore.api.services.memory_benchmark import _apply_gate
 
     pack = {
         "budget": 1000,
@@ -262,7 +262,7 @@ async def test_generation_route_wiring_not_quality(workload_file, postgres_url, 
     """Mock provider + fixture vectors test actual ask wiring ONLY, not quality."""
     from unittest.mock import patch
 
-    from api.services import memory_benchmark as benchmark
+    from verilore.api.services import memory_benchmark as benchmark
 
     class WiringProvider:
         model_name = "MOCK-WIRING-NOT-QUALITY"
@@ -274,10 +274,10 @@ async def test_generation_route_wiring_not_quality(workload_file, postgres_url, 
             return "Mock wiring answer, not a quality measurement"
 
     provider = WiringProvider()
-    monkeypatch.setattr("api.services.llm_service.LLMService", lambda: provider)
+    monkeypatch.setattr("verilore.api.services.llm_service.LLMService", lambda: provider)
     monkeypatch.setenv("LLM_PROVIDER", "wiring-only")
-    with patch("api.services.embedder.Embedder", return_value=FixtureEmbedder()):
-        from api.routers import query as route
+    with patch("verilore.api.services.embedder.Embedder", return_value=FixtureEmbedder()):
+        from verilore.api.routers import query as route
     bindings = (route.session_scope, route.embedder, route.llm_service)
     async with memory_benchmark_workload(workload_file, database_url=postgres_url) as workload:
         q = workload.spec["queries"][0]
@@ -319,7 +319,7 @@ def test_cached_embedder_requests_local_files_only(monkeypatch):
     whichever backend is installed -- which is the reason `CachedEmbedder` now goes
     through the shared loader instead of building `SentenceTransformer` itself.
     """
-    from api.services.memory_benchmark import CachedEmbedder
+    from verilore.api.services.memory_benchmark import CachedEmbedder
 
     monkeypatch.setenv("MEMORY_EMBEDDER", "torch")
     seen = []
@@ -338,7 +338,7 @@ def test_cached_embedder_requests_local_files_only(monkeypatch):
 
 def test_the_no_network_promise_reaches_whichever_backend_is_installed(monkeypatch):
     """Not a repeat of the test above: it checks the argument, this checks the plumbing."""
-    from api.services import embedder as module
+    from verilore.api.services import embedder as module
 
     seen = {}
     monkeypatch.setattr(module, "_OnnxBackend", lambda name, **kw: seen.update(onnx=kw) or object())
@@ -541,7 +541,7 @@ async def test_supersession_checks_status_and_linkage(workload_file, postgres_ur
 async def test_snapshot_timing_creates_fresh_rows_and_rolls_back(
     workload_file, postgres_url, monkeypatch
 ):
-    from api.services import memory_benchmark as benchmark
+    from verilore.api.services import memory_benchmark as benchmark
 
     original = benchmark.execute_in_session
     snapshots = []

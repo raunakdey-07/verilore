@@ -37,7 +37,7 @@ URL = "postgresql://mpadmin:secret@localhost:5432/verilore"
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -52,8 +52,8 @@ def _session(conn):
 async def build(claims: int):
     from m0117_scale import Offline, build_documents
 
-    from api.services.claim_embeddings import pending
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.claim_embeddings import pending
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(
         URL.replace("postgresql://", "postgresql+asyncpg://"), poolclass=NullPool
@@ -75,8 +75,8 @@ async def build(claims: int):
             async with _session(conn) as db:
                 await service._ingest_content(db, content, path, corpus_id)
         # Fill the cache with the real embedder, as production does.
-        from api.services.claim_embeddings import store
-        from api.services.embedder import Embedder
+        from verilore.api.services.claim_embeddings import store
+        from verilore.api.services.embedder import Embedder
 
         embedder = Embedder()
         async with _session(conn) as db:
@@ -102,8 +102,8 @@ async def build(claims: int):
 
 
 async def main(claims: int, calls: int):
-    from api.services.claim_embeddings import load_cached
-    from api.services.embedder import Embedder
+    from verilore.api.services.claim_embeddings import load_cached
+    from verilore.api.services.embedder import Embedder
 
     schema, corpus_id, wanted = await build(claims)
     embedder = Embedder()

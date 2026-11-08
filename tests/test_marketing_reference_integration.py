@@ -47,7 +47,7 @@ def memory_service_url():
 
     Deliberately not `ASGITransport(app=app)`. That transport exercises the whole
     application and skips only the socket, which made it tempting -- and it is why
-    the example used to import `api.main.app`. A consumer of Verilore connects
+    the example used to import `verilore.api.main.app`. A consumer of Verilore connects
     to a URL, so the example connects to a URL too, and this suite proves it.
 
     The subprocess inherits `DATABASE_URL` and `VERILORE_AUTH_MODE`, so the
@@ -84,7 +84,7 @@ def memory_service_url():
             sys.executable,
             "-m",
             "uvicorn",
-            "api.main:app",
+            "verilore.api.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -133,7 +133,7 @@ async def seeded(monkeypatch, memory_service_url):
     """
     import sqlalchemy as sa
 
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
     from marketing_memory.memory import MemoryClient
     from tenant_harness import require_auth_mode, sync_url
     from test_tenant_isolation import _provision, _reset
@@ -501,11 +501,11 @@ async def test_the_example_imports_no_verilore_internals_at_all():
     The integration is supposed to prove that an application can depend on Mind
     Palace's public contract alone. It did not, twice over:
 
-    * an early version reached for `api.services.memory_public.execute` and
-      `api.models.memory.MemoryRequest` and called that public. Any application
+    * an early version reached for `verilore.api.services.memory_public.execute` and
+      `verilore.api.models.memory.MemoryRequest` and called that public. Any application
       needing those imports cannot be pointed at a different deployment, and
       breaks when the storage changes underneath a contract that did not;
-    * the provisioning step and the demo each imported `api.main.app`, and this
+    * the provisioning step and the demo each imported `verilore.api.main.app`, and this
       test then carried a written exception listing exactly those four lines.
 
     A test with an exception list is a test that has already decided what it is

@@ -44,7 +44,7 @@ import os
 
 import pytest
 
-from api.services.parser import FrontmatterWarning, parse_markdown
+from verilore.api.services.parser import FrontmatterWarning, parse_markdown
 
 # See tests/test_security.py: redundant under `asyncio_mode = "auto"`, and it
 # warned on every sync test in this module.
@@ -135,10 +135,10 @@ async def test_sync_of_unparseable_documents_reports_zero_claims_and_fails(tmp_p
     """
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.corpora import corpus_id_for_name
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.corpora import corpus_id_for_name
+    from verilore.api.services.ingestion import IngestionService
 
     for index in range(11):
         (tmp_path / f"doc{index:02d}.md").write_text(BROKEN.replace("doc.md", f"doc{index:02d}.md"))
@@ -173,10 +173,10 @@ async def test_sync_flags_documents_that_declare_no_claims(tmp_path):
     """Legitimate prose is not a failure, but it is not silently equal to memory."""
     from sqlalchemy import text
 
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.corpora import corpus_id_for_name
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.corpora import corpus_id_for_name
+    from verilore.api.services.ingestion import IngestionService
 
     (tmp_path / "prose.md").write_text("---\ntitle: prose.md\n---\n\nSome notes, no claims.\n")
     corpus_id = corpus_id_for_name("test_no_claims_sync")

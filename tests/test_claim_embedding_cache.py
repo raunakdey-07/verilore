@@ -19,11 +19,11 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.models.memory import MemoryRequest
-from api.services import claim_embeddings, memory_public
-from api.services.memory_public import execute_in_session
-from api.services.memory_query import interpret
-from api.services.memory_relevance import RelevancePolicy, relevance
+from verilore.api.models.memory import MemoryRequest
+from verilore.api.services import claim_embeddings, memory_public
+from verilore.api.services.memory_public import execute_in_session
+from verilore.api.services.memory_query import interpret
+from verilore.api.services.memory_relevance import RelevancePolicy, relevance
 
 try:
     from tests import test_memory_ingestion as ing
@@ -95,7 +95,7 @@ async def clear_cache(store) -> None:
 
 async def test_ingestion_populates_the_cache(memory_ingestion_db):
     sessions, corpus = memory_ingestion_db
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", corpus)
@@ -103,7 +103,7 @@ async def test_ingestion_populates_the_cache(memory_ingestion_db):
 
 
 async def test_cache_hit_returns_exactly_the_uncached_answer(memory_ingestion_db):
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", memory_ingestion_db[1])
@@ -123,7 +123,7 @@ async def test_cache_hit_returns_exactly_the_uncached_answer(memory_ingestion_db
 
 
 async def test_dropping_the_table_answers_identically(memory_ingestion_db):
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", memory_ingestion_db[1])
@@ -137,7 +137,7 @@ async def test_dropping_the_table_answers_identically(memory_ingestion_db):
 
 
 async def test_a_row_whose_text_changed_is_ignored(memory_ingestion_db):
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", memory_ingestion_db[1])
@@ -160,7 +160,7 @@ async def test_a_row_whose_text_changed_is_ignored(memory_ingestion_db):
     "column,value", [("embedding_model", "other-model"), ("embedding_dimension", 7)]
 )
 async def test_a_row_from_another_model_is_ignored(memory_ingestion_db, column, value):
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", memory_ingestion_db[1])
@@ -180,9 +180,9 @@ async def test_a_row_from_another_model_is_ignored(memory_ingestion_db, column, 
 async def test_cached_vectors_select_the_same_keys_and_embed_only_the_question(
     memory_ingestion_db,
 ):
-    from api.services import memory
-    from api.services.ingestion import IngestionService
-    from api.services.memory_public import State
+    from verilore.api.services import memory
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.memory_public import State
 
     # The fixture installs FixedEmbedder, so the cache rows carry its identity.
     # Reading with a different identity would be rejected, which is the point.
@@ -226,8 +226,8 @@ async def test_cached_vectors_select_the_same_keys_and_embed_only_the_question(
 
 
 async def test_reindex_rebuilds_the_cache_from_the_archive(memory_ingestion_db):
-    from api.services.ingestion import IngestionService
-    from api.services.rehydrate import backfill_claim_embeddings
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.rehydrate import backfill_claim_embeddings
 
     service = IngestionService(memory_enabled=True)
     await service.ingest_file(source(DATABASE), "docs/storage.md", memory_ingestion_db[1])
@@ -252,8 +252,8 @@ async def test_reindex_refreshes_a_vector_whose_representation_changed(memory_in
     (corpus, claim), so the refresh is an update of the row that is already
     there, not a second row and not a skipped one.
     """
-    from api.services.ingestion import IngestionService
-    from api.services.rehydrate import backfill_claim_embeddings
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.rehydrate import backfill_claim_embeddings
 
     sessions, corpus = memory_ingestion_db
     service = IngestionService(memory_enabled=True)
@@ -316,10 +316,10 @@ async def test_cached_vector_load_binds_no_array_parameters(memory_ingestion_db)
     second check confirms repeated calls stay in the same order of magnitude at
     whatever size the test corpus happens to be.
     """
-    from api.services.claim_embeddings import load_cached, pending
-    from api.services.embedder import Embedder
-    from api.services.ingestion import IngestionService
-    from api.services.rehydrate import backfill_claim_embeddings
+    from verilore.api.services.claim_embeddings import load_cached, pending
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.rehydrate import backfill_claim_embeddings
 
     sessions, corpus = memory_ingestion_db
     service = IngestionService(memory_enabled=True)

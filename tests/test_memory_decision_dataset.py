@@ -1,6 +1,6 @@
 """Development dataset construction must not consume frozen held-out data."""
 
-from api.services.memory_decision_dataset import (
+from verilore.api.services.memory_decision_dataset import (
     dataset_integrity_summary,
     load_development_examples,
 )

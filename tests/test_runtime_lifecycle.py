@@ -42,7 +42,7 @@ def isolated_state(tmp_path):
     previous = os.environ.get("VERILORE_STATE_DIR")
     os.environ["VERILORE_STATE_DIR"] = str(state)
     try:
-        from api import runtime as runtime_module
+        from verilore.api import runtime as runtime_module
 
         runtime_module._ensure_token()
         yield runtime_module, state
@@ -131,7 +131,7 @@ def test_start_is_idempotent_and_reports_already_running(runtime, tmp_path):
     before = runtime_module.status().pid
 
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main", "runtime", "start"],
+        [sys.executable, "-m", "verilore.cli.main", "runtime", "start"],
         cwd=str(ROOT),
         env=child_env(state),
         capture_output=True,
@@ -152,7 +152,7 @@ def test_status_is_a_no_op_when_nothing_is_running(tmp_path):
         assert runtime_module.reachable() is False
 
         done = subprocess.run(
-            [sys.executable, "-m", "cli.main", "runtime", "status"],
+            [sys.executable, "-m", "verilore.cli.main", "runtime", "status"],
             cwd=str(ROOT),
             env=child_env(_state),
             capture_output=True,
@@ -164,7 +164,7 @@ def test_status_is_a_no_op_when_nothing_is_running(tmp_path):
 
         # And `--json` says the same thing in a shape a script can read.
         machine = subprocess.run(
-            [sys.executable, "-m", "cli.main", "runtime", "status", "--json"],
+            [sys.executable, "-m", "verilore.cli.main", "runtime", "status", "--json"],
             cwd=str(ROOT),
             env=child_env(_state),
             capture_output=True,
@@ -198,7 +198,7 @@ def test_a_stale_socket_is_replaced_not_surfaced_as_an_error(tmp_path):
 
         # A command must not raise, and must not need the file removed by hand.
         done = subprocess.run(
-            [sys.executable, "-m", "cli.main", "runtime", "start", "--wait"],
+            [sys.executable, "-m", "verilore.cli.main", "runtime", "start", "--wait"],
             cwd=str(ROOT),
             env=child_env(state),
             capture_output=True,
@@ -471,7 +471,7 @@ def _url_for_database(name: str) -> str:
 
 
 def _database_id_for(url: str) -> str:
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     return runtime_module.database_id_for(url)
 
@@ -482,7 +482,7 @@ def test_the_build_hash_moves_when_the_code_moves(tmp_path, monkeypatch):
     Without this, `build_id` could be a constant wearing a hash costume and every
     test above would still pass, because they compare a build against itself.
     """
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     before = runtime_module.build_hash()
     monkeypatch.setattr(runtime_module, "_BUILD_HASH", None)
@@ -505,7 +505,7 @@ def test_a_stale_runtime_is_discarded_and_the_command_still_succeeds(tmp_path):
     fall back to in-process rather than failing -- and must stop the stale process
     so the *next* command is fast as well as correct.
     """
-    from verilore_sdk import _discard_stale_runtime
+    from verilore.sdk import _discard_stale_runtime
 
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
@@ -565,7 +565,7 @@ def _runtime_pids() -> list[int]:
             cmdline = (entry / "cmdline").read_bytes().decode("utf-8", "replace")
         except OSError:
             continue
-        if "verilore_runtime" in cmdline or "verilore" + "_runtime" in cmdline:
+        if "verilore.runtime" in cmdline or "verilore" + ".runtime" in cmdline:
             found.append(int(entry.name))
     return found
 

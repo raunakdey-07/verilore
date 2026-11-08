@@ -74,13 +74,13 @@ async def datastore_claim(store):
 
 
 def _request(store, **fields):
-    from api.models.memory import MemoryRequest
+    from verilore.api.models.memory import MemoryRequest
 
     return MemoryRequest(corpus=store.name, query=QUESTION, valid_at=WHEN, **fields)
 
 
 async def test_rest_sdk_and_mcp_agree_without_a_receipt(store, interfaces):
-    from api.models.memory import MemoryResponse
+    from verilore.api.models.memory import MemoryResponse
 
     request = _request(store)
     fields = request.model_dump(mode="json", exclude_unset=True, exclude={"corpus"})
@@ -110,7 +110,7 @@ async def test_rest_sdk_and_mcp_agree_without_a_receipt(store, interfaces):
 
 
 async def test_rest_sdk_and_mcp_agree_on_a_receipt(store, interfaces):
-    from api.models.memory import MemoryResponse
+    from verilore.api.models.memory import MemoryResponse
 
     request = _request(store, include_receipt=True)
     fields = request.model_dump(mode="json", exclude_unset=True, exclude={"corpus"})
@@ -139,7 +139,7 @@ async def test_rest_sdk_and_mcp_agree_on_a_receipt(store, interfaces):
 
 
 async def test_mcp_explain_returns_provenance_not_reasoning(store, interfaces):
-    from api.models.memory import MemoryResponse
+    from verilore.api.models.memory import MemoryResponse
 
     request = _request(store)
     tool = await interfaces.mcp.call_tool(
@@ -176,8 +176,8 @@ async def test_mcp_explain_reconstructs_the_state_that_was_recorded(store, inter
     today's. Asking with no cutoff gets the successor, whose receipt records the
     supersession. Both verify against the artifact they describe.
     """
-    from api.models.memory import MemoryRequest, MemoryResponse
-    from memory_receipt import verify_response_receipt
+    from verilore.api.models.memory import MemoryRequest, MemoryResponse
+    from verilore.receipt import verify_response_receipt
 
     history = await public.call(store, "history")
     superseded = [
@@ -230,7 +230,7 @@ async def test_mcp_explain_reconstructs_the_state_that_was_recorded(store, inter
 
 
 async def test_mcp_reports_service_errors_without_leaking_internals(store, interfaces):
-    from api.models.memory import MemoryRequest
+    from verilore.api.models.memory import MemoryRequest
 
     request = MemoryRequest(corpus="no-such-corpus-xyz", query=QUESTION, valid_at=WHEN)
     tool = await interfaces.mcp.call_tool(

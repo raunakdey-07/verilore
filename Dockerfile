@@ -11,8 +11,7 @@ WORKDIR /app
 COPY requirements-runtime.txt requirements-docker.txt ./
 RUN pip install --no-cache-dir --no-compile -r requirements-docker.txt
 
-COPY api ./api
-COPY migrations ./migrations
+COPY verilore ./verilore
 COPY content ./content
 
 EXPOSE 8000
@@ -34,9 +33,9 @@ USER 10001:10001
 #     -e VERILORE_AUTH_MODE=required \
 #     -e VERILORE_INGEST_ROOTS=/content \
 #     -e DATABASE_URL=... verilore \
-#     verilore uvicorn api.main:app --host 0.0.0.0 --port 8000
+#     verilore uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 #
 # `VERILORE_DEPLOYMENT=server` alone refuses to start unless authentication is
 # on and the database role enforces row-level security, so the host argument and
 # the profile cannot drift apart unnoticed.
-CMD ["uvicorn", "api.main:app", "--host", "127.0.0.1", "--port", "8000"]
+CMD ["uvicorn", "verilore.api.main:app", "--host", "127.0.0.1", "--port", "8000"]

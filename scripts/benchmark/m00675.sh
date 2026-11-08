@@ -22,7 +22,7 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
 PYTHONPATH="$root" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-  "$python_bin" -m api.services.memory_query_benchmark \
+  "$python_bin" -m verilore.api.services.memory_query_benchmark \
   --save "$tmp" --reliability heldout \
   --policy-file "$root/eval/memory_query_policy.json"
 

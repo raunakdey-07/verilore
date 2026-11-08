@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from api.services import revalidate as R
+from verilore.api.services import revalidate as R
 
 
 def _graph(rows):
@@ -189,7 +189,7 @@ def test_load_artifact_path_confinement(tmp_path, monkeypatch):
     root = tmp_path / "docs"
     root.mkdir()
     monkeypatch.setenv("VERILORE_INGEST_ROOTS", str(root))
-    from mcp_server import _load_artifact
+    from verilore.mcp_server import _load_artifact
 
     ok = root / "a.json"
     ok.write_text('{"x": 1}')
@@ -202,7 +202,7 @@ def test_load_artifact_path_confinement(tmp_path, monkeypatch):
 
 
 def test_trailing_ordinal_parses():
-    from api.services.memory import _trailing_ordinal
+    from verilore.api.services.memory import _trailing_ordinal
 
     assert _trailing_ordinal("queue.item:3") == 3
     assert _trailing_ordinal("queue.item:12") == 12
@@ -216,8 +216,8 @@ def test_cross_corpus_mismatch_detection():
 
 
 async def test_include_drift_flags(store):
-    from api.services import ingestion as ingestion_service
-    from api.services import revalidate as revalidate_service
+    from verilore.api.services import ingestion as ingestion_service
+    from verilore.api.services import revalidate as revalidate_service
 
     await ingestion_service.IngestionService(
         memory_enabled=True, require_embeddings=False
@@ -253,7 +253,7 @@ async def test_include_drift_flags(store):
 def test_cross_corpus_mismatch_mcp():
     import asyncio
     import json
-    import mcp_server
+    import verilore.mcp_server
 
     async def run():
         return await mcp_server.mcp.call_tool(
@@ -268,7 +268,7 @@ def test_cross_corpus_mismatch_mcp():
 
 
 def test_pairing_valid_and_ambiguous():
-    from api.services.memory import _pair_supersession_claims
+    from verilore.api.services.memory import _pair_supersession_claims
 
     keys = ["a", "b"]
     key_claim = {"a": "Storage: SQLite", "b": "Auth: cookies"}

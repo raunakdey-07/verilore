@@ -14,8 +14,8 @@ import json
 import os
 from pathlib import Path
 
-from api.models.memory import MemoryRequest, MemoryResponse
-from api.services.memory_benchmark import (
+from verilore.api.models.memory import MemoryRequest, MemoryResponse
+from verilore.api.services.memory_benchmark import (
     PACK_BUDGETS,
     check_provenance,
     memory_benchmark_workload,

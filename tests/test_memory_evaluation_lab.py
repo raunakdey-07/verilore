@@ -1,4 +1,4 @@
-from api.services.memory_evaluation_lab import run_all
+from verilore.api.services.memory_evaluation_lab import run_all
 
 
 def test_semantic_oracle_suites_are_explicitly_synthetic():

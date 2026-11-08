@@ -136,7 +136,7 @@ def create_session_database(base_url: str) -> str:
     previous, os.environ["DATABASE_URL"] = os.environ["DATABASE_URL"], url
     try:
         migrations = subprocess.run(
-            [sys.executable, "-m", "alembic", "-c", "migrations/alembic.ini", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "-c", "verilore/migrations/alembic.ini", "upgrade", "head"],
             cwd=ROOT,
             capture_output=True,
             text=True,

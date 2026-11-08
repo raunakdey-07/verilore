@@ -27,9 +27,9 @@ from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app
-from api.services.markdown_claims import extract
-from api.services.parser import (
+from verilore.api.main import app
+from verilore.api.services.markdown_claims import extract
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
 )

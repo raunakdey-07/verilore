@@ -17,8 +17,8 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from api.services.embedder import Embedder  # noqa: E402
-from verilore_sdk import Verilore  # noqa: E402
+from verilore.api.services.embedder import Embedder  # noqa: E402
+from verilore.sdk import Verilore  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Dataset
@@ -598,8 +598,8 @@ def run_benchmark():
         reval_mp_correct = 0
         try:
             import asyncio
-            from api.services.db import session_scope
-            from api.services.revalidate import _corpus_id, _fetch_claims
+            from verilore.api.services.db import session_scope
+            from verilore.api.services.revalidate import _corpus_id, _fetch_claims
 
             async def _ids():
                 async with session_scope() as db:
@@ -703,7 +703,7 @@ def run_benchmark():
     finally:
         try:
             subprocess.run(
-                [sys.executable, "-m", "cli.main", "corpus", "delete", corpus_name, "--yes"],
+                [sys.executable, "-m", "verilore.cli.main", "corpus", "delete", corpus_name, "--yes"],
                 cwd=str(ROOT),
                 env={**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", "")},
                 capture_output=True,

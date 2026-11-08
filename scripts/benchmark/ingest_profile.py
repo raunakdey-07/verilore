@@ -65,8 +65,8 @@ def _instrument(timings: dict, connections: dict) -> list:
     """Wrap the phase functions so every phase is timed where it runs."""
     import inspect
 
-    from api.services import claim_embeddings, ingestion, memory
-    from api.services.db import async_engine
+    from verilore.api.services import claim_embeddings, ingestion, memory
+    from verilore.api.services.db import async_engine
 
     patches: list = []
 
@@ -127,8 +127,8 @@ async def _erase(names: list[str]) -> None:
     """Delete the disposable corpora the run created."""
     if not names:
         return
-    from api.services.corpora import delete_corpus
-    from api.services.db import session_scope
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import session_scope
 
     for name in names:
         try:
@@ -139,9 +139,9 @@ async def _erase(names: list[str]) -> None:
 
 
 async def _run(args) -> dict:
-    from api.services.corpora import delete_corpus, get_or_create_corpus
-    from api.services.db import session_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.corpora import delete_corpus, get_or_create_corpus
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.ingestion import IngestionService
 
     totals = {"wall clock": 0.0}
     per_corpus = {}

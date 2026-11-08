@@ -46,7 +46,7 @@ export VERILORE_CURSOR_SECRET=$(python -c "import secrets;print(secrets.token_ur
 export VERILORE_INGEST_ROOTS="$PWD"
 docker compose up -d postgresql
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 $ verilore init
 
 # Ingest a plain ADR. No frontmatter, no `claims:` block: headings, list items and
@@ -171,7 +171,7 @@ and both rejections with their messages.
 From Python, with no server and no subprocess:
 
 ```python
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 client = Verilore("default")
 client.remember("Support answers within one business day.", key="support.sla")

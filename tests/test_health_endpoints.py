@@ -4,12 +4,12 @@ import asyncio
 
 from fastapi.testclient import TestClient
 
-from api.main import app
+from verilore.api.main import app
 
 
 async def _clean_posture(_db):
     """A least-privileged runtime role, as `inspect` would report it."""
-    from api.services.posture import DatabasePosture
+    from verilore.api.services.posture import DatabasePosture
 
     from tenant_harness import RUNTIME_ROLE
 
@@ -34,7 +34,7 @@ def test_liveness_does_not_require_database(monkeypatch):
     async def unavailable():
         raise OSError("connection refused")
 
-    monkeypatch.setattr("api.services.db.init_db", unavailable)
+    monkeypatch.setattr("verilore.api.services.db.init_db", unavailable)
     with TestClient(app) as client:
         response = client.get("/health/live")
     assert response.status_code == 200
@@ -56,8 +56,8 @@ def test_readiness_reports_healthy_schema(monkeypatch):
     # This test is about whether a healthy schema reports ready; whether a role
     # actually enforces the policies is a separate question with a separate set
     # of tests against a real role, in `test_credential_management.py`.
-    monkeypatch.setattr("api.services.db.session_scope", lambda: ReadySession())
-    monkeypatch.setattr("api.main.inspect_posture", _clean_posture)
+    monkeypatch.setattr("verilore.api.services.db.session_scope", lambda: ReadySession())
+    monkeypatch.setattr("verilore.api.main.inspect_posture", _clean_posture)
     with TestClient(app) as client:
         response = client.get("/health/ready")
     assert response.status_code == 200
@@ -89,7 +89,7 @@ def test_readiness_reports_missing_schema(monkeypatch):
         async def execute(self, _query):
             return type("Result", (), {"one": lambda self: (True, False, True)})()
 
-    monkeypatch.setattr("api.services.db.session_scope", lambda: MissingSchemaSession())
+    monkeypatch.setattr("verilore.api.services.db.session_scope", lambda: MissingSchemaSession())
     with TestClient(app) as client:
         response = client.get("/health/ready")
     assert response.status_code == 503
@@ -109,7 +109,7 @@ def test_readiness_reports_timeout_without_details(monkeypatch):
             return type("Result", (), {"one": lambda self: (True, True, True)})()
 
     monkeypatch.setenv("VERILORE_READINESS_TIMEOUT_SECONDS", "0.001")
-    monkeypatch.setattr("api.services.db.session_scope", lambda: SlowSession())
+    monkeypatch.setattr("verilore.api.services.db.session_scope", lambda: SlowSession())
     with TestClient(app) as client:
         response = client.get("/health/ready")
     assert response.status_code == 503
@@ -129,7 +129,7 @@ def test_readiness_reports_database_failure(monkeypatch):
         async def __aexit__(self, *_):
             return False
 
-    monkeypatch.setattr("api.services.db.session_scope", lambda: BrokenSession())
+    monkeypatch.setattr("verilore.api.services.db.session_scope", lambda: BrokenSession())
     with TestClient(app) as client:
         response = client.get("/health/ready")
     assert response.status_code == 503
