@@ -213,13 +213,15 @@ Status: Accepted
 definitions, horizontal rules, block quotes, and a document's own `# title`. A
 code block holds example commands, which are not decisions.
 
-**Identity is positional.** A claim's key is `md:<heading path>:<ordinal>`, the
-ordinal counting the extracted claims under that heading path. Editing a bullet
-supersedes it in place, because the key does not move when the text does. A
-key derived from the text would change on every edit and leave the old claim
-un-superseded, joined by a second claim under a second key. Inserting a bullet
-renumbers the ones after it, so those supersede each other; that is honest, since
-the document did change under them.
+**Identity follows the item, not its position.** A claim's key is
+`md:<heading path>:<ordinal>`. On a document's first ingest the ordinal counts the
+extracted claims under that heading path. On every later ingest the new claims are
+matched against the previous version: a bullet whose text did not change keeps
+its key wherever it moved, a bullet edited in place keeps its key and supersedes
+its old text, and a new bullet gets an ordinal the document has never used. So
+inserting, moving or deleting a bullet leaves the history of the others alone
+(#160). A bullet moved to a different heading gets a new key, because the heading
+is part of what it says.
 
 **An authored `claims:` block wins outright.** The reader does not run on a
 document that has one. An author's key is a decision, and the tool does not

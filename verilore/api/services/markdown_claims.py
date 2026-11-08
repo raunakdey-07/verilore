@@ -64,21 +64,25 @@ alone rather than read as a row of columns that was never there.
 A bare heading is the context for what follows it, not a claim on its own, and
 the first `# title` of a document is its name rather than a statement.
 
-## Identity, and why it is positional
+## Identity: positional first, then aligned with the previous version
 
-A claim's key is `md:<heading path>:<ordinal>`, where the ordinal counts the
-extracted claims under that heading path from zero.
+On a document's first version a claim's key is `md:<heading path>:<ordinal>`,
+where the ordinal counts the extracted claims under that heading path from zero.
 
-Positional, not derived from the text, and that is the whole point. A key derived
-from the text would change when the text changed, and the old claim would then
-never be superseded -- it would simply be joined by a second, unrelated claim
-under a second key. Positional identity means editing a bullet supersedes it in
-place, which is what `history` shows and what a reader expects.
+Not derived from the text, and that is the point. A key derived from the text
+would change when the text changed, and the old claim would then never be
+superseded -- it would simply be joined by a second, unrelated claim under a
+second key. Editing a bullet has to supersede it in place, which is what
+`history` shows and what a reader expects.
 
-The cost is that inserting a bullet renumbers the ones after it, so those claims
-supersede each other. That is the honest reading: the document did change under
-them. Keys are scoped by their heading path, so a bullet that moves to a
-different section gets a different key, which is also correct.
+Purely positional keys had the opposite problem (#160): inserting one bullet
+renumbered every bullet after it, so on re-ingest each of them "superseded" its
+neighbour and history recorded edits nobody made. So on every later version,
+`align_keys` matches the new claims against the previous version's before they
+are archived: unchanged text keeps its key wherever it moved, an item changed in
+place keeps the key of the item it replaced, and a genuinely new item gets an
+ordinal no version of the document has used. Keys stay scoped by heading path, so
+a bullet that moves to a different section still gets a different key.
 
 ## When it does not run
 
@@ -1063,6 +1067,127 @@ def claims_for(metadata: dict, body: str, chunks: list[dict], *, path: str = "")
         return None
     claims, warnings = extract(body, chunks, path=path)
     return {"claims": claims}, warnings
+
+
+def _split_key(key: str) -> tuple[str, int] | None:
+    """`md:<path>:<n>` -> (`md:<path>`, n); anything else -> None."""
+    if not isinstance(key, str) or not key.startswith("md:"):
+        return None
+    base, _, tail = key.rpartition(":")
+    if not base or not tail.isdigit():
+        return None
+    return base, int(tail)
+
+
+#: How alike an old and a new item must be to count as an edit of one another
+#: when a changed region holds a different number of items before and after.
+EDIT_SIMILARITY = 0.5
+
+
+def _pair_edits(removed, added, new_texts):
+    """Pair removed (key, text) items with added positions inside one changed region.
+
+    Same count on both sides: the region was rewritten in place, so items pair in
+    order. Different counts: an item pairs only with its most similar counterpart,
+    and only when they are at least EDIT_SIMILARITY alike; the rest are new.
+    """
+    from difflib import SequenceMatcher
+
+    if len(removed) == len(added):
+        return [(key, position) for (key, _), position in zip(removed, added)]
+    pairs = []
+    free = list(added)
+    for key, text in removed:
+        scored = [
+            (SequenceMatcher(None, text, new_texts[position], autojunk=False).ratio(), position)
+            for position in free
+        ]
+        if not scored:
+            break
+        score, position = max(scored, key=lambda item: (item[0], -item[1]))
+        if score >= EDIT_SIMILARITY:
+            pairs.append((key, position))
+            free.remove(position)
+    return pairs
+
+
+def align_keys(
+    previous: list[tuple[str, str]],
+    current: list[dict],
+    used: dict[str, int],
+) -> list[dict]:
+    """Give each claim the key it had in the document's previous version.
+
+    Extraction numbers claims by position, so inserting one list item renumbers
+    every item after it, and on re-ingest each of them would supersede its
+    neighbour (#160). This keeps a claim's key when its text is unchanged:
+
+    * `previous` is the previous version's (key, claim) pairs, in document order.
+    * `current` is what `extract` just produced. Its keys are positional, so the
+      ordinal is the document order within each key base.
+    * `used` maps a key base to the highest ordinal any version of this document
+      has used. A new key starts above it, so a key is never reused.
+
+    Per key base (the key without its ordinal), the two text sequences are
+    diffed. Unchanged text keeps its key. A replaced run pairs up in order, so an
+    edited item keeps its key and supersedes its old text. Inserted items get new
+    keys, unless the same text was deleted elsewhere in the base (a move), in
+    which case it takes that key back. Deleted items simply stop being current.
+
+    Returns new claim dicts; the input is not modified. Claims whose key is not
+    a positional Markdown key pass through unchanged.
+    """
+    from difflib import SequenceMatcher
+
+    previous_by_base: dict[str, list[tuple[str, str]]] = {}
+    for key, text in previous:
+        split = _split_key(key)
+        if split:
+            previous_by_base.setdefault(split[0], []).append((key, text))
+
+    current_by_base: dict[str, list[tuple[int, int]]] = {}
+    for index, claim in enumerate(current):
+        split = _split_key(claim.get("key"))
+        if split:
+            current_by_base.setdefault(split[0], []).append((split[1], index))
+
+    aligned = [dict(claim) for claim in current]
+    for base, positions in current_by_base.items():
+        old = previous_by_base.get(base)
+        if not old:
+            continue
+        order = [index for _, index in sorted(positions)]
+        new_texts = [current[index]["claim"] for index in order]
+        # 1. Unchanged text keeps its key, wherever it moved to.
+        old_key_by_text = {text: key for key, text in old}
+        kept_new: set[int] = set()
+        kept_old: set[str] = set()
+        for position, text in enumerate(new_texts):
+            key = old_key_by_text.get(text)
+            if key is not None and key not in kept_old:
+                aligned[order[position]]["key"] = key
+                kept_new.add(position)
+                kept_old.add(key)
+        # 2. Where the document was changed in place -- old items replaced by new
+        #    ones between the same neighbours -- the new item is an edit of the old
+        #    one and keeps its key, so it supersedes it. Anything else is new.
+        matcher = SequenceMatcher(None, [text for _, text in old], new_texts, autojunk=False)
+        pending: list[int] = []
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag not in ("replace", "insert"):
+                continue
+            removed = [old[i] for i in range(i1, i2) if old[i][0] not in kept_old]
+            added = [j for j in range(j1, j2) if j not in kept_new]
+            for key, position in _pair_edits(removed, added, new_texts):
+                aligned[order[position]]["key"] = key
+                added.remove(position)
+            pending.extend(added)
+        # 3. A new item gets a key no version of this document has used.
+        next_ordinal = max([used.get(base, -1)] + [_split_key(key)[1] for key, _ in old]) + 1
+        for position in pending:
+            aligned[order[position]]["key"] = f"{base}:{next_ordinal}"
+            next_ordinal += 1
+    return aligned
 
 
 def has_claims(body: str) -> bool:

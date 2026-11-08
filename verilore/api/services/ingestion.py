@@ -372,6 +372,52 @@ class IngestionService:
             "message": f"Ingested {count} chunks",
         }
 
+    @staticmethod
+    async def _align_with_previous(db, corpus_id: str, path: str, claims: list[dict]) -> list[dict]:
+        """Keep each extracted claim's key from the document's previous version (#160).
+
+        Only for claims the extractor derived. An authored `claims:` block keeps its
+        own keys, and a first version (or one after a deletion) keeps positional keys.
+        """
+        from verilore.api.services import memory
+
+        identity = memory.memory_document_id(corpus_id, path)
+        previous = await memory._latest(db, corpus_id, identity)
+        if not previous or previous["event"] == "DELETED":
+            return claims
+        # Document order of the previous version's claims, from where their
+        # evidence sits. Their keys are no longer positional once aligned.
+        rows = (
+            await db.execute(
+                text("""
+                SELECT c.key, c.claim
+                FROM memory_claims c
+                LEFT JOIN memory_evidence e
+                       ON e.corpus_id = c.corpus_id AND e.claim_id = c.id
+                LEFT JOIN memory_chunks ch
+                       ON ch.corpus_id = e.corpus_id AND ch.id = e.chunk_id
+                WHERE c.corpus_id = :c AND c.version_id = :v AND c.key LIKE 'md:%'
+                GROUP BY c.key, c.claim
+                ORDER BY min(ch.order_index), min(e.start_offset), c.key
+                """),
+                {"c": corpus_id, "v": previous["id"]},
+            )
+        ).all()
+        used: dict[str, int] = {}
+        for (key,) in (
+            await db.execute(
+                text("""
+                SELECT DISTINCT key FROM memory_claims
+                WHERE corpus_id = :c AND memory_document_id = :d AND key LIKE 'md:%'
+                """),
+                {"c": corpus_id, "d": identity},
+            )
+        ).all():
+            split = markdown_claims._split_key(key)
+            if split:
+                used[split[0]] = max(used.get(split[0], -1), split[1])
+        return markdown_claims.align_keys([(row.key, row.claim) for row in rows], claims, used)
+
     async def _ingest_memory_content(
         self,
         db,
@@ -450,6 +496,9 @@ class IngestionService:
             if derived and derived["claims"]:
                 from verilore.api.services import markdown_claims as _mc
 
+                derived["claims"] = await self._align_with_previous(
+                    db, corpus_id, path, derived["claims"]
+                )
                 _warnings = _mc.assign_states(derived["claims"], metadata)
                 for _warning in _warnings:
                     # `unknown_status:<value>`: report it like any other
