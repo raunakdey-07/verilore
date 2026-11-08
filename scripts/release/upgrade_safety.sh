@@ -80,9 +80,11 @@ OLD_INI="$(alembic_ini_for "$OLD")"
 # resolving to HEAD code that references columns the base schema lacks).
 BASE_VENV="$WORK/base-venv"
 BASE_PY="$BASE_VENV/bin/python"
-say "installing $BASE_TAG into its own venv ($OLD[cli])"
+say "installing $BASE_TAG into its own venv ($OLD[cli,migrations])"
 "$PY" -m venv "$BASE_VENV" >/dev/null
-"$BASE_PY" -m pip install "$OLD[cli]"
+# `[migrations]` is required: `env.py` rewrites the sync driver to psycopg2,
+# which lives in that extra, not in `[cli]` or the base deps.
+"$BASE_PY" -m pip install "$OLD[cli,migrations]"
 
 # The base head revision, derived from the base tree's own migration files --
 # never hard-coded, so the job survives the next tag. Derived with the same
