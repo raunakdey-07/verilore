@@ -61,25 +61,29 @@ def main() -> int:
     sys.path.insert(0, os.environ["SRC"])
     from sqlalchemy import text
 
-    # The migrated layout lives under `verilore.api.services`; the v0.9.0 tree
-    # still has `api.services` at the root. Accept either.
-    try:
+    # The fixture must be written by the code under test. The migrated layout
+    # lives under verilore.api.services; older trees have api.services at the
+    # root. Check which layout the source tree actually has so an editable
+    # install of another layout (on sys.path via site-packages) doesn't shadow
+    # the code we mean to exercise.
+    use_verilore_layout = os.path.isdir(os.path.join(os.environ["SRC"], "verilore"))
+
+    if use_verilore_layout:
         from verilore.api.services import db as dbm
-    except ImportError:
+
+        # v0.9.0 predates the principal model: it has neither
+        # `verilore.api.services.authz` nor `db.principal_scope` /
+        # `db.admin_session_scope`.
+        try:
+            from verilore.api.services import authz
+            ADMIN = authz.ADMIN_PRINCIPAL
+        except ImportError:
+            ADMIN = None
+    else:
         from api.services import db as dbm
 
-    # v0.9.0 predates the principal model: it has neither `api.services.authz`
-    # nor `db.principal_scope` / `db.admin_session_scope`. The fixture has to run
-    # on both sides of that change, because the whole point is to build the old
-    # archive with the old code.
-    try:
-        from verilore.api.services import authz
-
-        ADMIN = authz.ADMIN_PRINCIPAL
-    except ImportError:
         try:
             from api.services import authz
-
             ADMIN = authz.ADMIN_PRINCIPAL
         except ImportError:
             ADMIN = None
@@ -88,18 +92,26 @@ def main() -> int:
         return dbm.principal_scope(ADMIN) if ADMIN is not None else contextlib.nullcontext()
 
     scope = dbm.admin_session_scope if hasattr(dbm, "admin_session_scope") else dbm.session_scope
-    try:
+
+    if use_verilore_layout:
         from verilore.api.services.corpora import get_or_create_corpus
-    except ImportError:
+
+        # v0.9.0 is the first release with a dedicated
+        # `verilore.api.services.remember` module. v0.8.0 has the same schema --
+        # head 007, the same memory tables -- but its write path still lives in
+        # `verilore.api.services.memory`. Without this fallback the v0.8.0
+        # upgrade cannot be exercised at all.
+        try:
+            from verilore.api.services.remember import remember
+        except ImportError:
+            from verilore.api.services.memory import remember
+    else:
         from api.services.corpora import get_or_create_corpus
 
-    # v0.9.0 is the first release with a dedicated `verilore.api.services.remember`
-    # module. v0.8.0 has the same schema -- head 007, the same memory tables --
-    # but its write path still lives in `api.services.memory`. Without this
-    # fallback the v0.8.0 upgrade cannot be exercised at all.
-    try:
-        from verilore.api.services.remember import remember
-    except ImportError:
+        # v0.9.0 is the first release with a dedicated `api.services.remember`
+        # module. v0.8.0 has the same schema -- head 007, the same memory tables
+        # -- but its write path still lives in `api.services.memory`. Without
+        # this fallback the v0.8.0 upgrade cannot be exercised at all.
         try:
             from api.services.remember import remember
         except ImportError:
