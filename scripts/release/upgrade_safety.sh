@@ -85,8 +85,52 @@ say "installing $BASE_TAG into its own venv ($OLD[cli])"
 "$BASE_PY" -m pip install "$OLD[cli]"
 
 # The base head revision, derived from the base tree's own migration files --
-# never hard-coded, so the job survives the next tag.
-BASE_HEAD="$("$BASE_PY" -m alembic -c "$OLD_INI" heads 2>/dev/null | awk '{print $1}')"
+# never hard-coded, so the job survives the next tag. Derived with the same
+# pure-Python logic as scripts/release/check_versioning.py (a head is a
+# revision no other migration lists as its down_revision), rather than by
+# running `alembic heads` in the base venv: the base venv may lack alembic's
+# working directory or a plugin, and a silent `2>/dev/null` made that failure
+# look like a hang. Failures here are loud now.
+BASE_HEAD="$("$BASE_PY" - "$OLD" <<'PY'
+import re, sys
+from pathlib import Path
+
+old = Path(sys.argv[1])
+versions_dir = old / "verilore" / "migrations" / "versions"
+if not versions_dir.is_dir():
+    versions_dir = old / "migrations" / "versions"
+
+down_revisions = {}
+for path in sorted(versions_dir.glob("*.py")):
+    if path.name.startswith("__"):
+        continue
+    text = path.read_text(encoding="utf-8")
+    rev = re.search(r'^revision\s*(?::\s*[^=\n]*)?\s*=\s*"([^"]*)"', text, re.M)
+    if not rev:
+        continue
+    down = re.search(r"^down_revision\s*(?::\s*[^=\n]*)?\s*=\s*(.+)$", text, re.M)
+    if down is None:
+        downs = []
+    else:
+        raw = down.group(1).strip()
+        if raw in ("None", "none", "()", "[]"):
+            downs = []
+        elif raw.startswith('"') and raw.endswith('"'):
+            downs = [raw[1:-1]]
+        elif raw.startswith("'") and raw.endswith("'"):
+            downs = [raw[1:-1]]
+        else:
+            downs = [p.strip().strip("\"'") for p in raw.strip("()[]").split(",") if p.strip()]
+    down_revisions[rev.group(1)] = downs
+
+referenced = {d for downs in down_revisions.values() for d in downs}
+heads = [rev for rev in down_revisions if rev not in referenced]
+if len(heads) != 1:
+    print(f"expected exactly one migration head, found: {heads}", file=sys.stderr)
+    sys.exit(1)
+print(heads[0])
+PY
+)"
 if [ -z "$BASE_HEAD" ]; then
   echo "::error::could not determine the base migration head from $OLD_INI" >&2
   exit 1
