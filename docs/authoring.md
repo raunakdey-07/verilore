@@ -81,7 +81,7 @@ frontmatter only, they appear in the body. That is the whole rule.
 
 ## The rule, stated once
 
-`api/services/memory.py` enforces two things before anything is written:
+`verilore/api/services/memory.py` enforces two things before anything is written:
 
 1. **The `evidence` quote must be an exact substring of an archived chunk.**
 2. **The `claim` text must appear in the chunk that quote matched.**
@@ -115,7 +115,7 @@ its evidence quote, and the date it stopped being true.
 
 ## The two rejections you will hit
 
-Both messages come from `api/services/memory.py`, are wrapped in
+Both messages come from `verilore/api/services/memory.py`, are wrapped in
 `ClaimValidationError` with the document path and a version fingerprint, and
 **never contain your document's text** — a rejection has to be identifiable in a
 log without putting customer prose in one.

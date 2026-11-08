@@ -19,13 +19,13 @@ rolled-back transaction, following the pattern already used by
 | L0 identity and lineage | `memory_documents`, `memory_versions` | Yes | `memory.record_version`, `memory.record_deletion` |
 | L1 claims and evidence | `memory_claims`, `memory_evidence`, `memory_chunks` | Yes | `memory.record_version` |
 | L1 temporal references | `memory_snapshots`, `memory_snapshot_versions`, `memory_snapshot_seals` | Yes | `memory.snapshot` |
-| L2 derived | `documents`, `chunks` (text plus embeddings), `ingestion_manifest`, `idx_chunks_embedding` | No | `api/services/ingestion.py` |
+| L2 derived | `documents`, `chunks` (text plus embeddings), `ingestion_manifest`, `idx_chunks_embedding` | No | `verilore/api/services/ingestion.py` |
 
 L0 and L1 are the same PostgreSQL cluster as L2, so "separate layers" here means
 separate tables with separate write and mutation rules, not separate systems.
-`migrations/versions/004_memory.py` installs a statement-level trigger on the
+`verilore/migrations/versions/004_memory.py` installs a statement-level trigger on the
 seven archive tables that raises on `UPDATE`, `DELETE` and `TRUNCATE`.
-`migrations/versions/006_snapshot_membership_seal.py` extends the freeze to
+`verilore/migrations/versions/006_snapshot_membership_seal.py` extends the freeze to
 snapshot membership.
 
 In short, all three layers exist, L1 is the strongest part of the system, and
@@ -108,8 +108,8 @@ use_memory = self.memory_enabled or "claims" in metadata or await memory.enabled
 ```
 
 `IngestionService()` defaults to `memory_enabled=False`, and every production
-entry point constructs it that way: `api/routers/ingest.py:14`,
-`api/routers/corpora.py:90`, `verilore_sdk.py:356`. Measured on a corpus with
+entry point constructs it that way: `verilore/api/routers/ingest.py:14`,
+`verilore/api/routers/corpora.py:90`, `verilore/sdk.py:356`. Measured on a corpus with
 memory off:
 
 - A document with no `claims:` in frontmatter produced 0 archived versions. Its
@@ -145,9 +145,9 @@ Searching the repository for `reindex`, `rebuild`, `rehydrate` and `reconstruct`
 returns no implementation. `chunks` rows are only ever written by the ingestion
 service, through `sync_repo` and `ingest_file`, and both read from a filesystem
 directory. The Makefile has no target for it, and neither does the CLI.
-`cli/main.py` offers
+`verilore/cli/main.py` offers
 `ingest`, `ingest_repo`, `search`, `ask`, `summarize`, `interview`, `related`,
-`timeline`, `doctor` and `serve`, and `cli/memory.py` has the ten memory
+`timeline`, `doctor` and `serve`, and `verilore/cli/memory.py` has the ten memory
 operations. Nothing rebuilds the live index from the archive.
 
 This matters because the archive holds everything needed. Re-deriving the probe
@@ -198,7 +198,7 @@ by any current writer, so nothing is lost today. A rebuild that later needs
 
 ## Candidate change: rebuild the live index from the archive
 
-One new service module, `api/services/rehydrate.py`, plus one CLI command. It
+One new service module, `verilore/api/services/rehydrate.py`, plus one CLI command. It
 reads the latest non-`DELETED` version per `memory_document_id` for a corpus,
 takes `content`, runs the existing parser and chunker, embeds, and writes
 `documents`, `chunks` and `ingestion_manifest`. Writes stay in L2: the command

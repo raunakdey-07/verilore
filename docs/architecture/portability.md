@@ -45,7 +45,7 @@ re-verification. That is a project, not a patch.
 The practical consequence for a developer is worth stating plainly: **the
 PostgreSQL database is the archive.** Moving a corpus means moving the
 database, and the only mechanism available is `pg_dump` and `pg_restore`
-against a server that has the same extensions. `migrations/versions/001_initial_schema.py`
+against a server that has the same extensions. `verilore/migrations/versions/001_initial_schema.py`
 provisions `vector`, `pgcrypto`, and `pg_trgm`, so a target server needs
 pgvector available. Nothing in the repository automates or documents that
 transfer. The new `verilore reindex --corpus NAME` command rebuilds only the
@@ -61,7 +61,7 @@ bounded response for one query, not a lossless interchange format.
 Memory Pack is the closest thing to an export, and it is worth being precise
 about what it is.
 
-`bounded_pack` in `api/services/memory_public.py` takes a complete projected
+`bounded_pack` in `verilore/api/services/memory_public.py` takes a complete projected
 `MemoryResponse` and greedily selects claims, changes, conflicts, and uncertain
 memories until the canonical JSON envelope fits a character budget. Units and
 properties, all verified by running it:
@@ -181,17 +181,17 @@ and what it does not, and the `Dockerfile` matches. The image copies `api`,
 service modules.
 
 The exclusion of research modules is the one that could have broken the image,
-since `api/services/benchmark.py` imports `confidence` and `evaluation`, and
+since `verilore/api/services/benchmark.py` imports `confidence` and `evaluation`, and
 `quality_gate.py` imports `confidence`, all of which `.dockerignore` removes. I
 checked this with a static import-closure walk over the retained set. 27 modules
-are reachable from `api.main`, and every intra-`api` import resolves to a file
+are reachable from `verilore.api.main`, and every intra-`api` import resolves to a file
 the image keeps. The research modules import each other, never the reverse, so
 the image cannot fail with an `ImportError` from these exclusions. This is a
 well-executed packaging decision.
 
-One inconsistency worth noting but not worth changing: `api/__init__.py`,
-`api/routers/__init__.py`, and `api/services/__init__.py` exist, but
-`api/models/` has no `__init__.py` and resolves as a PEP 420 namespace package.
+One inconsistency worth noting but not worth changing: `verilore/api/__init__.py`,
+`verilore/api/routers/__init__.py`, and `verilore/api/services/__init__.py` exist, but
+`verilore/api/models/` has no `__init__.py` and resolves as a PEP 420 namespace package.
 It works, because the project root is on `sys.path` in both the image and an
 editable install. It would break under a zip-safe or differently-rooted install.
 

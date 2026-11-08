@@ -5,7 +5,7 @@
 Verilore exposes two ways to ask a corpus a question. Do they answer the same
 question, and what happens to each when the embedding model cannot load?
 
-- `context()` (SDK) and `GET /context` — documented in `api/routers/context.py` as
+- `context()` (SDK) and `GET /context` — documented in `verilore/api/routers/context.py` as
   "the primary product surface". Embeds the question, ranks live `chunks`, concatenates
   text.
 - authoritative `query` (SDK `MemoryClient.query`, REST memory router, MCP) — resolves

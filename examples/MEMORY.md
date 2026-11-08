@@ -188,13 +188,13 @@ local PostgreSQL instance on port 5433 (or your configured disposable database):
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5433/verilore
 mkdir -p eval/results
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \
-  venvmp/bin/python -m api.services.memory_query_benchmark --end-to-end \
+  venvmp/bin/python -m verilore.api.services.memory_query_benchmark --end-to-end \
   --save eval/results/m0065-local-rerun.json
 ```
 
 This is a standalone, rollback-only database workload, not a REST-server benchmark
 or a generation run. It uses the cached real model with no fixture fallback.
-Unlike `cli.main eval memory --save`, this module **overwrites** its target and
+Unlike `verilore.cli.main eval memory --save`, this module **overwrites** its target and
 does not create the parent; use a fresh filename to preserve recorded reports.
 Omit `--end-to-end` (with a separate save path) for the ranking experiment only.
 

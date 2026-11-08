@@ -146,14 +146,13 @@ def candidates_in(doc: Path) -> set[tuple[str, bool]]:
         if "--save" in line or "--out" in line:
             continue
         for m in PATH.finditer(line):
-            # A `root/path` token that follows `://` on the same line is part of a
-            # URL (for example a CI badge), not a repository path.
-            if "://" in line[: m.start()]:
+            # Skip a token that is part of a URL (a CI badge, a GitHub link): the
+            # whitespace-delimited word holding it contains "://". A repository path
+            # elsewhere on the same line is still checked.
+            word = line[line.rfind(" ", 0, m.start()) + 1 : m.end()]
+            if "://" in word:
                 continue
-            raw = m.group(1)
-            if not raw or "*" in raw:
-                continue
-            found.add((raw, False))
+            found.add((m.group(1), False))
         found |= {
             (raw, True)
             for raw in LINK.findall(line)

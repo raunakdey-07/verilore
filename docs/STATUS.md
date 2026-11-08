@@ -302,7 +302,7 @@ same error as the `1583` figure this table used to carry.
 
 **Why the first two rows are not re-verified, established this session.**
 `scripts/benchmark/m011_rebuildability.py` builds a fresh per-run schema
-(`CREATE SCHEMA "m011_<uuid>"`) and replays `migrations/versions/*.py` into it.
+(`CREATE SCHEMA "m011_<uuid>"`) and replays `verilore/migrations/versions/*.py` into it.
 Migrations `008` and `009` create functions with `SET search_path = public`, so
 at `CREATE FUNCTION` time PostgreSQL validates the body against `public` — which
 in that database is empty. The run aborts:

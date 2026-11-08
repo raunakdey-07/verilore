@@ -22,7 +22,7 @@ inputs are pinned first, and the pinning is checked rather than asserted.
 |---|---|---|
 | Corpus builder | `scripts/benchmark/m0115_dataset.py::build_corpus` | source |
 | Corpus name in the harness | `mp-baseline` (fixed constant) | `baseline_packs.py:57` |
-| Corpus id derivation | `sha256("corpus:" + name)` | `api/services/corpora.py` |
+| Corpus id derivation | `sha256("corpus:" + name)` | `verilore/api/services/corpora.py` |
 | Dataset hash | `9cdecda73cbdc8ae` | measured, every run |
 
 `baseline_packs.py` deliberately uses a **fixed** corpus name rather than a random
@@ -51,7 +51,7 @@ number. Held-out v2 is required before any generalisation claim.
 
 | Field | Value | Source |
 |---|---|---|
-| Default model | `all-MiniLM-L6-v2` | `api/services/embedder.py:15` |
+| Default model | `all-MiniLM-L6-v2` | `verilore/api/services/embedder.py:15` |
 | Override | `EMBEDDING_MODEL` env var | `embedder.py:38` |
 | Dimension | reported by `get_embedding_dimension()` | `embedder.py:53` |
 | Cache key | `f"{model_name}:{dimension}"` | `embedder.py:59` |

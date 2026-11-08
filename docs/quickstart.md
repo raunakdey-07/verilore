@@ -486,32 +486,35 @@ ordinary situation, and the answer to it is a sentence and a command.
 When the database is local and stopped, Verilore starts it for you: it
 looks for a container publishing the configured port and starts the stopped
 one it finds. `verilore init` also creates a `pgvector` container when
-there is none, so it is one command on a machine that has never run Mind
-Palace. A database on another host is never touched.
+there is none, so it is one command on a machine that has never run
+Verilore. A database on another host is never touched.
 
 ---
 
 ## Project structure
 
 ```text
-api/            FastAPI app, services, and the authoritative memory model
-  models/       the public v1 contract; no persistence models exposed
-  routers/      REST adapters
-  services/     memory archive, ingestion, retrieval, relevance
-cli/            Typer CLI, rendering, error text (inside verilore/)
-verilore/       the verilore package: api/, cli/, migrations/, pack.py,
-                proof.py, proof_cli.py, receipt.py, sdk.py, errors.py, runtime/
-verilore_sdk.py  the SDK (deprecated top-level shim for this release)
-verilore_errors.py  error taxonomy (deprecated top-level shim for this release)
-mcp_server.py   MCP server (inside verilore/)
-memory_pack.py  dependency-free portable memory reader (inside verilore/)
-memory_receipt.py  the receipt contract, standard library only (inside verilore/)
-memory_proof.py    proof construction and verification (inside verilore/)
-memory_proof_cli.py standalone verifier, no optional dependencies (inside verilore/)
-tests/          the suite, against real PostgreSQL
-examples/       runnable examples
-docs/           status, operations, research, release notes
-scripts/        benchmarks, probes, release checks
+verilore/            the package; the only top-level name the wheel installs
+  api/               FastAPI app, services, and the authoritative memory model
+    models/          the public v1 contract; no persistence models exposed
+    routers/         REST adapters
+    services/        memory archive, ingestion, retrieval, relevance
+  cli/               Typer CLI, rendering, error text
+  migrations/        Alembic migrations
+  sdk.py             the Python SDK (`from verilore import Verilore`)
+  errors.py          the error taxonomy
+  mcp_server.py      MCP server
+  pack.py            dependency-free portable memory reader
+  receipt.py         the receipt contract, standard library only
+  proof.py           proof construction and verification
+  proof_cli.py       standalone verifier, no optional dependencies
+  runtime.py         the background runtime's entry point
+verilore_sdk.py      deprecated shim for `verilore.sdk`; removed in v0.12
+verilore_errors.py   deprecated shim for `verilore.errors`; removed in v0.12
+tests/               the suite, against real PostgreSQL
+examples/            runnable examples
+docs/                status, operations, research, release notes
+scripts/             benchmarks, probes, release checks
 ```
 ## Connecting an agent over MCP
 

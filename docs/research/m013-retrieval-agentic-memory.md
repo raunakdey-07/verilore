@@ -30,7 +30,7 @@ Backed by tracked evidence. Each names its artifact.
 
 Read from source, not assumed:
 
-1. **`rank_claims` in `api/services/memory_query.py` is dead code.** It implements
+1. **`rank_claims` in `verilore/api/services/memory_query.py` is dead code.** It implements
    `lexical`, `embedding` and `hybrid` (RRF, k=60), but its only callers are
    `tests/test_memory_query.py` and `memory_query_benchmark.py`. Production
    `select()` calls `relevance()` directly, which has exactly two modes —

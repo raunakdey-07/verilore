@@ -1,6 +1,6 @@
 # Public memory API (schema version 1)
 
-The implemented contract is `api/models/memory.py`, with operation validation,
+The implemented contract is `verilore/api/models/memory.py`, with operation validation,
 transaction ownership, projection, and packing in `verilore/api/services/memory_public.py`.
 REST (`verilore/api/routers/memory.py`), SDK (`verilore/sdk.py`), MCP (`verilore/mcp_server.py`),
 and CLI (`verilore/cli/memory.py`) delegate ordinary memory operations to that boundary.
@@ -327,7 +327,7 @@ arguments shown above; other selectors are keywords. Packs accept `snapshot_id`
 exposed-but-unsupported arguments does not bypass the central table above.
 
 The synchronous local SDK rejects calls from an active event loop. In async local
-applications use `await api.services.memory_public.execute(operation,
+applications use `await verilore.api.services.memory_public.execute(operation,
 MemoryRequest(...))`, which owns and commits its transaction. Local service errors
 are `MemoryError`; remote errors are `MemoryClientError`, with `code`, `message`,
 and `status_code`. Remote adapter codes additionally include `timeout` (504),
@@ -422,7 +422,7 @@ an arbitrary LLM obeys citations or resists all prompt injection.
 
 ## Reusable evaluation workload and CLI semantics
 
-`api.services.memory_benchmark` is a standalone, reusable evaluation harness,
+`verilore.api.services.memory_benchmark` is a standalone, reusable evaluation harness,
 not a replacement for the public service. `eval memory` runs locally against
 PostgreSQL; it does not call a REST server. See [commands and run record](MEMORY.md).
 

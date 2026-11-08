@@ -18,7 +18,7 @@ The frozen evaluation split is:
 * 10 abstention
 
 The held-out file and `eval/memory_query_policy.json` are immutable. The
-dataset builder in `api.services.memory_decision_dataset` reads only
+dataset builder in `verilore.api.services.memory_decision_dataset` reads only
 `eval/memory_benchmarks.yaml` and `eval/memory_questions.yaml`.
 
 The development material currently available is:

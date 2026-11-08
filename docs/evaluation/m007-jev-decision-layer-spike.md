@@ -61,7 +61,7 @@ Verilore resolver
 **Decision models may influence retrieval selection, but only Verilore
 determines memory state.**
 
-The implementation is `api.services.memory_decision_spike`. It is not imported
+The implementation is `verilore.api.services.memory_decision_spike`. It is not imported
 by production query execution and has no Jev or network dependency.
 
 ## Provider contract

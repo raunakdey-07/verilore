@@ -17,7 +17,7 @@ report.
 * Thirteen tables carry row-level security; every policy is one of two shapes:
   `mindpalace_allowed_corpus(corpus_id)`, or — for `chunks` — an `EXISTS` against
   the parent `documents` row.
-* `api/errors.py` and `cli/errors.py` exist but are *message* helpers, not a type
+* `verilore/api/errors.py` and `verilore/cli/errors.py` exist but are *message* helpers, not a type
   hierarchy. The SDK has exactly two exception classes.
 * There are no request or correlation identifiers anywhere in the codebase.
 * `Embedder` and `Reranker` are singletons that import `sentence_transformers`
@@ -148,7 +148,7 @@ running it:
    `RESTRICT` is the coherent choice: a principal who owns a document cannot be
    deleted until it is erased or shared.
 
-**The error taxonomy and request ids are implemented** (`verilore_errors.py`,
+**The error taxonomy and request ids are implemented** (`verilore/errors.py`,
 `identify_request` middleware). The existing `detail` shape is preserved; the new
 fields were added beside it.
 

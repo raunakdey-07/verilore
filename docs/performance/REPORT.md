@@ -43,14 +43,14 @@ forced offline where available.
 
 | Probe | Before | After | Change |
 |---|---:|---:|---:|
-| `api.main` import wall time (ms) | 5,534.272 | 589.137 | 89.4% faster |
-| `api.main` process wall time (ms) | 6,783.009 | 798.901 | 88.2% faster |
+| `verilore.api.main` import wall time (ms) | 5,534.272 | 589.137 | 89.4% faster |
+| `verilore.api.main` process wall time (ms) | 6,783.009 | 798.901 | 88.2% faster |
 | Imported modules (count) | 4,221 | 682 | 83.8% fewer |
 | Peak RSS (KB) | 861,428 | 80,696 | 90.6% smaller |
 | `verilore_sdk` import (ms) | 63.876 | 63.876 | unchanged |
 | CLI root help (ms) | 265.914 | 336.643 | noise-level variation |
 
-After lazy loading, `api.main` imports without Torch,
+After lazy loading, `verilore.api.main` imports without Torch,
 `sentence_transformers`, or `transformers`. The public `verilore_sdk` import
 was already model-free. `import verilore` is not a supported Python import in
 this repository; the documented module is `verilore_sdk`, so the failed probe
@@ -77,7 +77,7 @@ Numeric costs in this table are milliseconds unless the cell says otherwise.
 
 | Rank | Problem | Measured cost | Root cause | Decision |
 |---:|---|---|---|---|
-| 1 | Semantic dependency/model initialization on every API process | 5.53s import wall, 4,221 modules, 861 MB RSS | Router globals and `api.services` imported the model stack before request routing | **OPTIMIZE:** lazy import/load and single-flight lock implemented |
+| 1 | Semantic dependency/model initialization on every API process | 5.53s import wall, 4,221 modules, 861 MB RSS | Router globals and `verilore.api.services` imported the model stack before request routing | **OPTIMIZE:** lazy import/load and single-flight lock implemented |
 | 2 | Empty-query public operations resolve and conflict-check the archive twice | 1,000-version current: 1,831.301 before, 722.755 after; evidence: 1,698.795 before, 655.854 after | `project()` called `_query_result` twice; conflict pairs compared all active claims | **OPTIMIZE:** reuse the empty result and group pairs by key |
 | 3 | Public memory projection loads the full archive | 1,000-version current still returns about 1.4M characters and performs four statements; one-claim evidence cost nearly the same as full current | `_load()` selects raw content, metadata, chunks, claims, and evidence for every version | **DEFER:** requires a new projection loader and careful conflict-closure tests |
 | 4 | Memory Pack canonical budgeting serializes a growing response repeatedly | 1,000-version pack: 937.535 before, 927.356 after; no statement-count reduction | Every candidate rebuilds and serializes the accumulated response | **DEFER:** exact Unicode budget and atomic conflict/change semantics need a dedicated correctness gate |
@@ -114,7 +114,7 @@ kernels, and decision protocol do not apply to persistent corpus memory.
 
 ### Lazy semantic boundary
 
-`api/services/embedder.py` now:
+`verilore/api/services/embedder.py` now:
 
 - imports `sentence_transformers` inside first model use;
 - leaves `Embedder()` construction model-free;
@@ -127,15 +127,15 @@ semantic request pays the model load.
 
 ### Projection and conflict work reuse
 
-`api/services/memory_public.py` reuses the resolved state for an empty query.
-`api/services/memory.py` groups active claims by exact key before forming
+`verilore/api/services/memory_public.py` reuses the resolved state for an empty query.
+`verilore/api/services/memory.py` groups active claims by exact key before forming
 conflict pairs. Pair ordering, value comparison, cross-document requirements,
 and conflict IDs remain unchanged.
 
 ### Runtime packaging fix
 
 A fresh Python 3.11 image initially resolved SQLAlchemy without `greenlet`,
-which made `api.main` import fail even though the source virtualenv passed.
+which made `verilore.api.main` import fail even though the source virtualenv passed.
 The runtime manifest now declares `sqlalchemy[asyncio]`, ensuring the async
 adapter dependency is installed in a clean image. The rebuilt image imports and
 answers liveness/readiness successfully.
@@ -269,7 +269,7 @@ deferred until the repository has a multi-architecture update process.
 |---|---|---|
 | Core API/database | FastAPI, Uvicorn, SQLAlchemy, asyncpg, Pydantic, HTTPX, PyYAML, frontmatter, Prometheus instrumentation | **KEEP** |
 | Semantic extension | sentence-transformers, Torch, Transformers and transitive ML packages | **KEEP**, but load lazily and pin CPU Torch in Docker |
-| Legacy API module | `langchain-text-splitters` | **KEEP** for `api.services.chunker` compatibility; it is not on the DB-only path |
+| Legacy API module | `langchain-text-splitters` | **KEEP** for `verilore.api.services.chunker` compatibility; it is not on the DB-only path |
 | CLI | Typer | **OPTIONAL_RUNTIME** in package metadata; development requirements include it |
 | MCP | `mcp` | **OPTIONAL_RUNTIME**; not imported by the API image |
 | Migrations/operations | Alembic, psycopg2, pgvector Python adapter | **OPERATIONAL_RUNTIME** for migration workflows |

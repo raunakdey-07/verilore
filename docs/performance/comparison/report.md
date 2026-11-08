@@ -4,7 +4,7 @@
 
 Keep the post-release follow-up small and concrete:
 
-- Keep the lazy semantic boundary. `api.main` imports without Torch,
+- Keep the lazy semantic boundary. `verilore.api.main` imports without Torch,
   `sentence_transformers`, or `transformers`; the model loads on first semantic
   use and remains resident.
 - Keep the public-memory projection reuse and exact-key conflict grouping.
@@ -171,7 +171,7 @@ The startup comparison is:
 
 | Probe | Before | After |
 |---|---:|---:|
-| `api.main` import wall time | 5,534.272 ms | 589.137 ms |
+| `verilore.api.main` import wall time | 5,534.272 ms | 589.137 ms |
 | Process wall time | 6,783.009 ms | 798.901 ms |
 | Imported modules | 4,221 | 682 |
 | Peak RSS | 861,428 KB | 80,696 KB |
@@ -351,7 +351,7 @@ open operational policies.
 
 ### Live corpus scope
 
-`api/services/corpora.py` now resolves omitted scopes safely. Search, context,
+`verilore/api/services/corpora.py` now resolves omitted scopes safely. Search, context,
 default RAG ask, summarize, interview, related-document, and timeline routes
 resolve before semantic work. Retrieval document queries bind `corpus_id`.
 Legacy CLI commands expose the same selection.
@@ -362,9 +362,9 @@ the ask backend outage path.
 
 ### Snapshot membership seal
 
-`migrations/versions/006_snapshot_membership_seal.py` adds a seal table,
+`verilore/migrations/versions/006_snapshot_membership_seal.py` adds a seal table,
 backfills existing snapshots, rejects later membership inserts, and requires a
-seal before a new snapshot commits. `api/services/memory.py` writes the seal
+seal before a new snapshot commits. `verilore/api/services/memory.py` writes the seal
 inside the existing transaction.
 
 The migration is the single Alembic head. Offline SQL generation succeeds.

@@ -9,7 +9,7 @@ authoritative product, and at what cost?
 
 ## What changed
 
-`api/services/context_service.py` is now the single path behind `context()` for REST,
+`verilore/api/services/context_service.py` is now the single path behind `context()` for REST,
 the SDK and MCP. It runs in this order:
 
 1. Ask whether the corpus has an archive. `memory.enabled` already answered this, so it
@@ -21,7 +21,7 @@ the SDK and MCP. It runs in this order:
 4. If there is no archive, retrieval is the only source and `status` reports that.
 5. Otherwise rank live chunks and attach them as raw material.
 
-`api/services/context_packer.py` grew the authoritative half of the pack and keeps the
+`verilore/api/services/context_packer.py` grew the authoritative half of the pack and keeps the
 retrieval-only half, so both paths return one shape. The route no longer holds an
 `Embedder`; the service builds one only when retrieval is actually reached.
 

@@ -297,7 +297,7 @@ and versioning already provide the protection.
 
 ## 20. Pack-only consumers: Experiment F
 
-`memory_pack.py` imports only the standard library. A consumer receives one pack
+`verilore/pack.py` imports only the standard library. A consumer receives one pack
 and answers current value, previous value, disagreement, evidence, unknown
 facts, resolution instant and integrity, importing no server module.
 
@@ -320,7 +320,7 @@ documentable rather than a format defect.
 | 88 | 649.44 ms | 684.78 ms | 19.55 ms | 22.78 ms | 7.38 |
 
 Cost is linear in claim count, at roughly 7.4 ms per claim, for both strategies.
-The cause is one line in `api/services/memory_relevance.py`:
+The cause is one line in `verilore/api/services/memory_relevance.py`:
 
 ```python
 texts = list(interpreted.topics) + representations

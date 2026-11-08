@@ -9,7 +9,7 @@ say so.
 
 | variable | who reads it | what it means |
 |---|---|---|
-| `DATABASE_URL` | the product, `api/services/db.py`, the CLI, the SDK | the database the application connects to |
+| `DATABASE_URL` | the product, `verilore/api/services/db.py`, the CLI, the SDK | the database the application connects to |
 | `MEMORY_TEST_DATABASE_URL` | `tests/test_memory_core.py::memory_db` and a few benchmark helpers | the database those tests may create a throwaway PostgreSQL **schema** in |
 
 ## What the session hook does to them

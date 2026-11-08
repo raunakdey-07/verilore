@@ -25,7 +25,7 @@ the recommended path, and the reference integration does exactly that.
 
 ### The protocol
 
-An embedder must satisfy `api/services/embedder.py::Embedder`:
+An embedder must satisfy `verilore/api/services/embedder.py::Embedder`:
 
 ```python
 class EmbeddingProvider(Protocol):
@@ -68,7 +68,7 @@ not approximated.
 
 ### Reranking
 
-`api/services/reranker.py` is the same shape: a `SentenceTransformer` cross-encoder
+`verilore/api/services/reranker.py` is the same shape: a `SentenceTransformer` cross-encoder
 over an **already bounded** candidate set. The protocol is `rerank(query,
 candidates) -> ordered candidates`. It is optional, and a reranker is never
 allowed to introduce a candidate that recall did not produce — reordering is the
@@ -85,7 +85,7 @@ so ordinary CI runs it.
 
 ## C. Generation belongs to your application
 
-`api/services/llm.py` exists for the optional `/ask` mode and already speaks to
+`verilore/api/services/llm.py` exists for the optional `/ask` mode and already speaks to
 Ollama and any OpenAI-compatible endpoint by environment variable. **It is not
 part of the memory contract**, and no vendor SDK is a dependency of this package.
 
