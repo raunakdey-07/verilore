@@ -66,6 +66,9 @@ async def _ingest(client, corpus: str, content: str, path: str = "brand/basics.m
 
 
 async def _memory(client, operation: str, corpus: str, **fields) -> dict:
+    # `budget` belongs to pack only; current refuses it with a 422.
+    if operation == "pack":
+        fields.setdefault("budget", 16000)
     response = await client.post(
         f"/api/memory/{operation}", json={"corpus": corpus, "query": "", **fields}
     )
@@ -84,11 +87,11 @@ async def test_unapproved_document_withholds_its_authored_claims(status, state):
         corpus = await _corpus(client)
         await _ingest(client, corpus, document(status=status))
         for operation in ("current", "pack"):
-            body = await _memory(client, operation, corpus, budget=16000)
+            body = await _memory(client, operation, corpus)
             assert TONE not in str(body), operation
             assert COLOUR not in str(body), operation
             assert body.get("withheld_counts", {}).get(state) == 2, operation
-        shown = _claims(await _memory(client, "pack", corpus, budget=16000, include_states=[state]))
+        shown = _claims(await _memory(client, "pack", corpus, include_states=[state]))
     assert shown[TONE]["info_state"] == state
     assert shown[COLOUR]["info_state"] == state
 
@@ -99,7 +102,7 @@ async def test_approved_or_absent_status_is_unchanged(status):
     async with AsyncClient(transport=ASGITransport(app=app), base_url=API_BASE) as client:
         corpus = await _corpus(client)
         await _ingest(client, corpus, document(status=status))
-        body = await _memory(client, "pack", corpus, budget=16000)
+        body = await _memory(client, "pack", corpus)
     shown = _claims(body)
     assert set(shown) >= {TONE, COLOUR}
     assert "info_state" not in shown[TONE]
@@ -111,7 +114,7 @@ async def test_the_most_restrictive_state_wins():
     async with AsyncClient(transport=ASGITransport(app=app), base_url=API_BASE) as client:
         corpus = await _corpus(client)
         await _ingest(client, corpus, document(status="approved", tone_state="rejected"))
-        body = await _memory(client, "pack", corpus, budget=16000)
+        body = await _memory(client, "pack", corpus)
     shown = _claims(body)
     assert TONE not in shown
     assert COLOUR in shown
@@ -124,7 +127,7 @@ async def test_publishing_the_document_releases_its_claims():
         corpus = await _corpus(client)
         await _ingest(client, corpus, document(status="draft"))
         await _ingest(client, corpus, document(status="approved"))
-        shown = _claims(await _memory(client, "current", corpus, budget=16000))
+        shown = _claims(await _memory(client, "current", corpus))
     assert TONE in shown and COLOUR in shown
 
 
