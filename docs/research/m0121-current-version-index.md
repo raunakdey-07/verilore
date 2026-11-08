@@ -15,7 +15,7 @@ that to O(1).
 
 ## Current implementation, traced before changing anything
 
-`api/services/memory.py`, `_query_result`:
+`verilore/api/services/memory.py`, `_query_result`:
 
 ```python
 latest = {}

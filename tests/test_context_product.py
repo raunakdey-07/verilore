@@ -11,8 +11,8 @@ from datetime import datetime
 
 import pytest
 
-from api.services import context_service
-from api.services.context_packer import (
+from verilore.api.services import context_service
+from verilore.api.services.context_packer import (
     CONFLICTING,
     NO_RELEVANT_MEMORY,
     RESOLVED,
@@ -53,7 +53,7 @@ async def authored(store, path, key, sentence, **validity):
     encoding. That tail dominates the embedding and pushes relevant claims under
     the relevance floor, which would test the threshold instead of the pack.
     """
-    from api.services import memory
+    from verilore.api.services import memory
 
     return await memory.record_version(
         store.db,
@@ -309,7 +309,7 @@ async def test_context_answers_without_a_model(public_db, monkeypatch):
         public_db, "docs/deploy.md", "constraint.deploy", "Migrations run as a writer job."
     )
 
-    from api.services import embedder as embedder_mod
+    from verilore.api.services import embedder as embedder_mod
 
     def broken(*args, **kwargs):
         raise OSError("missing local model")

@@ -20,7 +20,7 @@ import os
 
 import pytest
 
-from api.services.embedder import DEFAULT_MODEL, MAX_TOKENS, Embedder, backend_name
+from verilore.api.services.embedder import DEFAULT_MODEL, MAX_TOKENS, Embedder, backend_name
 
 pytest.importorskip("onnxruntime")
 
@@ -54,14 +54,14 @@ def _cosine(a, b):
 
 
 def _torch_vectors():
-    from api.services.embedder import _TorchBackend
+    from verilore.api.services.embedder import _TorchBackend
 
     backend = _TorchBackend(DEFAULT_MODEL)
     return backend.encode(TEXTS, normalize_embeddings=True).tolist()
 
 
 def _onnx_vectors():
-    from api.services.embedder import _OnnxBackend
+    from verilore.api.services.embedder import _OnnxBackend
 
     backend = _OnnxBackend(DEFAULT_MODEL)
     return backend.encode(TEXTS, normalize_embeddings=True).tolist()
@@ -138,7 +138,7 @@ def test_the_version_string_does_not_name_the_backend():
 
 def test_the_backend_reports_what_was_actually_loaded(monkeypatch):
     """A preference would attribute a vector to a backend that did not make it."""
-    from api.services import embedder as module
+    from verilore.api.services import embedder as module
 
     monkeypatch.setattr(module, "backend_name", lambda: "onnx")
     # `object.__new__`, not `Embedder()`: the class is a singleton, and handing it
@@ -162,7 +162,7 @@ def test_the_tokenizer_truncates_where_the_torch_backend_truncates():
 
 
 def test_an_explicit_torch_choice_is_honoured(monkeypatch):
-    from api.services import embedder as module
+    from verilore.api.services import embedder as module
 
     monkeypatch.setenv("MEMORY_EMBEDDER", "torch")
     assert module.backend_name() == "torch"
@@ -176,7 +176,7 @@ def test_an_explicit_torch_choice_is_honoured(monkeypatch):
 
 def test_a_missing_onnxruntime_falls_back_to_torch(monkeypatch):
     """Not a new failure mode for a deployment that has not installed it."""
-    from api.services import embedder as module
+    from verilore.api.services import embedder as module
 
     monkeypatch.delenv("MEMORY_EMBEDDER", raising=False)
     real_import = __import__

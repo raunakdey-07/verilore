@@ -16,7 +16,7 @@ corpus → document identity → observed version → authored claim → exact e
 ```
 
 The corpus is the namespace boundary. Document identity is
-`sha256(corpus_id + ":" + path)` (`api/services/memory.py`,
+`sha256(corpus_id + ":" + path)` (`verilore/api/services/memory.py`,
 `memory_document_id`), so the same relative path can exist independently in two
 corpora, and the identity survives deletion and restoration. A rename creates a
 new identity; no MOVED state is inferred.
@@ -24,7 +24,7 @@ new identity; no MOVED state is inferred.
 A version records one observed source state: raw content, parsed metadata,
 chunks, a predecessor link, a version number, a lifecycle event, and the
 database `observed_at` time. Versions are immutable. The
-`migrations/versions/004_memory.py` statement-level trigger raises
+`verilore/migrations/versions/004_memory.py` statement-level trigger raises
 `memory archive is append-only` on `UPDATE`, `DELETE`, or `TRUNCATE`, so the
 guarantee holds for direct SQL writers and not only for the service.
 
@@ -53,7 +53,7 @@ claims (`memory._hash(content, metadata)`), not live identifiers or rechunking
 
 Deletion is append-only. `record_deletion` writes a `DELETED` version and never
 touches live rows itself; ingestion removes the live entries in the same
-transaction (`api/services/ingestion.py`, `_delete_stale_paths`). The tombstone
+transaction (`verilore/api/services/ingestion.py`, `_delete_stale_paths`). The tombstone
 keeps the claim history and the evidence quote readable.
 
 ## Status resolution
@@ -107,7 +107,7 @@ evidence inserts into a version already captured by a snapshot, taking the same
 advisory lock as `snapshot()` so the check cannot race.
 
 The post-release follow-up in this audit adds migration
-`migrations/versions/006_snapshot_membership_seal.py`. It records a seal per
+`verilore/migrations/versions/006_snapshot_membership_seal.py`. It records a seal per
 snapshot, rejects later membership inserts for sealed snapshots, and makes the
 seal a deferred requirement for committing a snapshot. The migration backfills
 snapshots created under 004 and 005. The service writes the seal only when
@@ -137,9 +137,9 @@ absence.
 ## Interfaces
 
 Ordinary memory operations share one typed boundary
-(`api/services/memory_public.py`) reached by REST (`api/routers/memory.py`), the
-Python SDK (`verilore_sdk.py`), MCP (`mcp_server.py`), and the remote CLI
-(`cli/memory.py`). Adapters translate transport and errors; they do not
+(`verilore/api/services/memory_public.py`) reached by REST (`verilore/api/routers/memory.py`), the
+Python SDK (`verilore/sdk.py`), MCP (`verilore/mcp_server.py`), and the remote CLI
+(`verilore/cli/memory.py`). Adapters translate transport and errors; they do not
 implement archive policy. Operations are `query`, `current`, `history`,
 `changes`, `evidence`, `as-of`, `snapshot`, `replay`, and `pack`.
 
@@ -161,7 +161,7 @@ live rows and archive rows together. Reads load one coherent MVCC view.
 Memory archiving turns on per corpus and never silently switches off: a corpus
 with any archived version keeps archiving on subsequent writes, and a document
 that authors `claims:` is archived even if the flag is off
-(`api/services/ingestion.py`, `_ingest_content`).
+(`verilore/api/services/ingestion.py`, `_ingest_content`).
 
 ## Known boundaries
 
@@ -329,7 +329,7 @@ window, its supersession lineage, the authoritative digest, and an embedded proo
 
 A **Memory Pack** is the bounded, portable slice of authoritative memory the
 receipt covers. It is a plain JSON artifact: model-independent, and readable with
-`memory_pack.py`, which is standard-library-only.
+`verilore/pack.py`, which is standard-library-only.
 
 Verification establishes **integrity and recorded provenance** — that the artifact
 still represents the state the receipt describes, and that no covered record has

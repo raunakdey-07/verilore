@@ -20,9 +20,9 @@ from uuid import uuid4
 
 import pytest
 
-from api.models.memory import MemoryResponse
-from api.models.remember import RememberResult
-from verilore_sdk import MemoryClientError, Verilore
+from verilore.api.models.memory import MemoryResponse
+from verilore.api.models.remember import RememberResult
+from verilore.sdk import MemoryClientError, Verilore
 
 
 class _Handler(BaseHTTPRequestHandler):

@@ -10,12 +10,12 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from typer.testing import CliRunner
 
-import mcp_server
-from api.main import app
-from api.models.memory import Evidence, MemoryRequest, MemoryResponse, MemoryWire
-from api.routers import query as ask_router
-from cli.memory import app as memory_app
-from verilore_sdk import MemoryClientError, Verilore
+import verilore.mcp_server as mcp_server
+from verilore.api.main import app
+from verilore.api.models.memory import Evidence, MemoryRequest, MemoryResponse, MemoryWire
+from verilore.api.routers import query as ask_router
+from verilore.cli.memory import app as memory_app
+from verilore.sdk import MemoryClientError, Verilore
 
 QUESTION = "What changed about the deployment?"
 SELECTORS = {
@@ -33,7 +33,7 @@ def service(monkeypatch):
     # Every test using this fixture means the in-process mocked service, never a
     # local runtime; disable the runtime probe so a leaked one cannot answer.
     monkeypatch.setenv("VERILORE_RUNTIME", "0")
-    module = ModuleType("api.services.memory_public")
+    module = ModuleType("verilore.api.services.memory_public")
 
     class MemoryError(Exception):
         def __init__(self, code, message, status_code):

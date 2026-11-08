@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from api.services.memory_reasoning import (
+from verilore.api.services.memory_reasoning import (
     AuditRecord,
     ConflictLifecycle,
     MemoryDecision,

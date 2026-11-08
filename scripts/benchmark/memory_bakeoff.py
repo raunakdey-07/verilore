@@ -235,7 +235,7 @@ CASES = [
 
 
 def _migrations():
-    for path in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for path in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -261,8 +261,8 @@ def _async_url(url: str) -> str:
 
 async def authoritative(db: AsyncSession, corpus_name: str, case: dict, as_of=None):
     """The authoritative query path, as `MemoryClient.query` calls it."""
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     request = MemoryRequest(
         corpus=corpus_name,
@@ -275,9 +275,9 @@ async def authoritative(db: AsyncSession, corpus_name: str, case: dict, as_of=No
 
 async def product_context(db: AsyncSession, corpus_name: str, case: dict, embedder):
     """The live-index context path, as `GET /context` calls it."""
-    from api.services.context_packer import pack_context
-    from api.services.corpora import get_corpus_by_name
-    from api.services.retrieval import RetrievalService
+    from verilore.api.services.context_packer import pack_context
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.retrieval import RetrievalService
 
     row = await get_corpus_by_name(db, corpus_name)
     vector = embedder.embed_single(case["question"])
@@ -389,7 +389,7 @@ def score_unified(pack, case: dict) -> dict:
 
 async def unified(db, corpus_name: str, case: dict, embedder) -> object:
     """Adapter C: the new unified product surface."""
-    from api.services.context_service import build_context
+    from verilore.api.services.context_service import build_context
 
     pack, _ = await build_context(
         db,
@@ -408,7 +408,7 @@ async def unified(db, corpus_name: str, case: dict, embedder) -> object:
 
 async def build_corpus(conn, corpus_id: str, corpus_name: str, embedder) -> None:
     """Ingest the workload corpus through the real ingestion service."""
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     service = IngestionService()
     for path, content in (
@@ -442,7 +442,7 @@ async def build_corpus(conn, corpus_id: str, corpus_name: str, embedder) -> None
 
 
 async def run(url: str, args) -> dict:
-    from api.services.embedder import Embedder
+    from verilore.api.services.embedder import Embedder
 
     engine = create_async_engine(_async_url(url), poolclass=NullPool)
     schema = "bakeoff_" + uuid4().hex[:12]

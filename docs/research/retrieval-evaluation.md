@@ -134,11 +134,11 @@ query embedding.
 
 ## Relevance is a heuristic, not authority
 
-`api/services/memory_relevance.py` selects authored keys using the configured
+`verilore/api/services/memory_relevance.py` selects authored keys using the configured
 sentence-transformer, with a 0.30 cosine floor, a 0.90 top-score band, a 0.65
 strong threshold, and at most 4 topics. Scores propagate only within the same
 authored key. The module docstring says the scores never establish authority, and
-`api/services/memory_query.py` projects the complete time-scoped archive before
+`verilore/api/services/memory_query.py` projects the complete time-scoped archive before
 ranking, so relevance can include or exclude a key but never change a claim's
 status.
 
@@ -147,8 +147,8 @@ index, and inference runs off the event loop via `asyncio.to_thread`.
 
 ## Quality gate
 
-`python -m cli.main eval strategies --candidates 10,20,50` produces
-machine-readable per-strategy metrics, and `python -m cli.main eval gate
+`python -m verilore.cli.main eval strategies --candidates 10,20,50` produces
+machine-readable per-strategy metrics, and `python -m verilore.cli.main eval gate
 --baseline baseline.json` computes per-query paired differences against a
 committed baseline. The gate exits non-zero only when a paired-difference
 confidence interval excludes zero on the negative side, so noise never fails the
@@ -176,7 +176,7 @@ frozen and were not modified by either program.
   `truncated=false` does not prove no relevant claim was missed.
 - The live-baseline text-coverage figures measure literal recoverability of
   expected strings, not semantic accuracy or temporal framing.
-- The synthetic oracle suites in `api/services/memory_evaluation_lab.py` derive
+- The synthetic oracle suites in `verilore/api/services/memory_evaluation_lab.py` derive
   expectations from explicit semantics. They are synthetic semantic validation,
   never human truth.
 
@@ -184,11 +184,11 @@ frozen and were not modified by either program.
 
 ```bash
 # Live retrieval strategies and gate
-python -m cli.main eval strategies --candidates 10,20,50 --details
-python -m cli.main eval gate --baseline baseline.json
+python -m verilore.cli.main eval strategies --candidates 10,20,50 --details
+python -m verilore.cli.main eval gate --baseline baseline.json
 
 # Memory semantics with real cached embeddings
-HF_HUB_OFFLINE=1 python -m cli.main eval memory --embeddings cached \
+HF_HUB_OFFLINE=1 python -m verilore.cli.main eval memory --embeddings cached \
   --repetitions 20 --sizes 100,500,1000 \
   --save eval/results/memory-cached-manual.json
 

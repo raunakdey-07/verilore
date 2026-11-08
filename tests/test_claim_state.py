@@ -11,13 +11,13 @@ import os
 
 import pytest
 
-from api.services.markdown_claims import (
+from verilore.api.services.markdown_claims import (
     assign_states,
     detect_info_state,
     document_state,
     extract,
 )
-from api.services.parser import (
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
 )
@@ -200,7 +200,7 @@ async def test_claim_state_survives_the_ingest_route():
     )
     from httpx import ASGITransport, AsyncClient
 
-    from api.main import app
+    from verilore.api.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         corpus_response = await client.post(

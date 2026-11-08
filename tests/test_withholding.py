@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app
+from verilore.api.main import app
 
 API_BASE = "http://test"
 

@@ -159,7 +159,7 @@ of current, history, changes, evidence, as-of, query, pack, or replay. The
 comparison pinned `valid_at` so that the test measured L2 independence rather
 than wall-clock state.
 
-The gap was that no code path rebuilt L2. The follow-up adds `api/services/rehydrate.py`
+The gap was that no code path rebuilt L2. The follow-up adds `verilore/api/services/rehydrate.py`
 and `verilore reindex`. The command writes only L2 rows and never calls
 `record_version`.
 
@@ -293,7 +293,7 @@ The useful graph ideas, such as temporal edges and episode lineage, can be
 represented as derived projections when a workload demonstrates a need.
 
 No Neo4j, FalkorDB, Neptune, or graph migration was added. The research graph
-helpers in `api/services/memory_reasoning.py` remain excluded from the API
+helpers in `verilore/api/services/memory_reasoning.py` remain excluded from the API
 image and are not treated as a production capability.
 
 ## 19. Change Feed
@@ -466,7 +466,7 @@ still requires external comparison and production evidence.
 
 The post-release follow-up implements:
 
-- `api/services/rehydrate.py` and `verilore reindex`;
+- `verilore/api/services/rehydrate.py` and `verilore reindex`;
 - repository support for preserving an archived document ID during rehydration;
 - lazy, locked reranker initialization;
 - sanitized semantic dependency errors on search, context, and ask;

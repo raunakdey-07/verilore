@@ -66,7 +66,7 @@ jobs:
 
       - name: Verify package imports
         run: |
-          python -c "import api, cli; print('imports ok')"
+          python -c "import verilore; print('imports ok')"
 
       # What the runner actually resolved, for the packages whose version has
       # changed behaviour rather than merely changed.
@@ -134,7 +134,7 @@ jobs:
       - name: Apply database migrations
         run: |
           python -m pip install pgvector
-          python -m alembic -c migrations/alembic.ini -x script_location=migrations upgrade head
+          python -m alembic -c verilore/migrations/alembic.ini upgrade head
 
       # The tenant-isolation suite is only meaningful against a role that cannot
       # bypass row-level security, and the `postgres` service creates `mpadmin` as
@@ -207,7 +207,7 @@ jobs:
       # This is a NEGATIVE test: starting as a role that bypasses row-level
       # security must fail, and must say why.
       #
-      # It used to assert that `import api.main` fails. That is the wrong entry
+      # It used to assert that `import verilore.api.main` fails. That is the wrong entry
       # point, and api/main.py says so in its own docstring: importing the module
       # must not require a connection, so the database posture is checked in the
       # lifespan, before the server accepts a request. Asserting the import
@@ -227,7 +227,7 @@ jobs:
           set +e
           python - <<'PYEOF' > /tmp/posture.out 2>&1
           import asyncio
-          from api.main import enforce_startup_posture
+          from verilore.api.main import enforce_startup_posture
           asyncio.run(enforce_startup_posture())
           PYEOF
           code=$?
@@ -260,10 +260,10 @@ jobs:
           VERILORE_SCOPE_SECRET: ${{ steps.provision.outputs.secret }}
           VERILORE_ENFORCE_SCOPE_TOKEN: on
         run: |
-          python -c "from api.main import app; print('server profile accepted the runtime role')"
+          python -c "from verilore.api.main import app; print('server profile accepted the runtime role')"
           python - <<'PYEOF'
           import asyncio
-          from api.main import enforce_startup_posture
+          from verilore.api.main import enforce_startup_posture
           asyncio.run(enforce_startup_posture())
           print('lifespan posture check passed on the least-privileged role')
           PYEOF
@@ -275,14 +275,14 @@ jobs:
       - name: The runtime role cannot bypass row-level security
         env:
           DATABASE_URL: postgresql://mindpalace_runtime:ci-runtime-role-password@localhost:5432/verilore
-        run: python -m cli.main posture
+        run: python -m verilore.cli.main posture
 
       - name: Evaluate deterministic memory lifecycle (offline)
         env:
           HF_HUB_OFFLINE: "1"
           TRANSFORMERS_OFFLINE: "1"
         run: |
-          python -m cli.main eval memory --embeddings fixture --repetitions 1
+          python -m verilore.cli.main eval memory --embeddings fixture --repetitions 1
 
       # The model weights are declared dependencies, so the runner has to have them
       # before it can test the *default* read path. Without this, the runner has the
@@ -477,7 +477,7 @@ jobs:
       # This is a CLIENT example. examples/marketing-campaign-memory/README.md
       # says so in its own "Run it" section, in two shells:
       #
-      #   1. VERILORE_AUTH_MODE=required uvicorn api.main:app --port 8000
+      #   1. VERILORE_AUTH_MODE=required uvicorn verilore.api.main:app --port 8000
       #   2. python examples/marketing-campaign-memory/demo.py
       #
       # The step ran only the second one, so the demo tried to reach
@@ -500,7 +500,7 @@ jobs:
           # The service, in this shell rather than another: a CI step has one.
           # `python -m uvicorn` rather than the console script, so it cannot pick up a
           # different interpreter from PATH.
-          python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 > /tmp/server.log 2>&1 &
+          python -m uvicorn verilore.api.main:app --host 127.0.0.1 --port 8000 > /tmp/server.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
           ready=""
@@ -540,8 +540,8 @@ jobs:
           python -m pip install flake8 black
       - name: Run flake8 and black
         run: |
-          flake8 api cli tests scripts verilore_sdk.py mcp_server.py memory_pack.py memory_proof.py memory_proof_cli.py memory_receipt.py verilore_errors.py verilore_runtime.py --max-line-length=100
-          black --check api cli tests scripts verilore_sdk.py mcp_server.py memory_pack.py memory_proof.py memory_proof_cli.py memory_receipt.py verilore_errors.py verilore_runtime.py --line-length 100
+          flake8 verilore tests scripts verilore_sdk.py verilore_errors.py --max-line-length=100
+          black --check verilore tests scripts verilore_sdk.py verilore_errors.py --line-length 100
       - name: Enforce release truth
         run: |
           python scripts/check_release_truth.py
@@ -601,7 +601,7 @@ jobs:
           python -c "import torch, onnxruntime; print('torch', torch.__version__, '| onnxruntime', onnxruntime.__version__)"
 
       - name: Apply database migrations
-        run: python -m alembic -c migrations/alembic.ini -x script_location=migrations upgrade head
+        run: python -m alembic -c verilore/migrations/alembic.ini upgrade head
 
       - name: The two backends produce the same vector
         run: |
@@ -676,7 +676,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -e .
-          python -m alembic -c migrations/alembic.ini upgrade head
+          python -m alembic -c verilore/migrations/alembic.ini upgrade head
 
       # This job runs the documented commands as a first-time user would, and the
       # documented default is semantic. Without the weights, every read here would
@@ -779,7 +779,7 @@ jobs:
           program = (
               "import sys\n"
               "from typer.testing import CliRunner\n"
-              "from cli.main import app\n"
+              "from verilore.cli.main import app\n"
               "result = CliRunner().invoke(app, ['recall', 'What datastore does "
               "production use?'])\n"
               "heavy = [m for m in ('torch', 'transformers', 'sentence_transformers') "
@@ -861,7 +861,7 @@ jobs:
       # This job asserted `verilore-mcp --help` against a *bare* install, which
       # cannot work: `mcp` is a declared extra, so the import raised
       # `ModuleNotFoundError: No module named 'mcp'`, and the step's
-      # `|| import mcp_server` fallback failed for exactly the same reason. MCP is
+      # `|| import verilore.mcp_server` fallback failed for exactly the same reason. MCP is
       # verified in its own step below, from an install that includes the extra.
       - name: Install the bare wheel, outside the source tree
         working-directory: /tmp
@@ -878,12 +878,12 @@ jobs:
           # extra here to make this pass; fix the dependency instead.
           /tmp/wheelenv/bin/verilore --help > /dev/null
           /tmp/wheelenv/bin/verilore-proof --help > /dev/null
-          # The CLI starts the runtime as `python -m verilore_runtime`. If that
+          # The CLI starts the runtime as `python -m verilore.runtime`. If that
           # module is not packaged, the runtime silently never starts and every
           # command stays 6 seconds with nothing to say why.
           /tmp/wheelenv/bin/python -c "
-          import verilore_runtime, api.runtime, cli.runtime, verilore_sdk
-          import memory_pack, memory_proof, memory_proof_cli, memory_receipt
+          import verilore.runtime, verilore.api.runtime, verilore.cli.runtime, verilore.sdk
+          import verilore.pack, verilore.proof, verilore.proof_cli, verilore.receipt
           print('bare install: CLI, verifier, SDK and the runtime entry point all ship')
           "
           # Recorded before the extra is installed below, because that is the point
@@ -909,8 +909,8 @@ jobs:
           /tmp/wheelenv/bin/python - <<'PY'
           import json, pathlib, subprocess, sys
 
-          from api.models.memory import Claim, Evidence, MemoryResponse, Source, State
-          from memory_receipt import receipt_for_response, verify_response_receipt
+          from verilore.api.models.memory import Claim, Evidence, MemoryResponse, Source, State
+          from verilore.receipt import receipt_for_response, verify_response_receipt
 
           OBSERVED = "2026-10-08T00:00:00+00:00"
           claim = Claim(
@@ -950,7 +950,7 @@ jobs:
           def verify(payload):
               path.write_text(json.dumps(payload))
               return subprocess.run(
-                  [sys.executable, "-m", "memory_proof_cli", "verify", str(path)],
+                  [sys.executable, "-m", "verilore.proof_cli", "verify", str(path)],
                   capture_output=True, text=True,
               )
 
@@ -979,7 +979,7 @@ jobs:
       - name: Confirm the wheel ships the verifier
         run: |
           /tmp/wheelenv/bin/python -c "
-          import memory_pack, memory_proof, memory_proof_cli, memory_receipt
+          import verilore.pack, verilore.proof, verilore.proof_cli, verilore.receipt
           print('dependency-free verifier ships in the wheel')
           "
 
@@ -1085,6 +1085,19 @@ jobs:
             --database-url "$DATABASE_URL" \
             --torch-index https://download.pytorch.org/whl/cpu
 
+      # Prove a user's own `api/` package no longer collides with the wheel's
+      # top-level names: run from a temp dir that shadows `api` and `cli`.
+      - name: No collision with a user's own api/ and cli/
+        working-directory: /tmp
+        run: |
+          collision="$(mktemp -d)"
+          mkdir -p "$collision/api" "$collision/cli"
+          touch "$collision/api/__init__.py" "$collision/cli/__init__.py"
+          /tmp/wheelenv/bin/verilore --help > /dev/null
+          /tmp/wheelenv/bin/verilore-proof --help > /dev/null
+          /tmp/wheelenv/bin/python -c "import verilore, verilore.api.main"
+          rm -rf "$collision"
+
       # LAST STEP. `test_a_built_wheel_contains_every_declared_module` builds
       # its own wheel and asserts every declared py-module ships. It is skipped
       # unless VERILORE_TEST_BUILD_WHEEL=1, so run it explicitly here.
@@ -1118,7 +1131,7 @@ jobs:
   # its fixture with the new code reads back its own assumptions and calls the
   # migration safe.
   upgrade-safety:
-    name: Upgrade safety, from v0.9.0
+    name: Upgrade safety, from the previous release
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

@@ -557,7 +557,7 @@ def bootstrap_ci(values: list[float], iterations: int = 2000, seed: int = 12345)
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -574,13 +574,13 @@ async def run_frozen(arm: str) -> dict:
     questions = build_questions()
     rows, _ = validate()
 
-    from api.models.memory import MemoryRequest
-    from api.services import memory as memory_service
-    from api.services.corpora import corpus_id_for_name
-    from api.services.embedder import Embedder
-    from api.services.ingestion import IngestionService
-    from api.services.memory_public import State, project
-    from api.services.memory_relevance import RelevancePolicy, relevance
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory as memory_service
+    from verilore.api.services.corpora import corpus_id_for_name
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_relevance import RelevancePolicy, relevance
 
     engine = create_async_engine(
         URL.replace("postgresql://", "postgresql+asyncpg://"), poolclass=NullPool

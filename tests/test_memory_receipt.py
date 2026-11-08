@@ -13,9 +13,9 @@ import json
 import pytest
 from test_proof_cli import PACK_FIXTURE
 
-from memory_pack import MemoryPack
-from memory_proof import canonical_bytes
-from memory_receipt import (
+from verilore.pack import MemoryPack
+from verilore.proof import canonical_bytes
+from verilore.receipt import (
     ReceiptError,
     build_receipt,
     canonical_receipt_json,
@@ -241,7 +241,7 @@ def test_receipts_are_portable_json(receipt):
 
 def _response_model():
     """A MemoryResponse shaped like the real one, built from the fixture pack."""
-    from api.models.memory import MemoryResponse
+    from verilore.api.models.memory import MemoryResponse
 
     raw = PACK.raw
     return MemoryResponse.model_validate(
@@ -301,7 +301,7 @@ def test_response_bundle_is_rejected_after_any_tampering():
 
 
 def _pack_digest_of_response() -> str:
-    from memory_pack import MemoryPack
+    from verilore.pack import MemoryPack
 
     return MemoryPack.from_dict(_response_model().model_dump(mode="json")).digest()
 

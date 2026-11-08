@@ -83,7 +83,7 @@ other remote-only memory CLI commands. From the repository root:
 ```bash
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5433/verilore
 mkdir -p eval/results
-HF_HUB_OFFLINE=1 python -m cli.main eval memory --repetitions 1 \
+HF_HUB_OFFLINE=1 python -m verilore.cli.main eval memory --repetitions 1 \
   --save eval/results/memory-fixture-smoke.json
 ```
 
@@ -95,7 +95,7 @@ valid range is 1–1000. Default scaling sizes are empty (no synthetic sweep).
 Manual cached-model measurement, only when the real model is already cached:
 
 ```bash
-HF_HUB_OFFLINE=1 python -m cli.main eval memory --embeddings cached \
+HF_HUB_OFFLINE=1 python -m verilore.cli.main eval memory --embeddings cached \
   --repetitions 20 --sizes 100,500,1000 \
   --save eval/results/memory-cached-manual.json
 ```
@@ -136,7 +136,7 @@ remote CLI `memory query`. Existing lexical `current`, `history`, `changes`, and
 optional LLM generation. [REST, SDK, MCP, and CLI examples](MEMORY_API.md#question-retrieval-m0065).
 
 ```bash
-python -m cli.main memory query --corpus my-corpus \
+python -m verilore.cli.main memory query --corpus my-corpus \
   --query "What carries Dispatch events now?" --intent current --budget 8000
 ```
 
@@ -188,13 +188,13 @@ local PostgreSQL instance on port 5433 (or your configured disposable database):
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5433/verilore
 mkdir -p eval/results
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \
-  venvmp/bin/python -m api.services.memory_query_benchmark --end-to-end \
+  venvmp/bin/python -m verilore.api.services.memory_query_benchmark --end-to-end \
   --save eval/results/m0065-local-rerun.json
 ```
 
 This is a standalone, rollback-only database workload, not a REST-server benchmark
 or a generation run. It uses the cached real model with no fixture fallback.
-Unlike `cli.main eval memory --save`, this module **overwrites** its target and
+Unlike `verilore.cli.main eval memory --save`, this module **overwrites** its target and
 does not create the parent; use a fresh filename to preserve recorded reports.
 Omit `--end-to-end` (with a separate save path) for the ranking experiment only.
 
@@ -225,7 +225,7 @@ From the repository root, with requirements and the editable package installed:
 
 ```bash
 export DATABASE_URL=postgresql://mpadmin:secret@localhost:5433/verilore
-python -m alembic -c migrations/alembic.ini upgrade head
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
 python examples/memory_demo.py
 ```
 
@@ -467,10 +467,10 @@ ordinary ingestion cannot silently bypass recorded history once a corpus has any
 
 ```python
 import asyncio
-from api.services.ingestion import IngestionService
-from api.services.corpora import get_or_create_corpus
-from api.services.db import session_scope
-from api.services import memory
+from verilore.api.services.ingestion import IngestionService
+from verilore.api.services.corpora import get_or_create_corpus
+from verilore.api.services.db import session_scope
+from verilore.api.services import memory
 
 async def main():
     async with session_scope() as db:

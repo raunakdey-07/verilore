@@ -49,7 +49,7 @@ def pytest_sessionstart(session) -> None:
         # after `verilore init`, without manual env var exports.
         default_url = "postgresql://mpadmin:secret@localhost:5432/verilore"
         try:
-            from cli import postgres as _postgres
+            from verilore.cli import postgres as _postgres
 
             if _postgres.ensure_local_postgres():
                 base_url = default_url
@@ -75,7 +75,7 @@ def pytest_sessionstart(session) -> None:
             "pgvector available, for example:\n"
             "  docker compose up -d postgresql\n"
             "  export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore\n"
-            "  python -m alembic -c migrations/alembic.ini upgrade head\n"
+            "  python -m alembic -c verilore/migrations/alembic.ini upgrade head\n"
             "To run deliberately against a shared database without creating a "
             "session one, set VERILORE_TEST_DB=off."
         )
@@ -308,8 +308,8 @@ async def store(monkeypatch):
     Same shape as the golden-path fixture: the service keeps its real transaction
     ownership and only the connection belongs to the test.
     """
-    from api.services import ingestion as ingestion_service
-    from api.services import remember as remember_service
+    from verilore.api.services import ingestion as ingestion_service
+    from verilore.api.services import remember as remember_service
 
     url = os.getenv("MEMORY_TEST_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not url:
@@ -333,7 +333,9 @@ async def store(monkeypatch):
                     import importlib.util
                     from pathlib import Path
 
-                    for path in sorted((Path(ROOT) / "migrations" / "versions").glob("*.py")):
+                    for path in sorted(
+                        (Path(ROOT) / "verilore/migrations" / "versions").glob("*.py")
+                    ):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
@@ -370,7 +372,7 @@ async def store(monkeypatch):
                     # `sync_repo` uses it to hold one connection for the length of
                     # a repository sync. A fixture that replaces one and not the
                     # other sends the sync to the wrong database.
-                    from api.services import db as db_module
+                    from verilore.api.services import db as db_module
 
                     for module in (ingestion_service, remember_service, db_module):
                         for name in ("session_scope", "sync_session_scope"):

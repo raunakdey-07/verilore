@@ -49,7 +49,8 @@ from pathlib import Path
 #: Model identifier -> pinned commit sha.
 #:
 #: `EMBEDDING_MODEL` and `RERANKER_MODEL` are the application's own overrides, kept
-#: in step with `api/services/embedder.py` and `api/services/reranker.py`. A pinned
+#: in step with `verilore/api/services/embedder.py` and
+#: `verilore/api/services/reranker.py`. A pinned
 #: revision only means anything if the identifier still matches the one the
 #: application asks for, so `--verify` compares them.
 PINS: dict[str, str] = {
@@ -130,8 +131,8 @@ def provision() -> int:
 def verify() -> int:
     """Prove both models load, offline, through the application's own classes.
 
-    Deliberately imports `api.services.embedder.Embedder` and
-    `api.services.reranker.Reranker` rather than loading the files directly: the
+    Deliberately imports `verilore.api.services.embedder.Embedder` and
+    `verilore.api.services.reranker.Reranker` rather than loading the files directly: the
     question is whether Verilore can use the model, not whether the model exists.
 
     The embedder is checked unconditionally, because onnxruntime is a default
@@ -143,12 +144,12 @@ def verify() -> int:
     problems: list[str] = []
 
     # 1. The identifiers the application asks for must be the ones we pinned.
-    from api.services.embedder import DEFAULT_MODEL
+    from verilore.api.services.embedder import DEFAULT_MODEL
 
-    # `api.services.reranker` imports either way; what varies is whether its
+    # `verilore.api.services.reranker` imports either way; what varies is whether its
     # backend does. Testing the module rather than `CrossEncoder` would report the
     # reranker as available and then fail to load it.
-    from api.services import reranker as reranker_module
+    from verilore.api.services import reranker as reranker_module
 
     reranker_available = reranker_module.CrossEncoder is not None
 
@@ -168,7 +169,7 @@ def verify() -> int:
         )
     if DEFAULT_MODEL != "all-MiniLM-L6-v2":
         problems.append(
-            f"api.services.embedder.DEFAULT_MODEL changed to {DEFAULT_MODEL!r}; "
+            f"verilore.api.services.embedder.DEFAULT_MODEL changed to {DEFAULT_MODEL!r}; "
             "update PINS in this script"
         )
 
@@ -188,7 +189,7 @@ def verify() -> int:
 
     # 3. Load them the way the application does.
     try:
-        from api.services.embedder import Embedder
+        from verilore.api.services.embedder import Embedder
 
         embedder = Embedder()
         vectors = embedder.embed(["model provisioning check"])

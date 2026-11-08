@@ -11,7 +11,7 @@ answerable dev questions, with k >= 2 unchanged.
 
 from datetime import datetime, timezone
 
-from api.services.memory_relevance import authority_order
+from verilore.api.services.memory_relevance import authority_order
 
 OPEN_ENDED = datetime(2026, 1, 1, tzinfo=timezone.utc)
 LATER = datetime(2026, 2, 1, tzinfo=timezone.utc)

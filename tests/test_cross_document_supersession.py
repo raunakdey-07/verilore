@@ -18,11 +18,11 @@ import os
 
 import pytest
 
-from api.models.memory import MemoryRequest
-from api.services import ingestion as ingestion_service
-from api.services.memory import _active_claims
-from api.services.memory_public import execute_in_session
-from api.services.remember import related_active, remember
+from verilore.api.models.memory import MemoryRequest
+from verilore.api.services import ingestion as ingestion_service
+from verilore.api.services.memory import _active_claims
+from verilore.api.services.memory_public import execute_in_session
+from verilore.api.services.remember import related_active, remember
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,7 +38,7 @@ async def live(store):
 
 async def ingest(store, statement, path, key):
     """Archive one statement as its own document, bypassing `remember`'s key logic."""
-    from api.services.remember import render_statement
+    from verilore.api.services.remember import render_statement
 
     await ingestion_service.IngestionService(
         memory_enabled=True, require_embeddings=False
@@ -250,7 +250,7 @@ async def _seed_voice(store):
 async def test_history_by_new_document_path_shows_cross_document_supersession(store):
     """history(path=<remember path>) must show the superseded cross-document
     claim in changes[].previous (closes #152)."""
-    from api.services.memory_public import execute_in_session
+    from verilore.api.services.memory_public import execute_in_session
 
     voice_id = await _seed_voice(store)
     written = await remember(
@@ -278,7 +278,7 @@ async def test_history_by_new_document_path_shows_cross_document_supersession(st
 async def test_history_by_original_document_path_first_version_unchanged(store):
     """history(path=brand/guide.md) first version: previous == [] and current
     contains both bullets (unchanged behaviour)."""
-    from api.services.memory_public import execute_in_session
+    from verilore.api.services.memory_public import execute_in_session
 
     voice_id = await _seed_voice(store)
     await remember(
@@ -307,7 +307,7 @@ async def test_history_by_original_document_path_first_version_unchanged(store):
 async def test_history_without_path_shows_cross_document_supersession(store):
     """history with no path: some change's previous contains the superseded
     voice claim (unchanged behaviour)."""
-    from api.services.memory_public import execute_in_session
+    from verilore.api.services.memory_public import execute_in_session
 
     voice_id = await _seed_voice(store)
     await remember(

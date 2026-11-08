@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from api.services.evaluation import EvaluationService
+from verilore.api.services.evaluation import EvaluationService
 
 CORPUS_DIR = Path("content_eval")
 BENCHMARK_FILE = "eval/retrieval_benchmarks.yaml"

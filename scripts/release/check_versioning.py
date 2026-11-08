@@ -123,7 +123,7 @@ def real_alembic_head(versions_dir: Path | None = None) -> str | None:
     the real migrations directory; tests pass a temp dir.
     """
     if versions_dir is None:
-        versions_dir = ROOT / "migrations" / "versions"
+        versions_dir = ROOT / "verilore/migrations" / "versions"
     head, _problems = analyze_migration_heads(versions_dir)
     return head
 
@@ -300,7 +300,7 @@ def main() -> None:
             "gitignored, so the example's data file would not ship"
         )
     status = (ROOT / "docs" / "STATUS.md").read_text(encoding="utf-8")
-    versions_dir = ROOT / "migrations" / "versions"
+    versions_dir = ROOT / "verilore/migrations" / "versions"
     for problem in migration_head_problems(status, versions_dir):
         raise SystemExit(f"release metadata check failed: {problem}")
     print("release metadata: PASS")

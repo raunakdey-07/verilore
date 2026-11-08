@@ -2,9 +2,9 @@
 
 Scope: the boundary between what a source document asserts and what a model
 infers, and what the external review says about how other systems draw that
-line. Evidence for the Verilore side is in `api/services/memory.py`,
-`api/services/memory_public.py`, `api/services/memory_query.py`,
-`migrations/versions/004_memory.py`, and the two documents beside this one,
+line. Evidence for the Verilore side is in `verilore/api/services/memory.py`,
+`verilore/api/services/memory_public.py`, `verilore/api/services/memory_query.py`,
+`verilore/migrations/versions/004_memory.py`, and the two documents beside this one,
 [`memory-model.md`](memory-model.md) and
 [`provenance-model.md`](provenance-model.md). Evidence for the external side is
 in [`../competitive/capability-matrix.md`](../competitive/capability-matrix.md),
@@ -94,10 +94,10 @@ derived layer would need its own labelled questions, its own abstention checks,
 and its own false-promotion counter, because a model-inferred statement promoted
 to current is the failure mode that matters most.
 
-The knowledge graph in `api/services/memory_reasoning.py` exists for research
+The knowledge graph in `verilore/api/services/memory_reasoning.py` exists for research
 and is excluded from the API image. It is not a derived-memory layer and does
 not feed the released query path.
 
-The current L2 rebuild path is `api/services/rehydrate.py`, invoked by
+The current L2 rebuild path is `verilore/api/services/rehydrate.py`, invoked by
 `verilore reindex`. It writes only live projection rows and never appends an
 archive version.

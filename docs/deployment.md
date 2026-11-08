@@ -113,7 +113,7 @@ Five operations are instrumented, matching what a developer actually does:
 
 Attributes are counts, sizes, durations and identifiers. **Memory content never
 enters a trace**: no claim text, no document body, no question, no evidence quote.
-A free-form attribute is reduced to `<N chars>` by `api/services/telemetry.py`
+A free-form attribute is reduced to `<N chars>` by `verilore/api/services/telemetry.py`
 precisely so a misconfigured call site cannot leak an answer into a trace backend.
 The authoritative `memory_pack_digest` is excluded for the same reason: it is a
 stable fingerprint of the user's entire memory state, and a trace backend is
@@ -185,7 +185,7 @@ corpus scope   a key is bound to the corpora it may read and write
 role           read-only, or read-write
 ```
 
-This is implemented, in `api/services/authz.py`, and enforced in three layers —
+This is implemented, in `verilore/api/services/authz.py`, and enforced in three layers —
 authentication, a single authorization choke point in
 `corpora.get_corpus_by_name`, and row-level security on every tenant-owned table —
 on **every** surface, not only HTTP: the Python SDK, the local runtime socket and
@@ -234,7 +234,7 @@ psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SET ROLE mindpalace_owner; SEL
 ```
 
 ```bash
-VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn api.main:app --host 0.0.0.0 --port 8000
+VERILORE_SCOPE_SECRET="$(cat scope-secret.txt)" VERILORE_ENFORCE_SCOPE_TOKEN=on VERILORE_AUTH_MODE=required VERILORE_DEPLOYMENT=server VERILORE_INGEST_ROOTS=/srv/brand-docs uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 The safe rotation order is: update the DB row first, then roll the environment
@@ -276,8 +276,8 @@ arbitrarily.
 | `VERILORE_ADMIN_DATABASE_URL` | `DATABASE_URL` | The maintenance role, for the administrative CLI commands. |
 | `VERILORE_MAX_INGEST_CHARS` | `4000000` | Largest single document accepted. |
 | `VERILORE_CURSOR_SECRET` | — | HMAC key for feed cursors. One per deployment. |
-| `VERILORE_SCOPE_SECRET` | unset (in-process code falls back to `dev-scope-secret`, api/services/db.py:166) | The HMAC secret that signs the tenant scope token. Must equal the value rotated into the database with `verilore secret rotate`. A server deployment refuses to start when it is unset, is `dev-scope-secret`, or disagrees with the database row (api/main.py:135-176). |
-| `VERILORE_ENFORCE_SCOPE_TOKEN` | `off` | `on` makes a server deployment verify at startup that enforcement is enabled in the database and the secret matches. With `off`, a server deployment refuses to start unless `VERILORE_I_UNDERSTAND_SCOPE_FORGERY=1` is set, and logs that tenant scope can be forged (api/main.py:120-133). |
+| `VERILORE_SCOPE_SECRET` | unset (in-process code falls back to `dev-scope-secret`, verilore/api/services/db.py:166) | The HMAC secret that signs the tenant scope token. Must equal the value rotated into the database with `verilore secret rotate`. A server deployment refuses to start when it is unset, is `dev-scope-secret`, or disagrees with the database row (verilore/api/main.py:135-176). |
+| `VERILORE_ENFORCE_SCOPE_TOKEN` | `off` | `on` makes a server deployment verify at startup that enforcement is enabled in the database and the secret matches. With `off`, a server deployment refuses to start unless `VERILORE_I_UNDERSTAND_SCOPE_FORGERY=1` is set, and logs that tenant scope can be forged (verilore/api/main.py:120-133). |
 
 `VERILORE_DEPLOYMENT=server` is the switch that stops a convenient local
 default from becoming an unauthenticated-looking shared service:
@@ -285,7 +285,7 @@ default from becoming an unauthenticated-looking shared service:
 ```bash
 VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \
 VERILORE_INGEST_ROOTS=/srv/content \
-    uvicorn api.main:app --host 0.0.0.0
+    uvicorn verilore.api.main:app --host 0.0.0.0
 ```
 
 In that profile the process refuses to start — before it accepts a request — if

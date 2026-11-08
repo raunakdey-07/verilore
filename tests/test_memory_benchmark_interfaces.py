@@ -33,9 +33,9 @@ import httpx
 import pytest
 from sqlalchemy import event
 
-from api.models.memory import MemoryRequest, MemoryResponse
-from api.services import corpora, memory_public
-from api.services.memory_benchmark import (
+from verilore.api.models.memory import MemoryRequest, MemoryResponse
+from verilore.api.services import corpora, memory_public
+from verilore.api.services.memory_benchmark import (
     _claims,
     check_provenance,
     memory_benchmark_workload,
@@ -64,10 +64,10 @@ async def workload(monkeypatch):
 async def interfaces(workload, monkeypatch):
     from typer.testing import CliRunner
 
-    import mcp_server
-    from api.main import app
-    from cli.main import app as cli_app
-    from verilore_sdk import Verilore
+    import verilore.mcp_server as mcp_server
+    from verilore.api.main import app
+    from verilore.cli.main import app as cli_app
+    from verilore.sdk import Verilore
 
     # execute() still owns db.begin(); sessions() makes its commit release a
     # savepoint, never the workload's outer transaction. No executor is patched.
@@ -223,7 +223,7 @@ async def test_a_g_benchmark_labels_and_snapshots_across_interfaces(workload, in
 
 
 async def assert_not_found(workload, interfaces, operation, request, code):
-    from verilore_sdk import MemoryClientError
+    from verilore.sdk import MemoryClientError
 
     with no_destructive_sql(workload):
         with pytest.raises(memory_public.MemoryError) as direct:
@@ -323,9 +323,9 @@ async def test_foreign_corpus_claim_snapshot_and_path_do_not_leak(workload, inte
 
 
 async def test_hostile_evidence_is_preserved_without_execution(workload, interfaces, monkeypatch):
-    import mcp_server
-    from api.services.embedder import Embedder
-    from api.services.llm_service import LLMService
+    import verilore.mcp_server as mcp_server
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.llm_service import LLMService
 
     attempted = []
 

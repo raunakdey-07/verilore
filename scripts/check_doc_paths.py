@@ -68,7 +68,7 @@ ADVISORY = ("docs/research", "examples")
 #: A repo-rooted path-shaped token. Narrow on purpose: a loose pattern matches
 #: prose, and a gate that matches prose is noise.
 PATH = re.compile(
-    r"\b((?:docs|eval|scripts|tests|api|cli|migrations|examples|content|content_eval)/"
+    r"\b((?:docs|eval|scripts|tests|api|cli|migrations|examples|content|content_eval|verilore)/"
     r"[\w./*-]+\.(?:md|json|yaml|yml|py|sh|txt|xml|toml))\b"
 )
 
@@ -145,7 +145,14 @@ def candidates_in(doc: Path) -> set[tuple[str, bool]]:
     for line in doc.read_text(encoding="utf-8", errors="ignore").splitlines():
         if "--save" in line or "--out" in line:
             continue
-        found |= {(raw, False) for raw in PATH.findall(line)}
+        for m in PATH.finditer(line):
+            # Skip a token that is part of a URL (a CI badge, a GitHub link): the
+            # whitespace-delimited word holding it contains "://". A repository path
+            # elsewhere on the same line is still checked.
+            word = line[line.rfind(" ", 0, m.start()) + 1 : m.end()]
+            if "://" in word:
+                continue
+            found.add((m.group(1), False))
         found |= {
             (raw, True)
             for raw in LINK.findall(line)

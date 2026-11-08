@@ -45,7 +45,7 @@ authorization choke point and database policies; only the transport differs.
 archive, receipts and the query surfaces. Memory is reached over **HTTP, through
 the public REST contract** — `httpx`, a bearer credential and a JSON body, to a
 running Verilore at `VERILORE_URL`. No direct SQL against Verilore's
-tables, no import of `api.services`, no import of the server's ASGI application
+tables, no import of `verilore.api.services`, no import of the server's ASGI application
 object, no knowledge of its models or repositories.
 
 That is the whole claim, so it is tested mechanically:
@@ -54,11 +54,11 @@ under this directory imports `api`, `cli`, `migrations`, or the SDK.
 
 Two earlier versions failed that test and were fixed rather than excepted:
 
-* one called `api.services.memory_public.execute` in-process and called it
+* one called `verilore.api.services.memory_public.execute` in-process and called it
   public. It was not: an adopter needing those imports could not be pointed at a
   different deployment, and would break when the storage changed under a contract
   that did not;
-* the provisioning step and the demo each imported `api.main.app` and drove it
+* the provisioning step and the demo each imported `verilore.api.main.app` and drove it
   through `httpx.ASGITransport`, and the test carried a written list of exactly
   those four permitted lines. A test with an exception list has already decided
   what it is willing to miss.
@@ -77,8 +77,8 @@ point.
 
 ```bash
 # 1. The service, in one shell.
-alembic -c migrations/alembic.ini upgrade head
-VERILORE_AUTH_MODE=required uvicorn api.main:app --host 127.0.0.1 --port 8000
+alembic -c verilore/migrations/alembic.ini upgrade head
+VERILORE_AUTH_MODE=required uvicorn verilore.api.main:app --host 127.0.0.1 --port 8000
 
 # 2. The demo, in another.
 python examples/marketing-campaign-memory/demo.py

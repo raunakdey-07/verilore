@@ -2,9 +2,9 @@
 
 Every claim Verilore returns is anchored to text that was archived, and the
 anchor is enforced by the database rather than by application code. Evidence:
-`migrations/versions/004_memory.py`,
-`migrations/versions/005_multiple_evidence.py`, `api/services/memory.py`,
-`api/services/memory_public.py`, and `api/models/memory.py`.
+`verilore/migrations/versions/004_memory.py`,
+`verilore/migrations/versions/005_multiple_evidence.py`, `verilore/api/services/memory.py`,
+`verilore/api/services/memory_public.py`, and `verilore/api/models/memory.py`.
 
 ## What an evidence row is
 
@@ -16,7 +16,7 @@ anchor is enforced by the database rather than by application code. Evidence:
 - `start_offset` and `end_offset`, character positions in the chunk;
 - the corpus, and an identifier derived from the claim and the span it covers.
 
-The `Evidence` contract in `api/models/memory.py` adds the projection fields a
+The `Evidence` contract in `verilore/api/models/memory.py` adds the projection fields a
 caller sees: `document_id`, `path`, `source_hash` (the version fingerprint),
 `heading`, `text`, and `observed_at`.
 
@@ -89,7 +89,7 @@ and the snapshot. Append-only evidence cannot therefore change what a later
 replay returns.
 
 The post-release follow-up in this audit adds
-`migrations/versions/006_snapshot_membership_seal.py`, which extends the same
+`verilore/migrations/versions/006_snapshot_membership_seal.py`, which extends the same
 idea from evidence to snapshot membership: a seal row per snapshot, an
 `AFTER INSERT` statement trigger with a transition table that rejects new
 membership for a sealed snapshot, and a deferred constraint trigger requiring

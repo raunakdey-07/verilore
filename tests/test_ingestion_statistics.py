@@ -52,8 +52,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services import ingestion
-from api.services.ingestion import STATISTICS_REFRESH_MINIMUM, IngestionService
+from verilore.api.services import ingestion
+from verilore.api.services.ingestion import STATISTICS_REFRESH_MINIMUM, IngestionService
 from tenant_harness import sync_url
 
 #: Claims, evidence rows, chunks, versions and documents: one of each per file.
@@ -154,7 +154,7 @@ requires_db = pytest.mark.skipif(
 
 def _migrate(sync_conn):
     """Apply the real migrations, so the corpus can only exist via production paths."""
-    for path in sorted((Path(__file__).parents[1] / "migrations/versions").glob("*.py")):
+    for path in sorted((Path(__file__).parents[1] / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -196,7 +196,7 @@ class _LogCapture(logging.Handler):
 
 async def _capture_load_sql() -> str:
     """The literal statement the public projection runs, not a retype of it."""
-    from api.services import memory
+    from verilore.api.services import memory
 
     capture = _SQLCapture()
     await memory._load(capture, "0" * 64, chunk_text=False, version_text=False)
@@ -366,7 +366,7 @@ async def _build_bulk_corpus() -> dict:
     hook = IngestionService._refresh_planner_statistics
     saved_scope, saved_embedder = ingestion.session_scope, ingestion.Embedder
     saved_sync_scope = ingestion.sync_session_scope
-    logger = logging.getLogger("api.services.ingestion")
+    logger = logging.getLogger("verilore.api.services.ingestion")
     saved_level = logger.level
     # The hook reports at INFO and the root logger is at WARNING, so without this
     # the event is filtered out before it ever reaches the handler.
@@ -575,7 +575,7 @@ async def test_a_failing_analyze_does_not_fail_the_ingest(threshold_corpus, monk
         return real_text(statement, *args, **kwargs)
 
     monkeypatch.setattr(ingestion, "text", exploding_text)
-    logger = logging.getLogger("api.services.ingestion")
+    logger = logging.getLogger("verilore.api.services.ingestion")
     monkeypatch.setattr(logger, "level", logging.INFO)
     log_capture = _LogCapture()
     logger.addHandler(log_capture)

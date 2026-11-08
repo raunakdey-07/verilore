@@ -1,8 +1,8 @@
 # Failure modes
 
 Each entry names a failure, how it shows up, why it happens, and what the
-repository already does about it. Sources: `api/services/memory_feed.py`,
-`api/services/memory_public.py`, `api/main.py`, `api/services/ingestion.py`,
+repository already does about it. Sources: `verilore/api/services/memory_feed.py`,
+`verilore/api/services/memory_public.py`, `verilore/api/main.py`, `verilore/api/services/ingestion.py`,
 [`docs/deployment.md`](../deployment.md), and
 [`docs/archive/m009/RELEASE_READINESS.md`](../archive/m009/RELEASE_READINESS.md).
 
@@ -132,7 +132,7 @@ would be ambiguous.
 for evidence: `005_multiple_evidence` refuses evidence inserts into a
 snapshotted version under the same advisory lock that `snapshot()` takes. The
 post-release follow-up adds
-`migrations/versions/006_snapshot_membership_seal.py`, which extends the same
+`verilore/migrations/versions/006_snapshot_membership_seal.py`, which extends the same
 protection to snapshot membership itself, with a seal row, a statement trigger
 that rejects new membership for a sealed snapshot, and a deferred trigger
 requiring the seal before a snapshot commits. It is not part of the immutable
@@ -270,16 +270,16 @@ options below need an owner decision.
 
 ### What actually exists
 
-`python -m cli.main --help` lists both, and they do different jobs:
+`python -m verilore.cli.main --help` lists both, and they do different jobs:
 
 | Command | Kind | Does |
 |---|---|---|
 | `verilore corpora` | top-level command | **Lists** the corpora you can read and write. One name per line. Read-only. |
 | `verilore corpus` | Typer sub-group (`corpora_app = typer.Typer(name="corpus")`) | **Administrative.** Sub-commands `create` and `delete`. |
 
-Source: `cli/main.py:806` defines `def corpora()` as an `@app.command()`;
-`cli/main.py:1624` defines `corpora_app` with `name="corpus"` and
-`cli/main.py:1629` calls `app.add_typer(corpora_app)`.
+Source: `verilore/cli/main.py:806` defines `def corpora()` as an `@app.command()`;
+`verilore/cli/main.py:1624` defines `corpora_app` with `name="corpus"` and
+`verilore/cli/main.py:1629` calls `app.add_typer(corpora_app)`.
 
 So the inconsistency is a singular noun that is a group, next to a plural noun
 that is a single flat command. The internal variable is named `corpora_app` while

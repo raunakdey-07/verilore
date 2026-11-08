@@ -110,11 +110,27 @@ def main() -> int:
 
     # -- 0. a scratch corpus, and a credential issued against only that one ----
     code, _ = run(
-        [sys.executable, "-m", "cli.main", "corpora", "create", args.issued_with], superuser
+        [
+            sys.executable,
+            "-m",
+            "verilore.cli.main",
+            "corpora",
+            "create",
+            args.issued_with,
+        ],
+        superuser,
     )
     if code != 0:
         code, _ = run(
-            [sys.executable, "-m", "cli.main", "corpus", "create", args.issued_with], superuser
+            [
+                sys.executable,
+                "-m",
+                "verilore.cli.main",
+                "corpus",
+                "create",
+                args.issued_with,
+            ],
+            superuser,
         )
     check(f"scratch corpus {args.issued_with} exists", code == 0, f"exit={code}")
 
@@ -124,7 +140,7 @@ def main() -> int:
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "credential",
             "issue",
             "upgrade-safety",
@@ -168,7 +184,7 @@ def main() -> int:
             sys.executable,
             "-m",
             "uvicorn",
-            "api.main:app",
+            "verilore.api.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -197,7 +213,7 @@ def main() -> int:
         check("no credential is refused", status in (401, 403), f"GET /corpora -> {status}")
 
         # -- 3. before any grant: exactly the issued corpus ------------------
-        from verilore_sdk import Verilore  # noqa: E402 - after the env is set
+        from verilore.sdk import Verilore  # noqa: E402 - after the env is set
 
         client = Verilore(base_url=base, api_key=credential, runtime=False)
         listed = _corpora(base, credential)
@@ -212,7 +228,7 @@ def main() -> int:
             [
                 sys.executable,
                 "-m",
-                "cli.main",
+                "verilore.cli.main",
                 "credential",
                 "grant",
                 credential_id,
@@ -226,7 +242,7 @@ def main() -> int:
             [
                 sys.executable,
                 "-m",
-                "cli.main",
+                "verilore.cli.main",
                 "credential",
                 "grant",
                 credential_id,
@@ -273,7 +289,7 @@ def main() -> int:
             [
                 sys.executable,
                 "-m",
-                "memory_proof_cli",
+                "verilore.proof_cli",
                 "verify",
                 os.path.join(args.before, "receipt.json"),
             ],
@@ -347,7 +363,7 @@ def _cleanup(superuser: dict, credential_id: str, scratch: str) -> None:
         (["credential", "revoke", credential_id], "revoke the credential"),
         (["corpus", "delete", scratch, "--yes"], "delete the scratch corpus"),
     ):
-        code, output = run([sys.executable, "-m", "cli.main", *argv], superuser)
+        code, output = run([sys.executable, "-m", "verilore.cli.main", *argv], superuser)
         if code != 0:
             print(f"  note: could not {label}: {output.strip().splitlines()[-1:]}".strip())
 
@@ -436,7 +452,7 @@ def _scoped_claim_ids(credential: str) -> list[str]:
 
     from sqlalchemy import text
 
-    from api.services import authz, db as db_module
+    from verilore.api.services import authz, db as db_module
 
     async def read() -> list[str]:
         # TWO transactions, in this order, and the order is the whole point.
@@ -472,7 +488,7 @@ def _superuser_claim_ids(url: str) -> list[str]:
             "-c",
             "import asyncio\n"
             "from sqlalchemy import text\n"
-            "from api.services.db import session_scope\n"
+            "from verilore.api.services.db import session_scope\n"
             "async def main():\n"
             "    async with session_scope() as db:\n"
             "        rows=(await db.execute(text("

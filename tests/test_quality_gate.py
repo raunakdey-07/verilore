@@ -2,8 +2,8 @@
 
 import json
 
-from api.services.confidence import MetricSamples
-from api.services.quality_gate import (
+from verilore.api.services.confidence import MetricSamples
+from verilore.api.services.quality_gate import (
     collect_gate_results,
     compare_to_baseline,
     render_gate_report,

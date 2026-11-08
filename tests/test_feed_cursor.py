@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from api.services.memory_feed import decode_cursor, encode_cursor
-from api.services.memory_public import MemoryError
+from verilore.api.services.memory_feed import decode_cursor, encode_cursor
+from verilore.api.services.memory_public import MemoryError
 
 
 def test_cursor_is_corpus_bound_and_tamper_evident():

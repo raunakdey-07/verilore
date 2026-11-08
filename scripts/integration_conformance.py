@@ -44,9 +44,9 @@ async def run() -> int:
 
     # 1. The public SDK imports, and exposes what is documented.
     try:
-        import verilore_sdk
+        import verilore.sdk
 
-        missing = [s for s in REQUIRED_SDK_SYMBOLS if not hasattr(verilore_sdk, s)]
+        missing = [s for s in REQUIRED_SDK_SYMBOLS if not hasattr(verilore.sdk, s)]
         checks.append(
             Check(
                 "the public SDK imports and exposes its documented symbols",
@@ -59,7 +59,7 @@ async def run() -> int:
 
     # 2. The error taxonomy is importable and distinguishes components.
     try:
-        from verilore_errors import COMPONENTS, VeriloreError
+        from verilore.errors import COMPONENTS, VeriloreError
 
         checks.append(
             Check(

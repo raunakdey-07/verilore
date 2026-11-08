@@ -49,7 +49,7 @@ destroy L2 exits non-zero rather than reporting success.
 
 ## 2. An independent consumer needs one file
 
-`memory_pack.py` at the repository root imports only the standard library. A subprocess
+`verilore/pack.py` imports only the standard library. A subprocess
 test imports it and asserts that `api`, `sqlalchemy`, `torch`, `asyncpg`, `fastapi`,
 `verilore_sdk` and `sentence_transformers` are all absent from `sys.modules`. A second
 test copies that single file plus one pack into an empty directory, runs with a clean

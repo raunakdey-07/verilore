@@ -48,7 +48,7 @@ Three layers, each independently sufficient to stop a cross-tenant read, and
 each provably load-bearing (`tests/test_tenant_control_effectiveness.py`
 removes them one at a time).
 
-1. **Authentication — `api/services/authz.py`.** A credential is an opaque
+1. **Authentication — `verilore/api/services/authz.py`.** A credential is an opaque
    random string, presented as `Authorization: Bearer <secret>`. Only its
    SHA-256 hash is stored; the hash is what the lookup index holds, so lookup is
    an indexed equality rather than a comparison over every secret. A credential
@@ -90,7 +90,7 @@ five, and each is covered:
 
 | Surface | How it establishes the principal |
 | --- | --- |
-| REST (`api/routers/`) | The `Authorization` header, resolved by middleware |
+| REST (`verilore/api/routers/`) | The `Authorization` header, resolved by middleware |
 | Python SDK, local | `api_key=` at construction, resolved before any operation |
 | Python SDK, HTTP | The `Authorization` header on each request |
 | Local runtime socket | `VERILORE_RUNTIME_CREDENTIAL` on the serving process |
@@ -341,7 +341,7 @@ operator path for a brand-new corpus:
 
 * Any authenticated credential: `403` `forbidden`. The service layer raises
   `AuthorizationError` before any INSERT
-  (`api/services/corpora.py::create_corpus` checks `principal.unrestricted`, which
+  (`verilore/api/services/corpora.py::create_corpus` checks `principal.unrestricted`, which
   is false for every credential), so no credential can create a corpus over HTTP.
   Corpora are created by the operator with `verilore corpus create`.
 
@@ -349,7 +349,7 @@ The 403 body is `{"code": "forbidden", "message": "Creating a corpus over HTTP
 is not permitted for this credential. Corpora are created by the operator with
 `verilore corpus create`."}`. It is returned by the service-layer authorization
 check, before any INSERT, for every authenticated credential. The route's
-42501 ProgrammingError handler (`api/routers/corpora.py`) only matters for an
+42501 ProgrammingError handler (`verilore/api/routers/corpora.py`) only matters for an
 unrestricted principal running as the runtime role (off auth mode).
 
 ## Threat model
@@ -607,12 +607,12 @@ Two settings, and the second is what stops the first from being a trap:
 ```bash
 VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \
 VERILORE_INGEST_ROOTS=/srv/content \
-    uvicorn api.main:app --host 0.0.0.0
+    uvicorn verilore.api.main:app --host 0.0.0.0
 ```
 
 `local` with `off` is the default because a developer's first five minutes should
 not involve credentials. The hazard is that it is also what a bare
-`uvicorn api.main:app` and a default `docker compose up` produce, and those bind
+`uvicorn verilore.api.main:app` and a default `docker compose up` produce
 a published port. `server` is a promise the code holds the operator to: the
 application factory exits with a reason rather than coming up answering anyone.
 The mode is never inferred from a socket or a `DATABASE_URL`, because both
@@ -679,7 +679,7 @@ docker run -p 8000:8000 \
   -e VERILORE_INGEST_ROOTS=/content \
   -e DATABASE_URL=... \
   verilore \
-  uvicorn api.main:app --host 0.0.0.0 --port 8000
+  uvicorn verilore.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 `server` refuses to start unless authentication is on and the database role
@@ -983,7 +983,7 @@ A working example of all of this — two tenants, one deliberately shared
 workspace, draft/review/approval, cross-tenant refusal — is in
 [`examples/marketing-campaign-memory/`](../examples/marketing-campaign-memory/).
 It uses **only** the public HTTP contract: `httpx`, a bearer credential and a
-JSON body, with no import of `api.services`, no repository, and no memory table.
+JSON body, with no import of `verilore.api.services`, no repository, and no memory table.
 A test fails if any file under that directory imports an internal, because the
 claim is worthless if the example quietly depends on the implementation.
 
@@ -1040,17 +1040,17 @@ filesystem from a caller, and whether it goes through that one resolver.
 
 | Surface | Reads | Enforced | Through `require_permitted` |
 |---|---|---|---|
-| `verilore ingest-repo <path>` | a directory of Markdown | yes | yes — `cli/main.py:1212` |
-| `verilore ingest <path>` | one file, then POSTs its contents | yes | yes — `cli/main.py:1143` |
-| `verilore remember --file <path>` | one file, as a statement | yes | yes — `api/services/remember.py:563` |
+| `verilore ingest-repo <path>` | a directory of Markdown | yes | yes — `verilore/cli/main.py:1212` |
+| `verilore ingest <path>` | one file, then POSTs its contents | yes | yes — `verilore/cli/main.py:1143` |
+| `verilore remember --file <path>` | one file, as a statement | yes | yes — `verilore/api/services/remember.py:563` |
 | `verilore reindex` | no caller path; the corpus's own documents | n/a | n/a |
-| `POST /api/ingest/repo` | a directory | yes | yes — `api/routers/ingest.py:76` |
+| `POST /api/ingest/repo` | a directory | yes | yes — `verilore/api/routers/ingest.py:76` |
 | `POST /api/ingest/file` | content in the request body, no path | n/a | n/a |
-| `POST /api/corpora/{name}/sync` | a directory | yes | yes — `api/routers/corpora.py:115` |
-| SDK `Verilore.sync(path)` | a directory | yes | yes — `api/services/ingestion.py:694` |
-| SDK `Verilore.remember(file=…)` | one file | yes | yes — `api/services/remember.py:563` |
+| `POST /api/corpora/{name}/sync` | a directory | yes | yes — `verilore/api/routers/corpora.py:115` |
+| SDK `Verilore.sync(path)` | a directory | yes | yes — `verilore/api/services/ingestion.py:694` |
+| SDK `Verilore.remember(file=…)` | one file | yes | yes — `verilore/api/services/remember.py:563` |
 | MCP `sync(corpus, path)` | a directory | yes | yes — same `sync_repo` |
-| MCP `memory_remember(file=…)` | one file | yes | yes — `mcp_server.py:262` |
+| MCP `memory_remember(file=…)` | one file | yes | yes — `verilore/mcp_server.py:262` |
 | `verilore verify <receipt>` | a receipt the caller produced | **no, deliberately** | n/a |
 | `verilore receipt -o <file>` | writes; not a read | n/a | n/a |
 | benchmark `--baseline <file>` | a previous report, for comparison | **no, deliberately** | n/a |

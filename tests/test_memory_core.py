@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services import memory
+from verilore.api.services import memory
 
 
 def payload(value="blue", **extra):
@@ -178,7 +178,7 @@ async def memory_db():
         spec.loader.exec_module(module)
         return module
 
-    migration = load("migrations/versions/004_memory.py")
+    migration = load("verilore/migrations/versions/004_memory.py")
     # `007_claim_embedding_cache` is applied in this schema too, and it is here
     # for a reason that took four sessions and a PostgreSQL log to find.
     #
@@ -197,13 +197,13 @@ async def memory_db():
     # makes both relations resolve into the per-test schema, so the FK's
     # referenced rows are the rows the test just wrote -- which is what
     # production looks like, where there is one schema.
-    cache_migration = load("migrations/versions/007_claim_embedding_cache.py")
+    cache_migration = load("verilore/migrations/versions/007_claim_embedding_cache.py")
     # `011` widens `memory_claims.supersession_basis` from two values to four, and
     # `record_version` writes two of them (`topic_key`, `explicit_claim_id`). The
     # `004` CHECK rejects those, so the fixture has to carry the migration or every
     # cross-document write in this file fails on a constraint the application does
     # not use in production.
-    supersession_migration = load("migrations/versions/011_cross_document_supersession.py")
+    supersession_migration = load("verilore/migrations/versions/011_cross_document_supersession.py")
     try:
         async with engine.connect() as conn:
             transaction = await conn.begin()

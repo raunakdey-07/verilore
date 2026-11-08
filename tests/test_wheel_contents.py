@@ -17,7 +17,7 @@ A developer who followed the README got this instead:
 $ verilore init
 Traceback (most recent call last):
   File "/work/.venv/bin/verilore", line 3, in <module>
-    from cli.main import app
+    from verilore.cli.main import app
   ...
 ModuleNotFoundError: No module named 'verilore_errors'.
 ```
@@ -132,3 +132,36 @@ def test_a_built_wheel_contains_every_declared_module(tmp_path):
         }
     absent = sorted(declared - shipped)
     assert not absent, f"declared in py-modules but absent from the built wheel: {absent}"
+
+
+def test_top_level_declaration_is_only_verilore():
+    """pyproject declares only the verilore package plus the two shims."""
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]
+    assert config.get("py-modules") == ["verilore_sdk", "verilore_errors"]
+    include = config.get("packages", {}).get("find", {}).get("include", [])
+    assert include == ["verilore*"], include
+
+
+def test_wheel_ships_only_the_verilore_namespace(tmp_path):
+    """The built wheel's top-level names are exactly verilore + the two shims."""
+    result = subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "-o", str(tmp_path)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"wheel build failed:\n{result.stderr[-3000:]}"
+
+    wheels = list(tmp_path.glob("*.whl"))
+    assert len(wheels) == 1, f"expected one wheel, got {wheels}"
+
+    with zipfile.ZipFile(wheels[0]) as archive:
+        top_level = {
+            name.split("/")[0]
+            for name in archive.namelist()
+            if not name.split("/")[0].endswith(".dist-info") and "__pycache__" not in name
+        }
+    # dist-info directories are excluded above; the first path component of every
+    # remaining file is the namespace it ships under.
+    expected = {"verilore", "verilore_sdk.py", "verilore_errors.py"}
+    assert top_level == expected, f"unexpected top-level names: {sorted(top_level)}"

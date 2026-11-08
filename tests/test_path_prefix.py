@@ -2,7 +2,7 @@
 
 Acceptance tests for v0.10.0 PR-4. Every test owns a corpus created over HTTP
 (`POST /api/corpora`, asserted 201) and passes that corpus to every read call.
-Reads use the in-process client (httpx ASGITransport over `api.main.app`), exactly
+Reads use the in-process client (httpx ASGITransport over `verilore.api.main.app`), exactly
 as tests/test_withholding.py does. Optional fields are read with `.get()`.
 """
 
@@ -13,9 +13,9 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app
-from api.services import authz
-from api.services import db as db_module
+from verilore.api.main import app
+from verilore.api.services import authz
+from verilore.api.services import db as db_module
 
 API_BASE = "http://test"
 
@@ -207,7 +207,7 @@ async def test_path_prefix_does_not_bypass_corpus_authorization(monkeypatch):
     name_y = "ty" + uuid.uuid4().hex[:8]
     async with db_module.admin_session_scope() as db:
         with db_module.principal_scope(authz.ADMIN_PRINCIPAL):
-            from api.services.corpora import get_or_create_corpus
+            from verilore.api.services.corpora import get_or_create_corpus
 
             await get_or_create_corpus(db, name_x)
             await get_or_create_corpus(db, name_y)
@@ -372,7 +372,7 @@ async def test_path_prefix_empty_is_422():
 
 def test_sdk_pack_sends_path_prefix():
     corpus = corpus_name()
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
     import httpx
 
     captured = {}

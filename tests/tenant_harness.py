@@ -488,7 +488,7 @@ def apply_as_runtime(async_url: str):
 
 
 def admin_session_factory():
-    from api.services.db import AsyncSessionLocal
+    from verilore.api.services.db import AsyncSessionLocal
 
     return AsyncSessionLocal
 
@@ -515,10 +515,10 @@ async def seed_as_maintenance(statement: str, corpus: str, key: str = "seed") ->
     engine: `remember()` opens its own session from that module global, so a
     seed that runs after the swap would write as the runtime role.
     """
-    from api.services import authz
-    from api.services.corpora import create_corpus, get_corpus_by_name
-    from api.services.db import admin_session_scope, principal_scope
-    from api.services.remember import remember
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import create_corpus, get_corpus_by_name
+    from verilore.api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services.remember import remember
 
     async with admin_session_scope() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):

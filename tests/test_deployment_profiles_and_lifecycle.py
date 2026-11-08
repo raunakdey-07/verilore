@@ -63,8 +63,8 @@ async def test_the_profile_matrix_is_refused_where_it_must_be(monkeypatch):
     than in three files is that the refusals are all produced by the same two
     functions. If one of them stops consulting a check, this fails.
     """
-    from api.services import authz
-    from api.services.ingest_paths import server_mode_errors as ingest_problems
+    from verilore.api.services import authz
+    from verilore.api.services.ingest_paths import server_mode_errors as ingest_problems
 
     def configure(deployment: str | None, mode: str | None, roots: str | None):
         for name, value in (
@@ -121,8 +121,8 @@ async def test_the_profile_matrix_is_refused_where_it_must_be(monkeypatch):
 
 async def test_a_local_deployment_is_never_refused_for_anything(monkeypatch):
     """The refusals above must not make the documented local path worse."""
-    from api.services import authz
-    from api.services.ingest_paths import server_mode_errors as ingest_problems
+    from verilore.api.services import authz
+    from verilore.api.services.ingest_paths import server_mode_errors as ingest_problems
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "local")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "off")
@@ -141,7 +141,7 @@ async def test_an_unknown_profile_refuses_before_the_database_is_touched():
     """
     import os
 
-    from api.services import authz
+    from verilore.api.services import authz
 
     previous = os.environ.pop("VERILORE_DEPLOYMENT", None)
     os.environ["VERILORE_DEPLOYMENT"] = "nonsense"
@@ -164,8 +164,8 @@ async def test_auth_required_cannot_claim_what_the_middleware_does_not_do(monkey
     """
     import inspect
 
-    import api.main as main_module
-    from api.services.authz import auth_required
+    import verilore.api.main as main_module
+    from verilore.api.services.authz import auth_required
 
     source = inspect.getsource(main_module)
     assert '@app.middleware("http")' in source
@@ -200,7 +200,7 @@ async def runtime_db():
 
 
 async def test_the_runtime_role_is_not_a_superuser_and_does_not_bypass_rls(runtime_db):
-    from api.services.posture import inspect
+    from verilore.api.services.posture import inspect
 
     posture = await inspect(runtime_db)
     # The role the harness actually provisioned, not the shipped name. Asserting
@@ -217,7 +217,7 @@ async def test_the_runtime_role_is_not_a_superuser_and_does_not_bypass_rls(runti
 async def test_the_runtime_role_owns_no_protected_table(runtime_db):
     """Ownership would make the role the table's owner, which is a maintenance
     authority the application has no reason to hold."""
-    from api.services.posture import inspect
+    from verilore.api.services.posture import inspect
 
     posture = await inspect(runtime_db)
     assert (
@@ -266,7 +266,7 @@ async def test_the_runtime_role_cannot_delete_or_truncate_the_archive(runtime_db
 
 
 async def test_the_runtime_role_holds_no_privilege_beyond_dml(runtime_db):
-    from api.services.posture import inspect
+    from verilore.api.services.posture import inspect
 
     posture = await inspect(runtime_db)
     assert posture.excess_privileges == [], posture.excess_privileges
@@ -318,7 +318,7 @@ async def test_bypassrls_is_not_inherited_through_role_membership():
 
 
 async def test_roles_are_cumulative_and_deny_by_default():
-    from api.services.authz import PERMISSIONS, Principal
+    from verilore.api.services.authz import PERMISSIONS, Principal
 
     assert PERMISSIONS["read_only"] == frozenset({"read"})
     assert PERMISSIONS["read_write"] == frozenset({"read", "write"})
@@ -346,9 +346,9 @@ async def test_a_workspace_admin_cannot_manage_credentials_without_the_role(worl
     This is the distinction that stops a compromised tenant credential from
     becoming a foothold on the next tenant.
     """
-    from api.services import authz
-    from api.services.authz import Principal
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.authz import Principal
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     admin_of_everything = Principal(
         id="tenant-admin",
@@ -371,10 +371,10 @@ async def test_a_workspace_admin_cannot_manage_credentials_without_the_role(worl
 
 async def test_a_writer_cannot_create_a_corpus(world):
     """Creating a tenant boundary is not something a write credential does."""
-    from api.services import authz
-    from api.services.authz import Principal
-    from api.services.corpora import create_corpus
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.authz import Principal
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     writer = Principal(
         id="writer",
@@ -398,10 +398,10 @@ async def test_a_credential_does_not_acquire_a_corpus_created_later():
     it to every other customer credential, which is the failure this whole
     design exists to prevent.
     """
-    from api.services import authz
-    from api.services.authz import Principal
-    from api.services.corpora import create_corpus, get_corpus_by_name
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.authz import Principal
+    from verilore.api.services.corpora import create_corpus, get_corpus_by_name
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     holder = Principal(
         id="holder",
@@ -474,10 +474,10 @@ async def erasable():
     Erasure has to be proved against a corpus that actually recorded something,
     because the previous implementation only worked on corpora that never had.
     """
-    from api.services import authz
-    from api.services.corpora import create_corpus
-    from api.services.db import principal_scope, session_scope
-    from api.services.remember import remember
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import principal_scope, session_scope
+    from verilore.api.services.remember import remember
 
     admin = sa_engine()
     try:
@@ -543,7 +543,7 @@ def _corpus_admin(name: str, corpora: dict[str, str], role: str | None = None):
     `role` raises the application-level permission where the point of a test is
     to reach the *database* privilege underneath it.
     """
-    from api.services import authz
+    from verilore.api.services import authz
 
     return authz.Principal(
         id=name,
@@ -586,8 +586,8 @@ async def test_erasure_removes_every_row_and_leaves_the_neighbour_intact(erasabl
     delete other tenants' data" is a comparison rather than an assertion that
     happens to hold.
     """
-    from api.services.corpora import delete_corpus
-    from api.services.db import principal_scope
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import principal_scope
 
     target, neighbour = erasable["erase-target"], erasable["erase-neighbour"]
     # A principal that actually holds both corpora. The unrestricted principal
@@ -635,9 +635,9 @@ async def test_erasure_removes_every_row_and_leaves_the_neighbour_intact(erasabl
 
 async def test_erasure_removes_credentials_grants_to_the_erased_corpus(erasable):
     """A credential must not keep a usable grant to a corpus that no longer exists."""
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     async with AsyncSessionLocal() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -669,9 +669,9 @@ async def test_erasure_removes_credentials_grants_to_the_erased_corpus(erasable)
 
 async def test_erasure_is_refused_without_authority(erasable):
     """§11's "unauthorized corpus deletion: denied"."""
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import principal_scope
 
     engine = apply_as_runtime(runtime_url())
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -739,9 +739,9 @@ async def test_erasure_by_name_is_the_only_way_in(erasable):
     A corpus id from another tenant, a name that does not exist, and the default
     corpus are all refused or report nothing -- none of them erases anything.
     """
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     async with AsyncSessionLocal() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -774,9 +774,9 @@ async def test_erasure_by_name_is_the_only_way_in(erasable):
 
 async def test_erasure_is_idempotent(erasable):
     """Erasing twice is not an error and not a false success the second time."""
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     async with AsyncSessionLocal() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -813,9 +813,9 @@ async def test_the_erasure_report_carries_no_customer_content(erasable):
     """A deletion audit trail must not become a copy of what it erased."""
     import json
 
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import AsyncSessionLocal, principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import AsyncSessionLocal, principal_scope
 
     async with AsyncSessionLocal() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -843,10 +843,10 @@ async def test_the_erased_corpus_stops_answering_requests(erasable, monkeypatch)
     """
     from httpx import ASGITransport, AsyncClient
 
-    from api.main import app
-    from api.services import authz
-    from api.services.corpora import delete_corpus
-    from api.services.db import principal_scope
+    from verilore.api.main import app
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import delete_corpus
+    from verilore.api.services.db import principal_scope
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
 
@@ -910,8 +910,8 @@ async def test_the_runtime_role_cannot_administer_credentials():
     A request path that could issue a credential would be a way to escalate from
     "can read memory" to "can read every tenant's memory".
     """
-    from api.services import authz
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import principal_scope
 
     # Listed first: a refused statement aborts its transaction, so each check has
     # to stand alone or the second one fails for the wrong reason.
@@ -983,7 +983,7 @@ async def test_listing_credentials_is_refused_with_an_actionable_message():
     The message names the setting that fixes it, because the alternative is an
     operator concluding that their role provisioning is broken.
     """
-    from api.services import authz
+    from verilore.api.services import authz
 
     async with _runtime_session() as db:
         with pytest.raises(ValueError) as caught:
@@ -1004,9 +1004,9 @@ async def test_authentication_still_works_for_a_credential_the_role_cannot_admin
     because in `off` mode there is no credential to resolve and the test would
     pass on the local principal without exercising any of this.
     """
-    from api.services import authz
-    from api.services.authz import resolve_principal
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.authz import resolve_principal
+    from verilore.api.services.db import principal_scope
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     await _seed_corpus("runtime-auth-probe-corpus")
@@ -1040,8 +1040,8 @@ async def test_authentication_still_works_for_a_credential_the_role_cannot_admin
 
 async def _erase(name: str) -> None:
     """Erase a fixture corpus through the same path production uses."""
-    from api.services import authz
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.db import principal_scope
 
     async with admin_session() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -1081,7 +1081,7 @@ async def test_the_archive_table_list_matches_the_database():
     A table added to the archive in a later migration and forgotten here would
     keep its `DELETE` grant and the check would not say so.
     """
-    from api.services.posture import ARCHIVE_TABLES, PROTECTED_TABLES
+    from verilore.api.services.posture import ARCHIVE_TABLES, PROTECTED_TABLES
 
     async with admin_session() as db:
         present = set(
@@ -1109,7 +1109,7 @@ async def test_the_archive_table_list_matches_the_database():
 @contextlib.asynccontextmanager
 async def admin_session():
     """A maintenance-role session, for catalogue inspection the runtime cannot do."""
-    from api.services.db import admin_session_scope
+    from verilore.api.services.db import admin_session_scope
 
     async with admin_session_scope() as db:
         yield db
@@ -1122,9 +1122,9 @@ async def _seed_corpus(name: str) -> str:
     privilege shape, not tenant separation, and a two-organisation world would
     make every one of them slower without testing more.
     """
-    from api.services import authz
-    from api.services.corpora import create_corpus
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import principal_scope
 
     async with admin_session() as db:
         with principal_scope(authz.ADMIN_PRINCIPAL):
@@ -1142,7 +1142,7 @@ async def test_the_startup_posture_check_agrees_with_the_profile(monkeypatch):
     runs as the migration role, by definition not least-privileged — and the
     documented five-minute path would stop working.
     """
-    from api.main import enforce_startup_posture
+    from verilore.api.main import enforce_startup_posture
 
     # This suite's own database role is the migration superuser, which is
     # precisely the configuration `server` must refuse and `local` must permit.
@@ -1168,8 +1168,8 @@ async def test_unset_env_defaults_to_the_enforcement_off_path(monkeypatch):
     `VERILORE_I_UNDERSTAND_SCOPE_FORGERY=1`, not fall through to the
     scope-secret check and refuse with "VERILORE_SCOPE_SECRET is unset".
     """
-    from api.main import enforce_startup_posture
-    from api.services import posture
+    from verilore.api.main import enforce_startup_posture
+    from verilore.api.services import posture
 
     class _FakePosture:
         def server_problems(self):
@@ -1195,7 +1195,7 @@ async def test_the_startup_guard_prefers_the_environment_error(monkeypatch):
     An operator who has `VERILORE_AUTH_MODE=off` needs to be told that, not
     shown a database complaint they did not cause and cannot fix there.
     """
-    from api.main import enforce_startup_posture
+    from verilore.api.main import enforce_startup_posture
 
     monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
     monkeypatch.setenv("VERILORE_AUTH_MODE", "off")
@@ -1279,7 +1279,7 @@ async def test_the_policy_inventory_matches_the_schema():
     If a table is added to the archive and forgotten here, the startup check
     would not notice it -- and neither would an operator reading readiness.
     """
-    from api.services.posture import ARCHIVE_TABLES, PROTECTED_TABLES
+    from verilore.api.services.posture import ARCHIVE_TABLES, PROTECTED_TABLES
 
     async with admin_session() as db:
         present = set(
@@ -1384,7 +1384,7 @@ def _alembic(command: str, database_url: str) -> None:
             "-m",
             "alembic",
             "-c",
-            "migrations/alembic.ini",
+            "verilore/migrations/alembic.ini",
             *command.split(),
         ],
         capture_output=True,

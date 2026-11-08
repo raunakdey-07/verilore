@@ -1,0 +1,2613 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Raunak Dey
+
+"""verilore CLI — Typer-based command-line interface."""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Annotated, Optional
+
+import typer
+import yaml
+
+from verilore.cli.memory import app as memory_app
+
+#: The five product commands, in the order a newcomer meets them.
+help = "Verilore: memory that remembers what changed, what was true when, and why to believe it."
+
+app = typer.Typer(name="verilore", help=help)
+app.add_typer(memory_app)
+
+# The local runtime. `verilore runtime status` for when a command feels slow, and
+# `verilore runtime stop` to be sure nothing is running. Neither is needed to use
+# Verilore: every command works with no runtime at all.
+from verilore.cli.runtime import app as runtime_app  # noqa: E402
+
+app.add_typer(runtime_app)
+
+
+#: What a bare `verilore` prints.
+#:
+#: It used to print "Missing command." and a usage line, which tells a newcomer
+#: that they typed something wrong rather than what to do next. The first run of
+#: a CLI is the one where that matters most, and it is the run with the least
+#: context: the person has a database, a model and a document directory to set
+#: up, and no idea which of the twenty commands is the first one. So the empty
+#: invocation is where the first three commands go.
+WELCOME = """\
+Verilore: memory that remembers what changed, what was true when, and why to believe it.
+
+Start here:
+
+  1. verilore init
+     Check that storage is ready -- it starts a local PostgreSQL if one is
+     installed and stopped -- and create your first corpus.
+  2. verilore remember "The production datastore is PostgreSQL."
+     Record a fact. It becomes memory with evidence, not a search index entry.
+  3. verilore recall "What is the production datastore?"
+     Ask a question. You get the answer, its source, and the time it was true.
+
+Already have Markdown?  verilore ingest-repo ./docs
+Every command:          verilore --help
+"""
+
+
+@app.callback(invoke_without_command=True)
+def _global_options(
+    ctx: typer.Context,
+    debug: Annotated[
+        bool,
+        typer.Option(
+            "--debug",
+            help="Run this invocation in debug mode: full tracebacks for any failure.",
+        ),
+    ] = False,
+) -> None:
+    if debug:
+        import os
+
+        os.environ["VERILORE_DEBUG"] = "1"
+    # No subcommand means the person is looking for the first one, not making a
+    # mistake. `ctx.invoked_subcommand` is set before this callback runs, so it
+    # is None exactly when nothing was named.
+    if ctx.invoked_subcommand is None:
+        typer.echo(WELCOME)
+        raise typer.Exit(code=0)
+
+
+eval_app = typer.Typer(name="eval", help="Evaluation commands")
+app.add_typer(eval_app)
+
+# The default corpus. A newcomer should not have to understand multi-tenant
+# corpus scoping to record their first memory; `--corpus` remains for scoping.
+DEFAULT_CORPUS = "default"
+
+State = Annotated[
+    bool,
+    typer.Option("--verbose", "-v", help="Show the underlying error as well as the guidance."),
+]
+#: The full traceback, for a person debugging the product rather than the
+#: deployment. It is deliberately a separate flag from `--verbose`: one adds a
+#: line of detail, the other adds a hundred lines of stack, and a person who
+#: asked for the first should not get the second.
+Debug = Annotated[
+    bool,
+    typer.Option("--debug", help="Show the full traceback for the underlying error."),
+]
+BaseURL = Annotated[
+    str | None,
+    typer.Option(
+        "--base-url",
+        help=(
+            "Use a running Verilore service instead of the local database, "
+            "for example http://127.0.0.1:8000"
+        ),
+    ),
+]
+
+
+def _debug_requested(debug: bool) -> bool:
+    """Is the full traceback wanted?
+
+    Two spellings of one setting: the per-command `--debug` flag, and
+    `VERILORE_DEBUG=1` for the process. The flag is passed down rather
+    than written to the environment, because a command that mutates the
+    environment of the process it was invoked from leaks into every later
+    command in that process -- which matters for an embedding application,
+    and for a test suite that runs commands in-process.
+    """
+    if debug:
+        return True
+    return os.getenv("VERILORE_DEBUG") == "1"
+
+
+def _fail(exc: Exception, verbose: bool, debug: bool = False) -> None:
+    """Print actionable failure text and exit non-zero.
+
+    Two levels of detail, deliberately separate. `--verbose` adds the
+    exception's type and message on one line, which is what a person reading
+    the error wants. `--debug` adds the whole traceback, which is what a
+    person debugging the product wants, and which is never the first thing on
+    the screen either way.
+    """
+    import sys
+    import traceback
+
+    from verilore.cli.errors import explain, render
+
+    show_traceback = _debug_requested(debug)
+    advice = explain(exc)
+    typer.echo(render(advice, exc, verbose=verbose or show_traceback), err=True)
+    if show_traceback:
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+    raise typer.Exit(code=advice.status if advice.status > 1 else 1)
+
+
+def _run(call, *args, **kwargs):
+    """Run one service call, from a script or from inside an event loop.
+
+    A command is usually the whole process, so this is a plain call. When the CLI
+    is driven from an already-running loop -- an application embedding it, or a
+    test invoking it in-process -- the work moves to a worker thread that owns its
+    own event loop, instead of failing with "attached to a different loop".
+    """
+    import asyncio
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return call(*args, **kwargs)
+
+    import contextvars
+    import threading
+
+    from verilore.api.services.db import async_engine
+
+    outcome: list = []
+
+    def worker():
+        try:
+            outcome.append(call(*args, **kwargs))
+        except BaseException as exc:  # noqa: BLE001 - re-raised on the caller's loop
+            outcome.append(exc)
+        finally:
+            # asyncpg connections bind to the loop that opened them, and the engine
+            # is a module-level singleton shared with the caller's loop. Disposing
+            # it here closes the worker's connections rather than leaving them for
+            # a loop that will never run again.
+            try:
+                asyncio.run(async_engine.dispose())
+            except (RuntimeError, OSError):
+                pass
+
+    # A thread starts with an empty `contextvars` context, so the worker's call
+    # saw no caller at all -- which for `principal_scope` means the default local
+    # principal: unrestricted, with a `{*}` database scope. An in-process caller
+    # that had authenticated correctly was answered by a thread that had not
+    # authenticated at all. Copying the context is the whole fix.
+    thread = threading.Thread(target=contextvars.copy_context().run, args=(worker,))
+    thread.start()
+    thread.join()
+    result = outcome[0] if outcome else None
+    if isinstance(result, BaseException):
+        raise result
+    return result
+
+
+#: How many source documents `explain` traces. An answer normally has one; a bound
+#: keeps the command's cost predictable when a question matches many. When the bound
+#: bites, `explain` says so rather than quietly showing a partial history.
+MAX_EXPLAIN_SOURCES = 5
+
+
+# --------------------------------------------------------------------------
+# The product surface: remember, recall, explain, history, receipt, verify.
+# Each command is one call on the SDK, which is one call on the service, so the
+# CLI cannot drift from the SDK, REST or MCP.
+# --------------------------------------------------------------------------
+
+
+def _corpus_or_fail(corpus: str) -> str:
+    from verilore.api.services.corpora import validate_corpus_name
+
+    try:
+        return validate_corpus_name(corpus)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@dataclass(frozen=True)
+class _MigrationResult:
+    ok: bool
+    detail: str
+
+
+def _migration_dir() -> "Path | None":
+    """Where the migrations are, whether installed or checked out.
+
+    Two locations, in order: the `migrations` package that ships in the wheel,
+    then `./migrations` for a source checkout where the package is not
+    installed. The package wins because after `pip install` the working
+    directory is wherever the user happened to be, and theirs is the copy that
+    matches the code doing the migrating.
+    """
+    try:
+        import verilore.migrations as _migrations
+
+        if _migrations.ALEMBIC_INI.exists():
+            return _migrations.HERE
+    except ImportError:
+        pass
+    local = Path("verilore/migrations")
+    return local if (local / "alembic.ini").exists() else None
+
+
+def _apply_migrations() -> _MigrationResult:
+    """Apply the schema in-process. Returns what happened, never raises.
+
+    A migration failure is reported, not propagated: `init` has to be able to
+    print the fallback instruction, and a stack trace from a first command is a
+    worse answer than one line saying what to run instead.
+    """
+    directory = _migration_dir()
+    if directory is None:
+        return _MigrationResult(False, "No migrations directory found.")
+    try:
+        from alembic import command
+        from alembic.config import Config
+    except ImportError:
+        return _MigrationResult(False, "alembic is not installed in this environment.")
+
+    config = Config(str(directory / "alembic.ini"))
+    config.set_main_option("script_location", str(directory))
+    if database_url := os.environ.get("DATABASE_URL"):
+        config.set_main_option("sqlalchemy.url", database_url.replace("+asyncpg", ""))
+    try:
+        command.upgrade(config, "head")
+    except Exception as exc:  # noqa: BLE001 - reported, not raised
+        return _MigrationResult(False, f"Migration failed: {type(exc).__name__}: {exc}")
+    return _MigrationResult(True, f"migrations/upgrade head from {directory}")
+
+
+@app.command()
+def init(
+    database_url: Annotated[
+        str | None,
+        typer.Option(
+            "--database-url",
+            help=(
+                "PostgreSQL URL for this run, instead of $DATABASE_URL. A process "
+                "that already imported the database module keeps its connection, so "
+                "export DATABASE_URL before running a second command."
+            ),
+        ),
+    ] = None,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Check that memory storage is ready, and report the next command.
+
+    Verifies connectivity and that the schema is applied, creates the default
+    corpus if needed, then prints one command to try. Safe to run repeatedly.
+
+    ## Why this applies the schema instead of telling you how
+
+    It used to print the `python -m alembic` line and exit 1. That is honest and
+    useless for the install path the README also documents: after
+    `pip install verilore` there is no `migrations/` directory in the
+    working directory and, before this change, no alembic in the environment at
+    all. The instruction was correct and unfollowable.
+
+    So `init` now applies the schema itself when it can find the migrations,
+    whether they came from an installed wheel or from a source checkout. When it
+    genuinely cannot -- alembic missing, or no migration directory -- it prints
+    the same line as before, because that is still the right instruction then.
+    """
+    import asyncio
+    import os
+
+    if database_url:
+        os.environ["DATABASE_URL"] = database_url
+
+    from sqlalchemy import text
+    from verilore.api.services.db import session_scope
+
+    try:
+        from verilore.cli.postgres import ensure_local_postgres
+
+        ensure_local_postgres(auto_provision=True)
+    except Exception:  # noqa: BLE001 - recovery is best-effort
+        pass
+
+    async def check() -> list[bool]:
+        async with session_scope() as db:
+            row = (
+                await db.execute(
+                    text(
+                        "SELECT to_regclass('corpora') IS NOT NULL, "
+                        "to_regclass('memory_versions') IS NOT NULL"
+                    )
+                )
+            ).one()
+        return list(row)
+
+    try:
+        tables = _run(lambda: asyncio.run(check()))
+    except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
+        from verilore.api.errors import storage_unavailable
+
+        # The driver detail is for the person debugging, not for the person
+        # whose database is down. Every other command hides it unless asked;
+        # this one did not, and an exception class name is not an answer.
+        typer.echo(storage_unavailable(exc if _debug_requested(debug) else None), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if not all(tables):
+        applied = _apply_migrations()
+        if not applied.ok:
+            typer.echo(
+                "Verilore is installed, but the memory schema is not applied yet.\n"
+                f"\n{applied.detail}\n"
+                "\nWhat to do:\n"
+                "  python -m alembic -c verilore/migrations/alembic.ini upgrade head",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(f"Applied the memory schema ({applied.detail}).")
+        tables = _run(lambda: asyncio.run(check()))
+
+    async def ensure() -> str:
+        from verilore.api.services.corpora import get_or_create_corpus
+
+        async with session_scope() as db:
+            row = await get_or_create_corpus(db, DEFAULT_CORPUS)
+        return row["name"]
+
+    _run(lambda: asyncio.run(ensure()))
+
+    typer.echo("Verilore is ready.")
+    typer.echo(f"  corpus: {DEFAULT_CORPUS}")
+    _warm_runtime()
+    typer.echo("\nRecord your first memory:\n")
+    typer.echo('  verilore remember "Production uses PostgreSQL."')
+    typer.echo("\nThen ask about it:\n")
+    typer.echo('  verilore recall "What database does production use?"')
+    typer.echo(
+        "\nAlready have Markdown? Point it at the directory:\n" "  verilore ingest-repo ./docs/adr"
+    )
+
+
+@app.command()
+def remember(
+    statement: Annotated[str | None, typer.Argument(help="The fact to remember.")] = None,
+    file: Annotated[
+        str | None, typer.Option("--file", "-f", help="Archive a Markdown file.")
+    ] = None,
+    key: Annotated[
+        str | None,
+        typer.Option(
+            "--key",
+            help=(
+                "Stable name for this fact. Remembering the same key again is how "
+                "memory records that the fact changed."
+            ),
+        ),
+    ] = None,
+    supersedes: Annotated[
+        str | None,
+        typer.Option(
+            "--supersedes",
+            metavar="CLAIM_ID_OR_PHRASE",
+            help=(
+                "Retire this claim, in any document. A claim id, any unique prefix "
+                "of one as `recall` prints it, or a phrase from the claim's own "
+                "text. Refused unless exactly one active claim matches."
+            ),
+        ),
+    ] = None,
+    topic_key: Annotated[
+        str | None,
+        typer.Option(
+            "--topic-key",
+            help=(
+                "Retire whatever is currently active under this key, even from another "
+                "file. Defaults to --key when that is given."
+            ),
+        ),
+    ] = None,
+    state: Annotated[
+        str | None,
+        typer.Option(
+            "--state",
+            help=(
+                "The decision state of the claim: approved (default), draft or "
+                "rejected. Supersession stays explicit through --supersedes and "
+                "--topic-key."
+            ),
+        ),
+    ] = None,
+    scope: Annotated[
+        str | None,
+        typer.Option(
+            "--scope",
+            help=(
+                "Optional relative folder the document is filed under, e.g. "
+                "campaigns/spring. The document is stored at "
+                "<scope>/memory/<slug>-<digest>.md, so the same key in two scopes "
+                "is two documents. With scope, the stored claim key is "
+                "<scope>/<key>; the response's key is that full key, so sending it "
+                "back as key with the same scope is the same memory, and topic_key "
+                "is scoped the same way."
+            ),
+        ),
+    ] = None,
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    base_url: BaseURL = None,
+    json_out: Annotated[
+        bool, typer.Option("--json", help="Print the write result as JSON.")
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Record a fact. It becomes memory with evidence, not a search index entry.
+
+    Remembering the same fact twice changes nothing. Remembering the same key with
+    new text supersedes the old value, which is what `history` then shows.
+
+    `--supersedes` and `--topic-key` extend that across files, so a decision in
+    adr-002.md can retire what adr-001.md said without either being edited.
+    """
+    from verilore.cli.render import render_remember
+
+    corpus = _corpus_or_fail(corpus)
+    # Through a runtime this costs about 0.2 s instead of 0.7 s, because the process
+    # that owns the database pool is already running and this one does not have to
+    # import it. `--file` is a local read and stays here whatever else is happening.
+    try:
+        client = _client(base_url)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        result = _run(
+            client.memory.remember,
+            statement,
+            corpus=corpus,
+            key=key,
+            file=file,
+            supersedes_claim_id=supersedes,
+            topic_key=topic_key,
+            state=state,
+            scope=scope,
+        )
+    except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        import json as json_module
+        from dataclasses import asdict
+
+        typer.echo(json_module.dumps(asdict(result), indent=2, sort_keys=True))
+        return
+    typer.echo(
+        render_remember(
+            {
+                "event": result.event,
+                "version_id": result.version_id,
+                "path": result.path,
+                "related_active_claims": result.related_active_claims,
+            },
+            corpus=corpus,
+        )
+    )
+    _warm_runtime()
+
+
+@app.command()
+def feedback(
+    query_id: Annotated[str, typer.Argument(help="The query_id a recall or remember reported.")],
+    verdict: Annotated[
+        str,
+        typer.Option(
+            "--verdict",
+            help=(
+                "right        the answer was what you needed\n"
+                "wrong        an answer came back and it was not right\n"
+                "abstained_wrongly  nothing came back and something should have"
+            ),
+        ),
+    ] = "right",
+    note: Annotated[str | None, typer.Option("--note", help="Why, in your own words.")] = None,
+) -> None:
+    """Grade one logged call. Appends to the log; changes nothing else.
+
+    The log records what was asked and what the ranking produced. This records
+    whether that was the right answer, which is the only thing a benchmark cannot
+    supply: a grader knows what the system said, not what you needed.
+
+    Over a couple of weeks of real use those verdicts are a graded sample of how
+    the thing actually performs. Two weeks from now, `verilore feedback-summary`
+    reads them back.
+    """
+    from verilore.api.services.query_log import feedback as grade
+
+    try:
+        row = grade(query_id, verdict, note or "")
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    if row is None:
+        typer.echo(
+            f"No logged call has query_id {query_id!r}.\n"
+            "Check the id a recall or remember reported, and that VERILORE_QUERY_LOG "
+            "was on when it ran.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"recorded '{verdict}' against the {row['operation']} of {row['timestamp']}")
+
+
+@app.command()
+def feedback_summary(
+    since: Annotated[
+        str | None, typer.Option("--since", help="ISO date; only grade rows after it.")
+    ] = None,
+) -> None:
+    """Read back the verdicts recorded so far.
+
+    Counts by verdict and by `match_status`, because the question that matters is
+    not "how often is it wrong" but "does an `ambiguous` answer get graded worse
+    than a `confident` one" -- which is the only evidence that the near-tie signal
+    carries information a single top score did not.
+    """
+    import json as json_module
+    from datetime import datetime as _datetime
+
+    from verilore.api.services.query_log import default_path
+
+    path = default_path()
+    if not path.exists():
+        typer.echo(f"No query log at {path}. Nothing to summarise.")
+        return
+    cutoff = None
+    if since:
+        try:
+            cutoff = _datetime.fromisoformat(since.replace("Z", "+00:00"))
+        except ValueError as exc:
+            typer.echo(f"--since wants an ISO date, e.g. 2026-01-15: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+
+    calls: dict[str, dict] = {}
+    graded: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            row = json_module.loads(line)
+        except ValueError:
+            continue
+        if cutoff and row.get("timestamp", "") < cutoff.isoformat():
+            continue
+        if row.get("kind") == "feedback":
+            graded.append(row)
+        elif row.get("query_id"):
+            calls[row["query_id"]] = row
+
+    typer.echo(f"log:  {path}")
+    typer.echo(f"calls: {len(calls)}    graded: {len(graded)}")
+    if not graded:
+        typer.echo(
+            "\nNo verdicts yet. Grade one with: verilore feedback <query_id> --verdict right"
+        )
+        return
+
+    by_verdict: dict[str, int] = {}
+    by_status: dict[str, dict[str, int]] = {}
+    for row in graded:
+        verdict = row.get("verdict", "?")
+        by_verdict[verdict] = by_verdict.get(verdict, 0) + 1
+        status = (calls.get(row["query_id"], {}) or {}).get("match_status", "unknown")
+        by_status.setdefault(status, {}).setdefault(verdict, 0)
+        by_status[status][verdict] += 1
+
+    typer.echo("")
+    for verdict, count in sorted(by_verdict.items()):
+        typer.echo(f"  {verdict:<20} {count}")
+    typer.echo("\nby match_status:")
+    for status in sorted(by_status):
+        counts = by_status[status]
+        total = sum(counts.values())
+        wrong = counts.get("wrong", 0) + counts.get("abstained_wrongly", 0)
+        typer.echo(f"  {status:<12} {total:>4} graded, {wrong:>4} not right")
+
+
+@app.command()
+def recall(
+    question: Annotated[str, typer.Argument(help="What you want to know.")],
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    as_of: Annotated[
+        str | None,
+        typer.Option(
+            "--as-of",
+            help='Answer as of an earlier instant, e.g. "2025-02-01T00:00:00Z".',
+        ),
+    ] = None,
+    explain_result: Annotated[
+        bool, typer.Option("--explain", help="Also show source, evidence and history.")
+    ] = False,
+    base_url: BaseURL = None,
+    json_out: Annotated[
+        bool, typer.Option("--json", help="Print the canonical response JSON.")
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Answer a question from memory, with its source and the time it was true.
+
+    This is the shortest path to value: one command in, an answer out. It never
+    invents an answer, so an unfamiliar question abstains rather than guesses.
+    """
+    try:
+        client = _client(base_url, runtime=True)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        response = _run(
+            client.memory.query,
+            question,
+            corpus=corpus,
+            as_of=as_of,
+            include_receipt=explain_result,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        typer.echo(response.canonical_json())
+        return
+    from verilore.cli.render import render_recall
+
+    typer.echo(render_recall(response, explain=explain_result))
+
+
+@app.command()
+def explain(
+    question: Annotated[str, typer.Argument(help="The question you want justified.")],
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    as_of: Annotated[
+        str | None, typer.Option("--as-of", help="Justify an answer from an earlier instant.")
+    ] = None,
+    base_url: BaseURL = None,
+    json_out: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help=(
+                "Print the canonical response and its receipt as one JSON object, "
+                "the same shape `verilore receipt` writes."
+            ),
+        ),
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Show why Verilore returned that answer.
+
+    Reads the recorded provenance: the source document and version, the time the
+    answer was true, the exact evidence characters, the supersession history, and
+    whether a receipt is available to export. This is not a reasoning trace, and
+    it does not claim the original source was factually correct.
+    """
+    try:
+        client = _client(base_url, runtime=True)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        # Two reads, both existing contracts: the answer with its receipt, and the
+        # change set behind the documents it came from. The CLI composes reads; it
+        # does not invent semantics, and it does not mutate the response -- the
+        # receipt's digest covers the response as the service returned it, so
+        # attaching history to it afterwards would make the printed digest
+        # describe something other than what was printed.
+        #
+        # History is selected by source document, not by the question: the archive
+        # matches every word of a query, and a question is not a history selector.
+        response = _run(
+            client.memory.query, question, corpus=corpus, as_of=as_of, include_receipt=True
+        )
+        changes = _history_for(client, corpus, response)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        typer.echo(_explain_json(response))
+        return
+    from verilore.cli.render import render_explain
+
+    typer.echo(render_explain(response, changes=changes))
+
+
+def _explain_json(response) -> str:
+    """The canonical response and the receipt that covers it, in one object.
+
+    `canonical_json()` omits the receipt on purpose -- the receipt's digest is
+    computed from that JSON, so including it would be circular. But a script asking
+    `explain --json` for the basis of an answer wants the digest, and dropping it
+    would make the machine-readable form strictly less useful than the human one.
+
+    The shape is the one `verilore receipt` already writes, so there is one bundle
+    format rather than two.
+    """
+    import json as json_module
+
+    payload = {"response": json_module.loads(response.canonical_json())}
+    if response.receipt:
+        payload["receipt"] = response.receipt
+    return json_module.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False)
+
+
+@app.command("history")
+def history(
+    question: Annotated[str, typer.Argument(help="A key or question identifying the memory.")],
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    base_url: BaseURL = None,
+    json_out: Annotated[
+        bool, typer.Option("--json", help="Print the canonical response JSON.")
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Show what this memory said before, and what replaced it.
+
+    Memory is not only what is true now. This walks the real supersession chain in
+    the archive; nothing here is reconstructed or illustrated.
+    """
+    try:
+        client = _client(base_url, runtime=True)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        response = _run(client.memory.history, corpus=corpus, query=question)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        typer.echo(response.canonical_json())
+        return
+    from verilore.cli.render import render_history
+
+    typer.echo(render_history(response))
+
+
+def _client(base_url: str | None, *, runtime: bool = True):
+    """A client for local memory, or for a Verilore service someone else runs.
+
+    Both go through the same SDK, so the CLI cannot drift from the SDK, the REST
+    API or MCP: there is one client and one service underneath all four.
+
+    ``runtime`` lets a local command use the warm background runtime when one is
+    running, and fall back to this process when one is not. The user is never asked
+    which they are getting: a one-shot `verilore recall` costs 6.5 s because it has
+    to import the embedding stack, and that is 89% startup and 61 ms of memory work.
+    Only `recall`-shaped commands ask for it, because a command that does not read
+    memory has nothing to gain and a writer is better off owning its own connection.
+
+    Under `VERILORE_LEXICAL=1` the runtime is bypassed -- it exists to hold the
+    model, and a model-free read does not want it -- and the mode is stated once on
+    stderr, so it never contaminates an answer or a JSON document.
+    """
+    from verilore.sdk import Verilore
+
+    if base_url:
+        return Verilore(base_url=base_url)
+    # Best-effort local recovery: if Postgres is down, try to start a stopped
+    # local container before we attempt to connect.
+    try:
+        from verilore.cli.postgres import ensure_local_postgres
+
+        ensure_local_postgres()
+    except Exception:  # noqa: BLE001 - recovery is best-effort
+        pass
+    from verilore.api import runtime as runtime_module
+    from verilore.api.services.retrieval_mode import NOTE, lexical_requested
+
+    if lexical_requested():
+        import sys
+
+        print(NOTE, file=sys.stderr)
+        return Verilore(runtime=False)
+    return Verilore(runtime=runtime and runtime_module.enabled())
+
+
+def _warm_runtime() -> None:
+    """Start a background runtime if none is running. Never waits, never fails.
+
+    Called from the commands that are already fast. By the time the user reaches for
+    the next `recall`, the model the runtime is loading in the background is already
+    resident -- which is the only way the 5 s import ever disappears from the journey,
+    since no single command can avoid paying it and finish sooner.
+    """
+    from verilore.api import runtime as runtime_module
+
+    if not runtime_module.enabled():
+        return
+    try:
+        runtime_module.spawn()
+    except Exception:  # noqa: BLE001 - a runtime is an optimisation, never a requirement
+        pass
+
+
+def _history_for(client, corpus: str, response) -> list:
+    """The change set for the documents this answer came from, oldest first."""
+    from datetime import datetime, timezone
+
+    from verilore.api.models.memory import Change
+
+    paths = sorted({claim.path for claim in response.current_memories if claim.path})
+    answer_ids = {claim.id for claim in response.current_memories}
+    changes = []
+    for path in paths[:MAX_EXPLAIN_SOURCES]:
+        history = _run(client.memory.history, corpus=corpus, path=path)
+        for change in history.changes:
+            # Keep only the change events that carry a claim this answer shows,
+            # and trim each event to those claims so HISTORY names every answered
+            # claim instead of only the first one in a multi-claim version.
+            answer_order = {
+                claim.id: index for index, claim in enumerate(response.current_memories)
+            }
+            current = sorted(
+                (claim for claim in change.current if claim.id in answer_ids),
+                key=lambda claim: answer_order.get(claim.id, len(answer_order)),
+            )
+            if not current:
+                continue
+            filtered = Change(
+                version_id=change.version_id,
+                predecessor_id=change.predecessor_id,
+                event=change.event,
+                path=change.path,
+                observed_at=change.observed_at,
+                memory_changed=change.memory_changed,
+                relationship=change.relationship,
+                previous=change.previous,
+                current=current,
+            )
+            if filtered not in changes:
+                changes.append(filtered)
+    changes.sort(key=lambda change: change.observed_at)
+    if len(paths) > MAX_EXPLAIN_SOURCES:
+        # Say what was left out. A partial history that looks complete is worse
+        # than a bounded one that admits its bound.
+        changes.append(
+            Change(
+                version_id="",
+                predecessor_id=None,
+                event="TRUNCATED",
+                path=(
+                    f"{len(paths) - MAX_EXPLAIN_SOURCES} more source document(s) not "
+                    "traced; narrow the question to see their history"
+                ),
+                observed_at=changes[-1].observed_at if changes else datetime.now(timezone.utc),
+                memory_changed=False,
+                relationship="LIFECYCLE",
+                previous=[],
+                current=[],
+            )
+        )
+    return changes
+
+
+@app.command()
+def receipt(
+    question: Annotated[str, typer.Argument(help="The question the receipt answers.")],
+    out: Annotated[
+        str | None, typer.Option("--out", "-o", help="Write the receipt here (default stdout).")
+    ] = None,
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    as_of: Annotated[
+        str | None, typer.Option("--as-of", help="Reconstruct the answer from an earlier instant.")
+    ] = None,
+    base_url: BaseURL = None,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Export a Memory Receipt: what was returned, and on what basis.
+
+    The receipt is the response's own canonical form plus a proof of it, so
+    verifying it later needs no server, database or model. Write it to a file to
+    hand to someone else.
+    """
+    try:
+        client = _client(base_url, runtime=True)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        response = _run(
+            client.memory.query, question, corpus=corpus, as_of=as_of, include_receipt=True
+        )
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if not response.receipt:
+        typer.echo(
+            "Nothing matched that question, so there is no answer to attest to.\n"
+            "\nA receipt records what was actually returned; with no answer there is "
+            "nothing to record.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    import json as json_module
+
+    payload = json_module.dumps(
+        {"response": response.model_dump(mode="json"), "receipt": response.receipt},
+        indent=2,
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    if out:
+        try:
+            from pathlib import Path
+
+            Path(out).write_text(payload + "\n", encoding="utf-8")
+        except OSError as exc:
+            typer.echo(f"Could not write {out}: {exc.strerror or exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(f"Receipt written to {out}")
+        typer.echo(f"Verify it anywhere with: verilore verify {out}")
+        return
+    typer.echo(payload)
+
+
+@app.command()
+def verify(
+    receipt_file: Annotated[
+        str, typer.Argument(help="A receipt, a proof, or a file written by `verilore receipt`.")
+    ],
+    pack: Annotated[
+        str | None,
+        typer.Option(
+            "--pack", help="The authoritative Memory Pack, for a bare receipt or a proof."
+        ),
+    ] = None,
+    trusted_digest: Annotated[
+        str | None,
+        typer.Option(
+            "--trusted-digest",
+            help=(
+                "A digest you pinned out of band. Only with this can authenticity "
+                "be established."
+            ),
+        ),
+    ] = None,
+    json_out: Annotated[
+        bool, typer.Option("--json", help="Print a machine-readable verdict.")
+    ] = False,
+) -> None:
+    """Verify a Memory Receipt offline: no server, database, model or network.
+
+    Accepts every artifact `verilore-proof verify` accepts, and checks them with
+    the same code, so there is one verification contract rather than two. A file
+    written by `verilore receipt` needs no `--pack`.
+
+    VERIFIED means the artifact still represents the state the receipt describes.
+    It does not mean the original claim was factually true, and without a trust
+    anchor you pinned yourself it does not mean the receipt came from anyone in
+    particular. A REJECTED receipt exits non-zero.
+    """
+    if pack is not None:
+        _verify_with_pack(receipt_file, pack, trusted_digest, json_out)
+        return
+    _verify_response_bundle(receipt_file, trusted_digest, json_out)
+
+
+def _verify_with_pack(
+    receipt_file: str, pack: str, trusted_digest: str | None, json_out: bool
+) -> None:
+    """Delegate to the dependency-free verifier, so one contract decides one verdict."""
+    from verilore.proof_cli import build_parser
+
+    argv = ["verify", receipt_file, "--pack", pack]
+    if json_out:
+        argv.append("--json")
+    args = build_parser().parse_args(argv)
+    if trusted_digest:
+        args.trusted_digest = trusted_digest
+    code = args.func(args)
+    raise typer.Exit(code=code)
+
+
+def _verify_response_bundle(receipt_file: str, trusted_digest: str | None, json_out: bool) -> None:
+    """Verify a file written by `verilore receipt`: the response it describes is in it."""
+    import json as json_module
+    from pathlib import Path
+
+    from verilore.receipt import ReceiptError, verify_response_receipt, verify_trust
+
+    try:
+        raw = Path(receipt_file).read_text(encoding="utf-8")
+    except OSError as exc:
+        from verilore.cli.errors import explain as explain_error
+        from verilore.cli.errors import render as render_error
+
+        typer.echo(
+            render_error(
+                explain_error(OSError(f"{receipt_file}: {exc.strerror or exc}")),
+                exc,
+            ),
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+    try:
+        payload = json_module.loads(raw)
+    except json_module.JSONDecodeError as exc:
+        typer.echo(f"{receipt_file} is not valid JSON: {exc}", err=True)
+        typer.echo(
+            "\nWhat to do:\n  A receipt is written by: "
+            'verilore receipt "<question>" -o receipt.json'
+        )
+        raise typer.Exit(code=2) from exc
+
+    bundle = payload.get("receipt") if isinstance(payload, dict) else None
+    artifact = payload.get("response") if isinstance(payload, dict) else None
+    if not isinstance(bundle, dict) or not isinstance(artifact, dict):
+        typer.echo(
+            f"{receipt_file} needs the artifact it describes.\n"
+            "\nWhat to do:\n"
+            f'  For a file from `verilore receipt`: verilore receipt "<question>"'
+            f" -o {receipt_file}\n"
+            f"  For a bare receipt or a proof: add --pack <memory-pack.json>",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    # Instrumented here rather than inside the verifier: `memory_receipt` is
+    # standard-library-only by contract, so that anyone who installs the package
+    # can verify a receipt without installing anything.
+    from verilore.api.services import telemetry
+
+    started = time.perf_counter()
+    with telemetry.span(
+        "memory.verify",
+        receipts=len(bundle.get("receipts", []) or []),
+        trusted_anchor=bool(trusted_digest),
+    ) as active:
+        try:
+            result = verify_response_receipt(bundle, artifact)
+        except ReceiptError as exc:
+            typer.echo(f"That receipt cannot be read: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    if active is not None:
+        active.set_attribute("verified", result["verified"])
+        active.set_attribute("duration_ms", (time.perf_counter() - started) * 1000)
+
+    # A digest you pinned yourself is the only thing that can establish who wrote
+    # this. Without one, authenticity stays explicitly unestablished rather than
+    # being implied by a digest that anyone could recompute.
+    trust = verify_trust({}, trusted_digest or "", bundle.get("memory_pack_digest", ""))
+    authenticated = trust.get("authenticated", False)
+    failed_anchor = bool(trusted_digest) and not authenticated
+    if failed_anchor:
+        result["verified"] = False
+
+    if json_out:
+        typer.echo(json_module.dumps({**result, "authenticity": trust}, indent=2, sort_keys=True))
+    elif result["verified"]:
+        typer.echo("VERIFIED\n")
+        typer.echo("Integrity:      verified")
+        typer.echo("Provenance:     verified")
+        typer.echo("Temporal state: verified")
+        typer.echo(f"Supersession:   verified ({result['receipts_checked']} receipt(s))")
+        typer.echo(
+            "Authenticity:   verified against your trust anchor"
+            if authenticated
+            else "Authenticity:   not established (supply --trusted-digest to check it)"
+        )
+        typer.echo(
+            "\nThis means the receipt still matches the memory it describes. "
+            "It does not mean the original claim was factually true."
+        )
+    else:
+        typer.echo("REJECTED\n")
+        typer.echo("Reason:")
+        # One root cause at a time. If the artifact digest is already wrong, every
+        # receipt over it will fail too, and listing them all just buries the cause.
+        if failed_anchor:
+            typer.echo("  the recorded digest does not match the trust anchor you supplied")
+            typer.echo(
+                "\nSomeone can recompute a matching digest; only a value you pinned "
+                "out of band says who wrote this."
+            )
+        elif not result["memory_pack_digest"]:
+            typer.echo("  the artifact no longer matches the digest the receipt recorded")
+            typer.echo(
+                "\nThe receipt describes memory that has since changed, or the artifact "
+                "has been altered.\nRe-issue it with: "
+                'verilore receipt "<question>" -o receipt.json'
+            )
+        elif not result["query_binding"]:
+            typer.echo("  the receipt answers a different question than the artifact")
+        else:
+            for failure in result["failures"]:
+                typer.echo(
+                    f"  receipt {str(failure.get('receipt_id', ''))[:12]} no longer matches "
+                    f"the artifact"
+                )
+
+    raise typer.Exit(code=0 if result["verified"] else 1)
+
+
+@app.command()
+def revalidate(
+    artifact: Annotated[
+        str | None,
+        typer.Argument(help="A receipt (receipt.json) or Memory Pack (pack.json) file."),
+    ] = None,
+    claim: Annotated[
+        list[str] | None,
+        typer.Option("--claim", help="Claim id or prefix to revalidate (repeatable)."),
+    ] = None,
+    corpus: Annotated[
+        str | None, typer.Option("--corpus", help="Corpus name (with --claim).")
+    ] = None,
+    drift: Annotated[
+        bool, typer.Option("--drift", help="Include corpus drift summary since valid_at.")
+    ] = False,
+    json_out: Annotated[
+        bool, typer.Option("--json", help="Print a machine-readable verdict.")
+    ] = False,
+    out: Annotated[
+        str | None, typer.Option("--out", "-o", help="Write the result to a file.")
+    ] = None,
+    base_url: BaseURL = None,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Revalidate a Receipt, Memory Pack, or claim ids against the live corpus.
+
+    CURRENT means every cited claim is still current (exit 0). STALE means at
+    least one cited claim was superseded or retired (exit 1).
+    """
+    import asyncio
+    import json as json_module
+    from pathlib import Path
+
+    from verilore.api.services import revalidate as revalidate_service
+    from verilore.api.services.db import session_scope
+    from verilore.cli.postgres import ensure_local_postgres
+
+    try:
+        ensure_local_postgres()
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Resolve input.
+    receipt_data = None
+    pack_data = None
+    claim_refs = list(claim or [])
+    if artifact:
+        try:
+            raw = Path(artifact).read_text(encoding="utf-8")
+            payload = json_module.loads(raw)
+        except OSError as exc:
+            typer.echo(f"{artifact}: {exc.strerror or exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        except json_module.JSONDecodeError as exc:
+            typer.echo(f"{artifact} is not valid JSON: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        if isinstance(payload, dict) and "receipt" in payload and "response" in payload:
+            receipt_data = payload
+        elif (
+            isinstance(payload, dict)
+            and "schema_version" in payload
+            and "corpus" in payload
+            and "state" in payload
+        ):
+            pack_data = payload
+        else:
+            typer.echo(f"{artifact} is not a receipt or Memory Pack", err=True)
+            raise typer.Exit(code=2)
+
+    if claim_refs and not corpus:
+        typer.echo("--corpus is required with --claim", err=True)
+        raise typer.Exit(code=2)
+    if not claim_refs and receipt_data is None and pack_data is None:
+        typer.echo("Provide a receipt/pack file or --claim <id> (with --corpus).", err=True)
+        raise typer.Exit(code=2)
+
+    async def run():
+        async with session_scope() as db:
+            if receipt_data is not None:
+                return await revalidate_service.revalidate_receipt(
+                    db, receipt_data, include_drift=drift
+                )
+            if pack_data is not None:
+                return await revalidate_service.revalidate_pack(db, pack_data, include_drift=drift)
+            return await revalidate_service.revalidate_claims(
+                db, corpus, claim_refs, include_drift=drift
+            )
+
+    try:
+        result = _run(lambda: asyncio.run(run()))
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+
+    # Normalise verdict.
+    verdict = result.get("verdict") or result.get("status") or "STALE"
+    if verdict not in ("CURRENT", "STALE"):
+        # map REJECTED -> STALE
+        verdict = "STALE" if verdict != "CURRENT" else "CURRENT"
+    result["verdict"] = verdict
+    result["status"] = verdict
+
+    if out:
+        try:
+            Path(out).write_text(
+                json_module.dumps(result, indent=2, sort_keys=True, default=str) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            typer.echo(f"Could not write {out}: {exc.strerror or exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        typer.echo(f"Revalidation written to {out}")
+
+    if json_out or out:
+        typer.echo(json_module.dumps(result, indent=2, sort_keys=True, default=str))
+
+    # Human-readable output (unless only file requested? still print summary)
+    if not json_out:
+        typer.echo(f"{verdict}\n")
+        typer.echo(
+            f"Source artifact: {result.get('source_artifact') or result.get('artifact_type')}"
+        )
+        typer.echo(f"Corpus:         {result.get('corpus')}")
+        typer.echo(
+            f"Originally valid at: {result.get('originally_valid_at') or result.get('valid_at')}"
+        )
+        typer.echo(f"Checked at:     {result.get('checked_at')}")
+        typer.echo("")
+        for c in result.get("claims") or result.get("results") or []:
+            cid = c.get("id") or c.get("claim_id")
+            st = (c.get("status") or c.get("state") or "").upper()
+            textv = c.get("text") or c.get("claim")
+            if st == "SUPERSEDED":
+                repls = (
+                    c.get("replacements") or c.get("superseded_by") or c.get("replaced_by") or []
+                )
+                if repls:
+                    r0 = repls[0]
+                    replacement_text = r0.get("text") or r0.get("claim")
+                    replacement_id = r0.get("id") or r0.get("claim_id")
+                    typer.echo(f"  {cid[:12]}  SUPERSEDED -> {replacement_text} ({replacement_id})")
+                else:
+                    typer.echo(f"  {cid[:12]}  SUPERSEDED")
+            else:
+                typer.echo(
+                    f"  {cid[:12]}  {st}" + (f"  {textv}" if st == "RETIRED" and textv else "")
+                )
+        drift_data = result.get("drift")
+        if drift_data:
+            typer.echo("")
+            typer.echo("Corpus drift since valid_at:")
+            new_count = drift_data.get("counts", {}).get(
+                "new", len(drift_data.get("new_claims", []))
+            )
+            typer.echo(f"  New claims:       {new_count}")
+            sup_count = drift_data.get("counts", {}).get(
+                "superseded", len(drift_data.get("superseded_claims", []))
+            )
+            typer.echo(f"  Superseded:       {sup_count}")
+            ret_count = drift_data.get("counts", {}).get(
+                "retired", len(drift_data.get("retired_claims", []))
+            )
+            typer.echo(f"  Retired:          {ret_count}")
+
+    raise typer.Exit(code=0 if verdict == "CURRENT" else 1)
+
+
+@app.command()
+def corpora() -> None:
+    """List the corpora you can read and write."""
+    import asyncio
+
+    from verilore.api.services.corpora import list_corpora
+    from verilore.api.services.db import session_scope
+
+    try:
+        from verilore.cli.postgres import ensure_local_postgres
+
+        ensure_local_postgres()
+    except Exception:  # noqa: BLE001
+        pass
+
+    async def run():
+        async with session_scope() as db:
+            return await list_corpora(db)
+
+    try:
+        rows = _run(lambda: asyncio.run(run()))
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+    if not rows:
+        typer.echo("No corpora yet. Record a memory to create one:\n")
+        typer.echo('  verilore remember "Production uses PostgreSQL."')
+        return
+    for row in rows:
+        typer.echo(row["name"])
+
+
+@app.command()
+def ingest(
+    path: str = typer.Argument(..., help="Path to a Markdown file or directory"),
+) -> None:
+    """Ingest Markdown file(s) into the knowledge store."""
+    import httpx
+
+    from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
+
+    path = path.rstrip("/")
+    url = "http://localhost:8000/api/ingest/file"
+
+    try:
+        # Through the same resolver as `ingest-repo`, `remember --file` and the
+        # two routes. This read happens before the HTTP call, so an unenforced
+        # path here is a local file read whose contents are then posted to a
+        # socket -- the exposure does not wait for the server.
+        resolved = require_permitted(path)
+        content = resolved.read_text(encoding="utf-8")
+        resp = httpx.post(url, json={"content": content, "path": str(resolved)}, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(f"[OK] {data.get('message', 'Ingested')}")
+    except FileNotFoundError:
+        typer.echo(f"[ERROR] File not found: {path}", err=True)
+        raise typer.Exit(code=1)
+    except IngestPathRefused as exc:
+        typer.echo(f"[ERROR] {exc}", err=True)
+        raise typer.Exit(code=1)
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def ingest_repo(
+    path: str = typer.Argument(..., help="Path to the content repository"),
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    delete_removed: Annotated[
+        bool,
+        typer.Option(
+            "--delete-removed",
+            help=(
+                "Retire the documents whose source files are no longer in the "
+                "directory. Off by default: a sync that retires documents is a "
+                "decision, and the flag is how you make it."
+            ),
+        ),
+    ] = False,
+    embed_chunks: Annotated[
+        bool,
+        typer.Option(
+            "--embed-chunks",
+            help=(
+                "Also embed every chunk, for the chunk-level search. Off by "
+                "default: a document that produced claims is answered from the "
+                "claim archive, and a chunk search gives the chunks it needs a "
+                "vector when it runs."
+            ),
+        ),
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Batch ingest all Markdown files from a repository.
+
+    Runs in-process, like every other command here. It used to be an HTTP
+    client to a hard-coded http://localhost:8000, which meant the one command
+    the README documents for getting a document in was also the only one that
+    needed a server running, and failed with a bare connection refused when it
+    did not.
+
+    The ingest-root check the route performs is applied here too, so a path
+    outside VERILORE_INGEST_ROOTS is refused identically rather than being
+    quietly allowed by dropping the HTTP hop. `--corpus` is the same option every
+    other write command already carries; the route read it off the request body.
+
+    A document whose source file is no longer in the directory stays in the
+    corpus until `--delete-removed` says otherwise. Its claims keep answering
+    questions for as long as the corpus lives, and nothing reports that the
+    source is gone.
+    """
+    from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
+    from verilore.sdk import Verilore
+
+    try:
+        resolved = require_permitted(path)
+    except IngestPathRefused as exc:
+        typer.echo(f"[ERROR] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    # The route answered 400 "Path not found" here. In-process the same condition
+    # reaches the SDK as a short result dict with no count keys, so it would
+    # surface as KeyError('added'). Check it, or this change would trade one
+    # opaque failure for a worse one.
+    if not resolved.is_dir():
+        typer.echo(f"[ERROR] Path not found: {resolved}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        from verilore.cli.postgres import ensure_local_postgres
+
+        ensure_local_postgres()
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        client = Verilore(_corpus_or_fail(corpus))
+    except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
+        _fail(exc, verbose, debug)
+        return
+    try:
+        summary = client.sync(
+            str(resolved), delete_removed=delete_removed, embed_chunks=embed_chunks
+        )
+    except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
+        _fail(exc, verbose, debug)
+        return
+    typer.echo(
+        f"[{'OK' if summary.success else 'FAIL'}] sync: +{summary.added} "
+        f"~{summary.changed} ={summary.unchanged} -{summary.deleted} "
+        f"!{summary.failed}, {summary.chunk_count} chunks, "
+        f"{summary.claim_count} claims"
+    )
+    for error in summary.errors:
+        typer.echo(f"  - {error}", err=True)
+    if not summary.success:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def search(
+    query: str = typer.Argument(..., help="Search query"),
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    k: int = typer.Option(5, "--k", "-k", help="Number of results"),
+    document_type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Filter by document type"
+    ),
+    tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated tags to filter by"),
+    hybrid: bool = typer.Option(False, "--hybrid", help="Enable hybrid search"),
+) -> None:
+    """Semantic search over ingested content."""
+    import httpx
+
+    url = "http://localhost:8000/api/search"
+    params = {"q": query, "k": k}
+    if corpus:
+        params["corpus"] = corpus
+    if document_type:
+        params["document_type"] = document_type
+    if tags:
+        params["tags"] = tags
+    if hybrid:
+        params["hybrid"] = "true"
+
+    try:
+        resp = httpx.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(f'\n[SEARCH] Search: "{data["query"]}" ({data["total"]} results)\n')
+        for i, r in enumerate(data["results"], 1):
+            typer.echo(f"--- Result {i} (score: {r['score']:.3f}) ---")
+            source = r.get("source_title") or r.get("source_id", "unknown")
+            if r.get("heading_path"):
+                source += f" > {r['heading_path']}"
+            typer.echo(f"Source: {source}")
+            if r.get("document_type"):
+                typer.echo(f"Type: {r['document_type']}")
+            typer.echo(f"{r['text'][:300]}")
+            typer.echo()
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Question to ask"),
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    k: int = typer.Option(5, "--k", "-k", help="Number of retrieved chunks"),
+    document_type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Filter by document type"
+    ),
+    tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated tags to filter by"),
+) -> None:
+    """Optional LLM-backed answer generation; use `memory` for authoritative corpus memory."""
+    import httpx
+
+    url = "http://localhost:8000/api/query/ask"
+    payload = {"question": question, "k": k}
+    if corpus:
+        payload["corpus"] = corpus
+    if document_type:
+        payload["document_type"] = document_type
+    if tags:
+        payload["tags"] = [t.strip() for t in tags.split(",")]
+
+    try:
+        resp = httpx.post(url, json=payload, timeout=120)
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(
+            (
+                f"\n[ANSWER] Answer ({data['latency_ms']}ms,"
+                f" {data['retrieved_chunks']} chunks):\n"
+                f"{data['answer']}\n"
+            )
+        )
+        if data["sources"]:
+            typer.echo(f"[SOURCES] Sources: {', '.join(data['sources'])}")
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def summarize(
+    document_id: str = typer.Argument(..., help="Document ID to summarize"),
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    max_length: int = typer.Option(500, "--max-length", help="Max summary length"),
+) -> None:
+    """Summarize a specific document."""
+    import httpx
+
+    url = "http://localhost:8000/api/query/summarize"
+    try:
+        resp = httpx.post(
+            url,
+            json={"document_id": document_id, "corpus": corpus, "max_length": max_length},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(f"\n[SUMMARY] Summary ({data['latency_ms']}ms):\n{data['answer']}\n")
+        if data["sources"]:
+            typer.echo(f"[SOURCES] Source: {', '.join(data['sources'])}")
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def interview(
+    document_id: str = typer.Argument(..., help="Document ID to generate questions from"),
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    num_questions: int = typer.Option(5, "--num", "-n", help="Number of questions"),
+    difficulty: str = typer.Option(
+        "medium", "--difficulty", "-d", help="Difficulty: easy, medium, hard"
+    ),
+) -> None:
+    """Generate interview questions from a document."""
+    import httpx
+
+    url = "http://localhost:8000/api/query/interview"
+    try:
+        resp = httpx.post(
+            url,
+            json={
+                "document_id": document_id,
+                "corpus": corpus,
+                "num_questions": num_questions,
+                "difficulty": difficulty,
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(
+            f"\n[INTERVIEW] Interview Questions ({data['latency_ms']}ms):\n{data['answer']}\n"
+        )
+        if data["sources"]:
+            typer.echo(f"[SOURCES] Source: {', '.join(data['sources'])}")
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def related(
+    document_id: str = typer.Argument(..., help="Document ID to find related docs for"),
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    k: int = typer.Option(5, "--k", "-k", help="Number of related documents"),
+) -> None:
+    """Find documents related to a given document."""
+    import httpx
+
+    url = "http://localhost:8000/api/query/related"
+    try:
+        resp = httpx.post(
+            url,
+            json={"document_id": document_id, "corpus": corpus, "k": k},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(f"\n[RELATED] Related Documents ({data['latency_ms']}ms):\n{data['answer']}\n")
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def timeline(
+    corpus: Optional[str] = typer.Option(
+        None, "--corpus", help="Corpus name (required when multiple corpora exist)"
+    ),
+    document_type: Optional[str] = typer.Option(
+        None, "--type", "-t", help="Filter by document type"
+    ),
+    start_date: Optional[str] = typer.Option(None, "--start", help="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = typer.Option(None, "--end", help="End date (YYYY-MM-DD)"),
+    limit: int = typer.Option(50, "--limit", "-l", help="Number of documents"),
+) -> None:
+    """Show chronological document timeline."""
+    import httpx
+
+    url = "http://localhost:8000/api/query/timeline"
+    params: dict[str, int | str] = {"limit": limit}
+    if corpus:
+        params["corpus"] = corpus
+    if document_type:
+        params["document_type"] = document_type
+    if start_date:
+        params["start_date"] = start_date
+    if end_date:
+        params["end_date"] = end_date
+
+    try:
+        resp = httpx.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        typer.echo(f"\n[TIMELINE] Timeline ({data['latency_ms']}ms):\n{data['answer']}\n")
+    except httpx.HTTPError as e:
+        typer.echo(f"[ERROR] API error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def reindex(
+    corpus: str = typer.Argument(..., help="Corpus name to rebuild from the archive"),
+) -> None:
+    """Rebuild live search rows from archived source versions.
+
+    This writes only the derived live projection. It does not create memory
+    versions, claims, or feed events.
+    """
+    import asyncio
+    import json
+
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.db import async_engine, session_scope
+    from verilore.api.services.rehydrate import rehydrate_corpus
+
+    try:
+        from verilore.cli.postgres import ensure_local_postgres
+
+        ensure_local_postgres()
+    except Exception:  # noqa: BLE001
+        pass
+
+    async def run() -> dict:
+        try:
+            async with session_scope() as db, db.begin():
+                corpus_row = await get_corpus_by_name(db, corpus)
+                if not corpus_row:
+                    raise ValueError(f"corpus '{corpus}' not found")
+                return await rehydrate_corpus(db, corpus_row["id"])
+        finally:
+            await async_engine.dispose()
+
+    try:
+        result = asyncio.run(run())
+    except (ValueError, OSError, RuntimeError) as exc:
+        typer.echo(f"[ERROR] Reindex failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(result, sort_keys=True))
+
+
+@app.command()
+def doctor() -> None:
+    """Run system health checks."""
+
+    import httpx
+
+    checks_passed = 0
+    total_checks = 0
+
+    def check(name: str, condition: bool, fix_hint: str = ""):
+        nonlocal checks_passed, total_checks
+        total_checks += 1
+        if condition:
+            typer.echo(f"[OK] {name}")
+            checks_passed += 1
+        else:
+            typer.echo(f"[ERROR] {name}")
+            if fix_hint:
+                typer.echo(f"   - Hint: {fix_hint}")
+
+    # Check 1: API liveness
+    try:
+        resp = httpx.get("http://localhost:8000/health/live", timeout=5)
+        check(
+            "API liveness",
+            resp.status_code == 200,
+            "Start the API with: uvicorn verilore.api.main:app --reload",
+        )
+    except Exception:
+        check("API liveness", False, "Start the API with: uvicorn verilore.api.main:app --reload")
+
+    # Check 2: API readiness (the database-aware health signal)
+    try:
+        resp = httpx.get("http://localhost:8000/health/ready", timeout=5)
+        check(
+            "API readiness",
+            resp.status_code == 200,
+            "Check PostgreSQL connectivity and run migrations",
+        )
+    except Exception:
+        check("API readiness", False, "Check PostgreSQL connectivity and run migrations")
+
+    # Check 3: Postgres connectivity
+    try:
+        import asyncio
+
+        from sqlalchemy import text
+
+        from verilore.api.services.db import async_engine
+
+        async def check_pg():
+            async with async_engine.begin() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
+
+        result = asyncio.run(check_pg())
+        check(
+            "Postgres connectivity",
+            result,
+            "Check docker-compose is running: docker-compose ps",
+        )
+    except Exception as e:
+        check(
+            "Postgres connectivity",
+            False,
+            f"Check docker-compose is running: docker-compose ps. Error: {e}",
+        )
+
+    # Check 4: Ollama availability
+    try:
+        resp = httpx.get("http://localhost:11434/api/tags", timeout=5)
+        check(
+            "Ollama availability",
+            resp.status_code == 200,
+            "Start Ollama: docker exec ollama ollama serve",
+        )
+    except Exception:
+        check(
+            "Ollama availability",
+            False,
+            "Start Ollama: docker exec ollama ollama serve",
+        )
+
+    # Check 5: Embedding model
+    try:
+        from verilore.api.services.embedder import Embedder
+
+        embedder = Embedder()
+        check(
+            "Embedding model loaded",
+            embedder.dimension > 0,
+            "Check sentence-transformers is installed",
+        )
+    except Exception as e:
+        check(
+            "Embedding model loaded",
+            False,
+            f"Check sentence-transformers is installed. Error: {e}",
+        )
+
+    # Check 6: Content directory
+    import os
+
+    content_exists = os.path.exists("./content") and len(os.listdir("./content")) > 0
+    check(
+        "Content directory has files",
+        content_exists,
+        "Add Markdown files to ./content/",
+    )
+
+    # Check 7: Migrations (simplified)
+    try:
+        from alembic.config import Config
+
+        Config("verilore/migrations/alembic.ini")
+        # Just check if we can load the config
+        check("Alembic config loads", True, "Run: alembic upgrade head")
+    except Exception:
+        check("Alembic config loads", False, "Run: alembic upgrade head")
+
+    typer.echo(f"\n[HEALTH] Health Check: {checks_passed}/{total_checks} passed")
+    if checks_passed == total_checks:
+        typer.echo("[SUCCESS] All systems go!")
+        raise typer.Exit(code=0)
+    else:
+        typer.echo("[WARN]  Some checks failed. See hints above.")
+        raise typer.Exit(code=1)
+
+
+@eval_app.command("memory")
+def eval_memory(
+    benchmark_file: str = typer.Option("eval/memory_benchmarks.yaml", "--file", "-f"),
+    repetitions: int = typer.Option(20, "--repetitions", min=1, max=1000),
+    sizes: str = typer.Option("", "--sizes", help="Optional synthetic sizes, e.g. 100,500,1000"),
+    embeddings: str = typer.Option("fixture", "--embeddings", help="fixture or cached (offline)"),
+    generation: bool = typer.Option(False, "--generation", help="Opt in to configured LLM costs"),
+    save: Optional[str] = typer.Option(None, "--save", help="Write JSON to a NEW report file"),
+) -> None:
+    """Evaluate evolving memory in a rolled-back schema, never an existing corpus.
+
+    Fixture vectors test semantics only. Use cached embeddings for live retrieval
+    comparisons. Run standalone, not inside a serving process. p50/p95 need 20 runs.
+    """
+    import asyncio
+    from pathlib import Path
+
+    from verilore.api.services.memory_benchmark import format_report, run_memory_benchmark
+
+    try:
+        corpus_sizes = tuple(int(value.strip()) for value in sizes.split(",") if value.strip())
+        if save and Path(save).exists():
+            raise ValueError("Refusing to overwrite report; choose a new --save path")
+        result = asyncio.run(
+            run_memory_benchmark(
+                benchmark_file,
+                repetitions=repetitions,
+                corpus_sizes=corpus_sizes,
+                embeddings=embeddings,
+                generation=generation,
+            )
+        )
+        if save:
+            with open(save, "x", encoding="utf-8") as report:
+                json.dump(result, report, ensure_ascii=False, indent=2)
+                report.write("\n")
+        typer.echo(format_report(result))
+    except (ValueError, OSError) as exc:
+        typer.echo(f"[ERROR] {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if not result["passed"]:
+        raise typer.Exit(code=1)
+
+
+@eval_app.command("strategies")
+def eval_strategies(
+    benchmark_file: str = typer.Option("eval/retrieval_benchmarks.yaml", "--file", "-f"),
+    candidates: str = typer.Option(
+        "20", "--candidates", "-c", help="Comma-separated reranker candidate pool sizes"
+    ),
+    details: bool = typer.Option(False, "--details", "-d", help="Show failure diagnostics"),
+) -> None:
+    """Compare vector/hybrid/RRF/reranked retrieval on the benchmark.
+
+    Requires a live PostgreSQL + pgvector database with an ingested corpus
+    (set DATABASE_URL). Does not require the API server.
+    """
+    import asyncio
+
+    from verilore.api.services.benchmark import (
+        format_failure_details,
+        format_report,
+        run_benchmark,
+    )
+    from verilore.api.services.confidence import format_comparison_table
+
+    try:
+        candidate_sizes = tuple(int(c.strip()) for c in candidates.split(",") if c.strip())
+    except ValueError:
+        typer.echo(f"[ERROR] Invalid candidate sizes: {candidates}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        results, failures, samples = asyncio.run(
+            run_benchmark(benchmark_file, candidate_sizes=candidate_sizes)
+        )
+    except Exception as e:
+        typer.echo(f"[ERROR] Benchmark failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo("\n[RESULTS] Retrieval strategy comparison\n")
+    typer.echo(format_report(results, failures=failures))
+
+    ordered = [samples[n] for n in ("vector", "hybrid", "hybrid+rrf") if n in samples]
+    rerank = [samples[n] for n in samples if n.startswith("hybrid+rrf+rerank")]
+    if "hybrid+rrf" in samples and (ordered or rerank):
+        base = samples["hybrid+rrf"]
+        others = [s for s in ordered + rerank if s.strategy != "hybrid+rrf"]
+        typer.echo("\n[STATS] Paired bootstrap comparison (95% CI, resampled per query)\n")
+        typer.echo(format_comparison_table(base, others, k=3, metric="recall"))
+    if details and failures:
+        typer.echo("\n[DEBUG] Failure diagnostics\n")
+        typer.echo(format_failure_details(failures))
+    typer.echo()
+
+
+@eval_app.command("gate")
+def eval_gate(
+    benchmark_file: str = typer.Option("eval/retrieval_benchmarks.yaml", "--file", "-f"),
+    save: str = typer.Option(None, "--save", help="Save results as a baseline JSON file"),
+    baseline: str = typer.Option(None, "--baseline", help="Compare against a baseline JSON file"),
+) -> None:
+    """Retrieval quality gate: machine-readable results, optional regression check.
+
+    With --save, records the current run as a baseline. With --baseline,
+    compares the current run against a saved baseline and exits non-zero on
+    statistically significant regression. Noise never fails the gate.
+    """
+    import asyncio
+
+    from verilore.api.services.benchmark import run_benchmark
+    from verilore.api.services.quality_gate import (
+        collect_gate_results,
+        compare_to_baseline,
+        render_gate_report,
+    )
+
+    try:
+        results, _failures, samples = asyncio.run(run_benchmark(benchmark_file))
+    except Exception as e:
+        typer.echo(f"[ERROR] Benchmark failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    gate = collect_gate_results(results, samples)
+    comparison = None
+    if baseline:
+        with open(baseline) as f:
+            base_data = json.load(f)
+        comparison = compare_to_baseline(samples, base_data)
+        gate["comparison"] = comparison
+
+    payload = json.dumps(gate, indent=2)
+    if save:
+        with open(save, "w") as f:
+            f.write(payload)
+        typer.echo(f"[GATE] Baseline saved to {save}")
+
+    typer.echo(render_gate_report(gate, comparison))
+
+    if save:
+        typer.echo(payload)
+
+    if comparison and comparison["regressions"]:
+        raise typer.Exit(code=1)
+
+
+@eval_app.command("retrieval")
+def eval_retrieval(
+    benchmark_file: str = typer.Option("eval/retrieval_benchmarks.yaml", "--file", "-f"),
+    k: int = typer.Option(5, "--k", "-k", help="Top-k to evaluate"),
+) -> None:
+    """Run retrieval evaluation against benchmark dataset."""
+    import httpx
+
+    with open(benchmark_file) as f:
+        benchmarks = yaml.safe_load(f)
+
+    if not benchmarks:
+        typer.echo("No benchmarks found")
+        raise typer.Exit(code=1)
+
+    url = "http://localhost:8000/api/search"
+    total = len(benchmarks)
+    passed = 0
+    total_precision = 0.0
+
+    typer.echo(f"\n[HEALTH] Running retrieval evaluation on {total} queries (k={k})...\n")
+
+    for i, bm in enumerate(benchmarks, 1):
+        query = bm["query"]
+        expected = set(bm["expected"])
+        category = bm.get("category", "general")
+
+        try:
+            resp = httpx.get(url, params={"q": query, "k": k}, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            results = data["results"]
+        except httpx.HTTPError as e:
+            typer.echo(f"  [ERROR] Query {i}: API error - {e}")
+            continue
+
+        retrieved_titles = {r.get("source_title", "") for r in results}
+        hits = expected & retrieved_titles
+        precision = len(hits) / len(expected) if expected else 1.0
+        total_precision += precision
+
+        status = "[OK]" if precision == 1.0 else "[WARN]" if precision > 0 else "[ERROR]"
+        typer.echo(f'  {status} Query {i} [{category}]: "{query}"')
+        typer.echo(f"      Expected: {', '.join(expected)}")
+        typer.echo(f"      Retrieved: {', '.join(retrieved_titles) or 'none'}")
+        typer.echo(f"      Precision@{k}: {precision:.2f}")
+
+        if precision == 1.0:
+            passed += 1
+
+    avg_precision = total_precision / total if total > 0 else 0
+    typer.echo(
+        f"\n[RESULTS] Results: {passed}/{total} perfect, Avg Precision@{k}: {avg_precision:.2f}"
+    )
+
+    if passed == total:
+        typer.echo("[SUCCESS] All queries retrieved expected documents!")
+    else:
+        typer.echo(
+            "[WARN]  Some queries missed expected documents — consider tuning chunking/embedding"
+        )
+
+
+credentials_app = typer.Typer(
+    name="credential",
+    help="Issue, list and revoke the credentials callers present to Verilore.",
+    no_args_is_help=True,
+)
+app.add_typer(credentials_app)
+
+
+def _authz_session():
+    """A session in the administrative principal scope, on the maintenance role.
+
+    Credential management is administrative by construction: granting access to
+    a corpus is something the grantee cannot do for themselves. Every command
+    below enters `ADMIN_PRINCIPAL` so it works identically whatever principal
+    happens to be current -- including the default local one, which is
+    unrestricted but is *not* an identity.
+
+    It also connects as `VERILORE_ADMIN_DATABASE_URL` when that is set,
+    because these commands read and write `memory_principals` directly and the
+    least-privileged runtime role is deliberately denied exactly that. Listing
+    every credential in one query is the enumeration that migration `009` removes
+    from the application; running the operator CLI as the runtime role would put
+    the privilege straight back.
+    """
+    import os
+    from contextlib import asynccontextmanager
+
+    from verilore.api.services.authz import ADMIN_PRINCIPAL
+    from verilore.api.services.db import admin_session_scope, principal_scope, session_scope
+
+    admin_url = os.getenv("VERILORE_ADMIN_DATABASE_URL") or os.getenv("MIGRATION_DATABASE_URL")
+    # Both are `@asynccontextmanager` helpers, so calling either one *produces* the
+    # context manager. `scope` is already one; entering it again would call it as a
+    # decorator and fail with a message about a missing argument.
+    scope = admin_session_scope(admin_url) if admin_url else session_scope()
+
+    @asynccontextmanager
+    async def _open():
+        async with scope as db:
+            with principal_scope(ADMIN_PRINCIPAL):
+                yield db
+
+    return _open()
+
+
+def _run_async(coro):
+    """Run a coroutine the way the rest of this CLI does."""
+    import asyncio
+
+    return _run(lambda: asyncio.run(coro))
+
+
+@credentials_app.command("issue")
+def credential_issue(
+    name: str = typer.Argument(..., help="A label an operator will recognise."),
+    corpus: list[str] = typer.Option(
+        ...,
+        "--corpus",
+        "-c",
+        help="A corpus this credential may read. Repeat for more.",
+    ),
+    role: str = typer.Option(
+        "read_write",
+        "--role",
+        "-r",
+        help="read_only, read_write, corpus_admin or principal_admin.",
+    ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Print only the secret."),
+) -> None:
+    """Issue a credential and print its secret exactly once.
+
+    The corpus names must already exist: `verilore corpus` lists them, and the
+    first one is created by recording into it. Names come from server-side rows,
+    so a credential can never be pointed at a corpus that is not already there.
+
+    Roles are cumulative: `read_only` reads; `read_write` adds writing;
+    `corpus_admin` adds creating and erasing the corpora it holds grants on;
+    `principal_admin` adds issuing and revoking credentials. A credential does
+    not acquire access to a corpus created later -- grants are explicit.
+    """
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services import authz
+
+            return await authz.issue_credential(db, name, corpus, role)  # type: ignore[arg-type]
+
+    try:
+        issued = _run_async(run())
+    except ValueError as exc:
+        _fail(exc, False)
+        return
+    except Exception as exc:  # noqa: BLE001 - one message for the operator
+        _fail(exc, False)
+        return
+
+    if quiet:
+        typer.echo(issued["secret"])
+        return
+    typer.echo(f"credential issued: {issued['name']} ({issued['id'][:12]})")
+    typer.echo(f"  role:    {issued['role']}")
+    typer.echo(f"  corpora: {', '.join(issued['corpora'])}")
+    typer.echo("")
+    typer.echo(f"  secret:  {issued['secret']}")
+    typer.echo("")
+    typer.echo("This secret is shown once and stored only as a hash. It is not")
+    typer.echo("recoverable; issue a new credential if it is lost. Rotate by")
+    typer.echo("issuing a new one, deploying it, then revoking the old id.")
+
+
+@credentials_app.command("list")
+def credential_list() -> None:
+    """List credentials, their roles, their corpus scope and their state.
+
+    Never shows a secret or a hash: an operator can see that a credential exists
+    and what it may reach, which is what they need in order to revoke it.
+    """
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services import authz
+
+            return await authz.list_credentials(db)
+
+    try:
+        rows = _run_async(run())
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+    if not rows:
+        typer.echo("No credentials yet. Issue one:")
+        typer.echo("  verilore credential issue my-app --corpus default")
+        return
+    for row in rows:
+        state = "revoked" if row["disabled"] else "active"
+        typer.echo(f"{row['id'][:12]}  {row['name']}  {row['role']}  {state}")
+        typer.echo(f"    corpora: {', '.join(row['corpora']) or '(none)'}")
+
+
+@credentials_app.command("revoke")
+def credential_revoke(
+    identifier: str = typer.Argument(..., help="Credential id, or a prefix of it."),
+) -> None:
+    """Revoke a credential. It stops working on the next request."""
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services import authz
+
+            return await authz.revoke_credential(db, identifier)
+
+    try:
+        revoked = _run_async(run())
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+    if not revoked:
+        typer.echo(f"no credential matched '{identifier}'", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"revoked {identifier}")
+
+
+corpora_app = typer.Typer(
+    name="corpus",
+    help="Create and inspect corpora. Administrative: a corpus is a tenant boundary.",
+    no_args_is_help=True,
+)
+secret_app = typer.Typer(name="secret", help="Manage server secrets (scope HMAC).")
+app.add_typer(secret_app)
+
+
+@secret_app.command("rotate")
+def secret_rotate(
+    secret: Optional[str] = typer.Option(
+        None, "--secret", help="New 32-byte hex secret. Generated if omitted."
+    ),
+    database_url: Optional[str] = typer.Option(
+        None, "--database-url", help="Admin DATABASE_URL. Defaults to env."
+    ),
+    out: Optional[Path] = typer.Option(
+        None, "--out", help="Write the rotated secret to FILE (mode 0600)."
+    ),
+) -> None:
+    """Rotate the scope HMAC secret in memory_server_secrets.
+
+    Connects with admin/maintenance credentials. Prints the rotated value and
+    the steps to update VERILORE_SCOPE_SECRET in the service environment.
+    """
+    import secrets as _secrets
+    import sqlalchemy as sa
+
+    url = database_url or os.getenv("DATABASE_URL")
+    if not url:
+        typer.echo("DATABASE_URL is not set.", err=True)
+        raise typer.Exit(1)
+    if secret is None:
+        secret = _secrets.token_hex(32)
+    # validate hex-ish 32 bytes
+    try:
+        if len(bytes.fromhex(secret)) != 32:
+            raise ValueError("not 32 bytes")
+    except ValueError:
+        typer.echo("Secret must be 32 bytes (64 hex chars).", err=True)
+        raise typer.Exit(1)
+
+    sync_url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://").replace(
+        "postgresql+asyncpg", "postgresql+psycopg2"
+    )
+    if sync_url.startswith("postgresql://"):
+        sync_url = sync_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    engine = sa.create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO memory_server_secrets (name, value) VALUES "
+                    "('scope_hmac_secret', :v) "
+                    "ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value"
+                ),
+                {"v": secret},
+            )
+    finally:
+        engine.dispose()
+
+    typer.echo(f"Rotated scope secret: {secret}")
+    if out is not None:
+        out.write_text(secret + "\n")
+        os.chmod(out, 0o600)
+    typer.echo("")
+    typer.echo("Update the service environment:")
+    typer.echo(f"  export VERILORE_SCOPE_SECRET={secret}")
+    typer.echo("Then restart the service. Re-run mp_set_scope_token_enforcement(true)")
+    typer.echo("if enforcement should remain enabled.")
+
+
+app.add_typer(corpora_app)
+
+
+@corpora_app.command("create")
+def corpus_create(
+    name: str = typer.Argument(..., help="Corpus name: letters, digits, '-', '_', '.'."),
+    description: str = typer.Option("", "--description", "-d", help="What it holds."),
+) -> None:
+    """Create a corpus, and issue credentials for it.
+
+    Minting a tenant boundary is administrative, which is why it is a local
+    command with database access rather than an HTTP route: in `required` mode
+    there is deliberately no network path that can create one. This is the step
+    an operator performs during workspace onboarding.
+    """
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services.corpora import create_corpus, get_corpus_by_name
+
+            existing = await get_corpus_by_name(db, name)
+            if existing:
+                return existing, False
+            return await create_corpus(db, name, description), True
+
+    try:
+        corpus, created = _run_async(run())
+    except ValueError as exc:
+        _fail(exc, False)
+        return
+    if not created:
+        typer.echo(f"corpus '{name}' already exists")
+        return
+    typer.echo(f"created corpus '{corpus['name']}' ({corpus['id'][:12]})")
+    typer.echo("")
+    typer.echo("Now grant a credential to it:")
+    typer.echo(f"  verilore credential issue my-app --corpus {name}")
+
+
+@corpora_app.command("reset")
+def corpus_reset(
+    name: str = typer.Argument(..., help="The corpus to wipe and re-initialise."),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Required. The corpus's contents are erased."
+    ),
+) -> None:
+    """Wipe a corpus and re-initialise it, leaving every other corpus alone.
+
+    The corpus comes back empty, under the same name and the same id, with its
+    grants intact. Every other corpus in the database is untouched: the way out
+    of a scratch corpus that has collected a test claim used to be dropping the
+    whole PostgreSQL database, which took everything else with it.
+
+    It removes what *this server* holds. It cannot remove a receipt or Memory
+    Pack already exported, a database backup, or a copy stored elsewhere --
+    and it prints that rather than implying otherwise.
+    """
+    if not yes:
+        typer.echo(
+            f"this erases everything in corpus '{name}'. "
+            "Re-run with --yes if that is what you want.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services.corpora import reset_corpus
+
+            return await reset_corpus(db, name)
+
+    try:
+        report = _run_async(run())
+    except Exception as exc:  # noqa: BLE001 - one message for the operator
+        _fail(exc, False)
+        return
+
+    typer.echo(f"reset corpus '{report['corpus']}' ({report['corpus_id'][:12]})")
+    typer.echo("")
+    typer.echo("rows removed, by table:")
+    for table, count in sorted(report["removed"].items()):
+        if count:
+            typer.echo(f"  {table:<28} {count}")
+    typer.echo("")
+    typer.echo(f"grants kept: {report['grants']}")
+    typer.echo(f"not removed: {report['not_removed']}")
+
+
+@corpora_app.command("delete")
+def corpus_delete(
+    name: str = typer.Argument(..., help="The corpus to erase."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Required. Erasure cannot be undone."),
+) -> None:
+    """Erase a corpus and every row of memory the server holds for it.
+
+    Removes the live projection *and* the durable archive: documents, chunks,
+    claims, evidence, versions, snapshots, embeddings, the manifest, and every
+    credential's grant to it. It is not reversible, and there is no trash.
+
+    Deliberately a local command with database access rather than an HTTP route,
+    for the same reason `corpus create` is: this is the one operation that can
+    remove a tenant's data, and it should require the same authority as creating
+    one. `DELETE /api/corpora/{name}` reaches the same code for a credential that
+    holds `manage_corpus`.
+
+    It removes what *this server* holds. It cannot remove a receipt or Memory
+    Pack the customer already exported, a database backup, or a copy they stored
+    elsewhere -- and it prints that rather than implying otherwise.
+    """
+    if name == "default":
+        typer.echo(
+            "cannot delete the 'default' corpus; wipe it with "
+            "`verilore corpus reset default --yes` instead.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if not yes:
+        typer.echo(
+            f"this erases everything in corpus '{name}'. "
+            "Re-run with --yes if that is what you want.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services.corpora import delete_corpus
+
+            return await delete_corpus(db, name)
+
+    try:
+        report = _run_async(run())
+    except Exception as exc:  # noqa: BLE001 - one message for the operator
+        _fail(exc, False)
+        return
+
+    if not report["deleted"]:
+        typer.echo(f"corpus '{name}' not found", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"erased corpus '{name}' ({report['corpus_id'][:12]})")
+    typer.echo("")
+    typer.echo("rows removed, by table:")
+    for table, count in sorted(report["removed"].items()):
+        if count:
+            typer.echo(f"  {table:<28} {count}")
+    typer.echo("")
+    typer.echo(f"not removed: {report['not_removed']}")
+
+
+@credentials_app.command("grant")
+def credential_grant(
+    identifier: str = typer.Argument(..., help="Credential id, or a prefix of it."),
+    corpus: list[str] = typer.Option(..., "--corpus", "-c", help="A corpus to add."),
+) -> None:
+    """Add corpora to an existing credential, without changing its secret.
+
+    The alternative is reissuing, which changes the secret and breaks every
+    running deployment of the caller -- so that is the rotation step, never the
+    way access is widened. This one adds access and leaves the secret alone.
+    """
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services.authz import grant_corpora
+
+            return await grant_corpora(db, identifier, corpus)
+
+    try:
+        added = _run_async(run())
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+    if not added:
+        typer.echo(f"{identifier} already has access to those corpora")
+        return
+    typer.echo(f"granted {identifier}: {', '.join(added)}")
+
+
+@credentials_app.command("ungrant")
+def credential_ungrant(
+    identifier: str = typer.Argument(..., help="Credential id, or a prefix of it."),
+    corpus: list[str] = typer.Option(..., "--corpus", "-c", help="A corpus to remove."),
+) -> None:
+    """Remove corpora from a credential, keeping the credential itself usable.
+
+    This is offboarding one collection rather than a whole identity. Removing the
+    last one leaves a credential that resolves to no corpus and is therefore
+    refused on every request; use `credential revoke` to end it outright.
+    """
+
+    async def run():
+        async with _authz_session() as db:
+            from verilore.api.services.authz import revoke_corpora
+
+            return await revoke_corpora(db, identifier, corpus)
+
+    try:
+        removed = _run_async(run())
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+    if not removed:
+        typer.echo(f"{identifier} did not have access to those corpora")
+        return
+    typer.echo(f"removed from {identifier}: {', '.join(removed)}")
+
+
+@app.command("posture")
+def posture() -> None:
+    """Report whether this database connection actually enforces row-level security.
+
+    `VERILORE_AUTH_MODE=required` is an application switch. Whether the
+    database honours the policies underneath depends on the role, and a
+    superuser or a `BYPASSRLS` role ignores them entirely. This prints the
+    answer for the role this process would connect as.
+    """
+
+    async def run():
+        from verilore.api.services.db import session_scope
+        from verilore.api.services.posture import inspect
+
+        async with session_scope() as db:
+            return await inspect(db)
+
+    try:
+        found = _run_async(run())
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, False)
+        return
+
+    typer.echo(f"role:            {found.role}")
+    typer.echo(f"superuser:       {found.is_superuser}")
+    typer.echo(f"BYPASSRLS:       {found.bypasses_rls}")
+    typer.echo(f"RLS effective:   {found.rls_effective}")
+    if found.owns_protected_tables:
+        typer.echo(f"owns tables:     {', '.join(sorted(found.owns_protected_tables))}")
+    problems = found.problems()
+    if problems:
+        typer.echo("")
+        for problem in problems:
+            typer.echo(f"  [PROBLEM] {problem}")
+        typer.echo("")
+        typer.echo("This deployment gets no tenant isolation from the database.")
+        typer.echo("Use scripts/db/runtime_roles.sql and connect as mindpalace_runtime.")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def serve(
+    run: Annotated[
+        bool,
+        typer.Option(
+            "--run",
+            help="Start the HTTP server in this process instead of printing the command.",
+        ),
+    ] = False,
+    host: Annotated[
+        str, typer.Option("--host", help="Interface to bind when --run is given.")
+    ] = "127.0.0.1",
+    port: Annotated[
+        int, typer.Option("--port", min=1, max=65535, help="Port to bind when --run is given.")
+    ] = 8000,
+    reload: Annotated[
+        bool,
+        typer.Option("--reload", help="Restart the server when code changes (development)."),
+    ] = False,
+) -> None:
+    """Start an HTTP API for clients that are not this CLI.
+
+    The core commands -- `recall`, `explain`, `history`, `receipt`, `verify`,
+    `ingest-repo` and the `memory` subcommands -- run in-process against the
+    local database. No server is needed for them, and starting one does not
+    change their answers. `serve` exists for a different caller: REST, the SDK
+    over HTTP, an MCP server across a network, or another process on this
+    machine.
+
+    With `--run` this process starts the server; without it, it prints the
+    command to run. Both forms are here so the boundary is visible before
+    anything is bound to a port.
+    """
+    if run:
+        import uvicorn
+
+        typer.echo(f"Serving the HTTP API on http://{host}:{port}")
+        typer.echo(f"Docs: http://{host}:{port}/docs")
+        uvicorn.run("verilore.api.main:app", host=host, port=port, reload=reload)
+        return
+    typer.echo("Start the HTTP API with: verilore serve --run")
+    typer.echo("Equivalent: uvicorn verilore.api.main:app --reload")
+    typer.echo("Then visit http://localhost:8000/docs")
+    typer.echo("")
+    typer.echo("The CLI commands themselves run in-process; this server is for")
+    typer.echo("REST, the HTTP SDK, MCP over a network, or another process.")
+    typer.echo("")
+    typer.echo("That is a local server. Before exposing one to a network:")
+    typer.echo("  VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \\")
+    typer.echo("      verilore serve --run --host 0.0.0.0")
+    typer.echo("In that mode the app refuses to start if authentication is off.")
+
+
+if __name__ == "__main__":
+    app()

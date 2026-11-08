@@ -1,8 +1,8 @@
 """Regression coverage for history claim-lineage filtering on multi-claim docs."""
 
-from api.models.memory import MemoryRequest
-from api.services import ingestion as ingestion_service
-from api.services import memory_public
+from verilore.api.models.memory import MemoryRequest
+from verilore.api.services import ingestion as ingestion_service
+from verilore.api.services import memory_public
 
 ADR_001 = """# ADR 001
 
@@ -56,7 +56,7 @@ async def test_history_filters_intermediate_transitions_to_matched_lineage(store
         MemoryRequest(corpus=store.name, query="What is the primary job queue broker?"),
     )
 
-    from cli.render import render_history
+    from verilore.cli.render import render_history
 
     rendered = render_history(response)
     assert "superseded by  Primary job queue broker: NATS." in rendered

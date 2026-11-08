@@ -24,7 +24,7 @@ def loop():
 
 
 def _call(loop, **kwargs):
-    import mcp_server
+    import verilore.mcp_server as mcp_server
 
     return loop.run_until_complete(mcp_server.mcp.call_tool("memory_revalidate", kwargs))
 
@@ -43,7 +43,7 @@ def _skip_if_no_db():
 
 
 def test_memory_revalidate_is_registered():
-    import mcp_server
+    import verilore.mcp_server as mcp_server
 
     tools = asyncio.run(mcp_server.mcp.list_tools())
     names = {t.name for t in tools}
@@ -68,7 +68,7 @@ def test_quote_exact_accepted(tmp_root, loop):
     doc = tmp_root / "note.md"
     doc.write_text("The production datastore is PostgreSQL.\n")
     result = loop.run_until_complete(
-        __import__("mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "The production datastore is PostgreSQL.",
@@ -85,7 +85,7 @@ def test_quote_mutation_rejected(tmp_root, loop):
     doc = tmp_root / "note.md"
     doc.write_text("The production datastore is PostgreSQL.\n")
     result = loop.run_until_complete(
-        __import__("mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "The production datastore is Postgres.",
@@ -100,7 +100,7 @@ def test_quote_mutation_rejected(tmp_root, loop):
 def test_unresolved_supersedes_rejected(loop):
     _skip_without_db()
     result = loop.run_until_complete(
-        __import__("mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "Production uses CockroachDB.",
@@ -120,7 +120,7 @@ def test_unresolved_supersedes_rejected(loop):
 def test_sdk_revalidate_current_then_stale():
     _skip_without_db()
     os.environ.setdefault("DATABASE_URL", os.environ["DATABASE_URL"])
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     corpus = "sdk-reval-corpus"
     mp = Verilore(corpus)

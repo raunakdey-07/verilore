@@ -69,9 +69,9 @@ DIVERGENT = "When did we last change the backup schedule?"
 @pytest.fixture(scope="module")
 def corpus():
     """A corpus authored the way a user's is: through `remember`, so no embeddings."""
-    from api.services import remember as remember_service
-    from api.services.corpora import get_or_create_corpus
-    from api.services.db import async_engine, session_scope
+    from verilore.api.services import remember as remember_service
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.db import async_engine, session_scope
 
     name = f"m016-lexical-{os.getpid()}"
 
@@ -95,7 +95,16 @@ def read(corpus: str, question: str, *, lexical: bool) -> dict:
     if lexical:
         env["VERILORE_LEXICAL"] = "1"
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main", "recall", question, "--corpus", corpus, "--json"],
+        [
+            sys.executable,
+            "-m",
+            "verilore.cli.main",
+            "recall",
+            question,
+            "--corpus",
+            corpus,
+            "--json",
+        ],
         cwd=str(ROOT),
         env=env,
         capture_output=True,
@@ -122,7 +131,7 @@ def _child(argv: list[str], lexical: bool) -> tuple[float, dict]:
         "import json, sys, time\n"
         "t = time.perf_counter()\n"
         f"sys.argv = {argv!r}\n"
-        "from cli.main import app\n"
+        "from verilore.cli.main import app\n"
         "from typer.testing import CliRunner\n"
         "result = CliRunner().invoke(app, sys.argv)\n"
         "elapsed = time.perf_counter() - t\n"
@@ -277,7 +286,7 @@ def test_lexical_mode_bypasses_a_running_runtime(corpus, tmp_path):
     env.pop("VERILORE_LEXICAL", None)
     env.pop("VERILORE_RUNTIME", None)
 
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     # The runtime resolves its socket and token from the environment at call time, so
     # this process has to point at the same state directory the child will. Setting it
@@ -286,7 +295,7 @@ def test_lexical_mode_bypasses_a_running_runtime(corpus, tmp_path):
     os.environ["VERILORE_STATE_DIR"] = str(state)
     runtime_module._ensure_token()
     process = subprocess.Popen(
-        [sys.executable, "-m", "verilore" "_runtime"],
+        [sys.executable, "-m", "verilore.runtime"],
         cwd=str(ROOT),
         env=env,
         stdin=subprocess.DEVNULL,
@@ -312,7 +321,7 @@ def test_lexical_mode_bypasses_a_running_runtime(corpus, tmp_path):
             [
                 sys.executable,
                 "-m",
-                "cli.main",
+                "verilore.cli.main",
                 "recall",
                 ANSWERABLE,
                 "--corpus",
@@ -354,7 +363,7 @@ def test_only_an_explicit_value_enables_the_mode():
     This mode is consequential: it selects different keys. Entering it by accident
     would mean answers that differ between terminals for no visible reason.
     """
-    from api.services.retrieval_mode import lexical_requested
+    from verilore.api.services.retrieval_mode import lexical_requested
 
     for unset in (
         {},
@@ -386,7 +395,7 @@ def test_a_receipt_from_lexical_mode_verifies_offline(corpus, tmp_path):
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "receipt",
             ANSWERABLE,
             "--corpus",
@@ -403,7 +412,7 @@ def test_a_receipt_from_lexical_mode_verifies_offline(corpus, tmp_path):
     assert done.returncode == 0, done.stderr[-2000:]
     assert path.exists()
 
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     import json
 

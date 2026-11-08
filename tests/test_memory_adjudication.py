@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from api.services.memory_adjudication import (
+from verilore.api.services.memory_adjudication import (
     AdjudicationRecord,
     blind_review_payload,
     dataset_hash,
@@ -10,7 +10,7 @@ from api.services.memory_adjudication import (
     record_hash,
     validate_records,
 )
-from api.services.memory_decision_dataset import load_development_examples
+from verilore.api.services.memory_decision_dataset import load_development_examples
 
 
 def record(**overrides):

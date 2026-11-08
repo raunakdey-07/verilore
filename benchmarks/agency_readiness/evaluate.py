@@ -37,11 +37,11 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile, ZIP_DEFLATED
 
-from api.services import markdown_claims
-from api.services.corpora import corpus_id_for_name
-from api.services.db import session_scope
-from api.services.ingestion import IngestionService
-from api.services.context_service import build_context
+from verilore.api.services import markdown_claims
+from verilore.api.services.corpora import corpus_id_for_name
+from verilore.api.services.db import session_scope
+from verilore.api.services.ingestion import IngestionService
+from verilore.api.services.context_service import build_context
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -53,7 +53,7 @@ EMBED_DIM = 384
 class DeterministicEmbedder:
     """Stub embedder: stable unit vectors from a text hash, no model download.
 
-    Same interface as `api.services.embedder.Embedder` (embed / dimension /
+    Same interface as `verilore.api.services.embedder.Embedder` (embed / dimension /
     model_name / version) so it can be dropped into IngestionService.
     Vectors are deterministic for a given text, so the benchmark is reproducible
     across machines and runs.
@@ -91,7 +91,7 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 
 def _docx(title: str, body_paras: list[str]) -> bytes:
-    """Minimal valid OOXML .docx parseable by api.services.source_formats."""
+    """Minimal valid OOXML .docx parseable by verilore.api.services.source_formats."""
     paras = "\n".join(
         (
             f'<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">{title}</w:t></w:r></w:p>'
@@ -134,7 +134,7 @@ def _docx(title: str, body_paras: list[str]) -> bytes:
 
 
 def _pptx(title: str, slides: list[list[str]]) -> bytes:
-    """Minimal valid OOXML .pptx parseable by api.services.source_formats."""
+    """Minimal valid OOXML .pptx parseable by verilore.api.services.source_formats."""
     slide_xmls = []
     for idx, items in enumerate(slides, start=1):
         first = items[0] if items else f"Slide {idx}"
@@ -171,7 +171,7 @@ def _pptx(title: str, slides: list[list[str]]) -> bytes:
 
 
 def _pdf(title: str, lines: list[str]) -> bytes:
-    """Minimal valid PDF parseable by api.services.source_formats' stdlib path."""
+    """Minimal valid PDF parseable by verilore.api.services.source_formats' stdlib path."""
     text_stream = "".join(f"({l}) Tj\n" for l in lines)
     compressed = zlib.compress(text_stream.encode("latin-1"))
     objects = []
@@ -326,9 +326,9 @@ Must use a {voice_style} voice. Avoid {voice_avoid}. Must use {fabric_pct} perce
 
 
 async def _create_corpus(db, name: str) -> str:
-    from api.services import authz
-    from api.services.corpora import create_corpus
-    from api.services.db import principal_scope
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import principal_scope
 
     async with session_scope() as s:
         with principal_scope(authz.ADMIN_PRINCIPAL):

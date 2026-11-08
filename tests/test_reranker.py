@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from api.services.reranker import Reranker
+from verilore.api.services.reranker import Reranker
 
 
 @pytest.fixture(autouse=True)
@@ -18,7 +18,7 @@ def _reset_singleton():
 
 def test_reranker_singleton():
     """Construction is cheap; the model loads on first scoring call."""
-    with patch("api.services.reranker.CrossEncoder") as mock_ce:
+    with patch("verilore.api.services.reranker.CrossEncoder") as mock_ce:
         mock_ce.return_value = MagicMock()
         mock_ce.return_value.predict.return_value = [0.5]
         r1 = Reranker()
@@ -69,7 +69,7 @@ def test_reranker_score_changes_ordering():
 def test_reranker_uses_env_model():
     """Test that Reranker reads model from environment variable."""
     with patch.dict(os.environ, {"RERANKER_MODEL": "custom-model"}):
-        with patch("api.services.reranker.CrossEncoder") as mock_ce:
+        with patch("verilore.api.services.reranker.CrossEncoder") as mock_ce:
             mock_ce.return_value = MagicMock()
             mock_ce.return_value.predict.return_value = [0.5]
             Reranker().score("query", ["document"])
@@ -80,7 +80,7 @@ def test_reranker_default_model():
     """Test that Reranker uses default model when env var not set."""
     env = {k: v for k, v in os.environ.items() if k != "RERANKER_MODEL"}
     with patch.dict(os.environ, env, clear=True):
-        with patch("api.services.reranker.CrossEncoder") as mock_ce:
+        with patch("verilore.api.services.reranker.CrossEncoder") as mock_ce:
             mock_ce.return_value = MagicMock()
             mock_ce.return_value.predict.return_value = [0.5]
             Reranker().score("query", ["document"])

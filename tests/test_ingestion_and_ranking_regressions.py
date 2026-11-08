@@ -29,16 +29,16 @@ from uuid import uuid4
 
 import pytest
 
-from api.models.memory import (
+from verilore.api.models.memory import (
     Claim,
     Evidence,
     MemoryRequest,
     MemoryResponse,
     State,
 )
-from api.services import memory_public, memory_query, memory_relevance
-from api.services.markdown_claims import extract
-from api.services.parser import (
+from verilore.api.services import memory_public, memory_query, memory_relevance
+from verilore.api.services.markdown_claims import extract
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
 )
@@ -197,10 +197,10 @@ async def test_a_resync_after_the_extractor_changes_updates_the_claims(monkeypat
     corpus. The version fingerprint covers the extracted claims, so the
     re-sync sees the difference and re-reads the document.
     """
-    from api.services import markdown_claims
-    from api.services.corpora import create_corpus
-    from api.services.db import session_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import markdown_claims
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.ingestion import IngestionService
 
     body = "# Runtime\n\n- The default install is 216 MB and a\n  cold recall is 1.4 s.\n"
     path = "test/dogfood-resync.md"
@@ -503,7 +503,7 @@ def test_the_model_is_loaded_from_the_local_cache(monkeypatch):
     command, which cost a round trip each time and brought back a notice
     about tokens.
     """
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     calls = []
 
@@ -546,7 +546,7 @@ class _FakeSession:
 
 def test_the_onnx_loader_makes_no_network_request(monkeypatch):
     """Nothing in the load may open a socket."""
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     def refuse(self, address):
         raise OSError(f"network access is not allowed: {address}")
@@ -567,7 +567,7 @@ def test_the_hub_notice_is_silenced_while_the_model_loads(monkeypatch):
     """The notice was about rate limits, on a tool that never needed the Hub."""
     import logging
 
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     seen = []
 
@@ -590,7 +590,7 @@ def test_the_quiet_hub_restores_the_logging_levels(monkeypatch):
     """A loader that silences a logger has to give it back."""
     import logging
 
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     logger = logging.getLogger("huggingface_hub")
     before = logger.level

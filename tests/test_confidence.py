@@ -2,7 +2,7 @@
 
 import random
 
-from api.services.confidence import (
+from verilore.api.services.confidence import (
     MetricSamples,
     bootstrap_ci,
     format_comparison_table,

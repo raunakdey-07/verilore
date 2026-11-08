@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from cli.main import app  # noqa: E402
+from verilore.cli.main import app  # noqa: E402
 from live_server import live_server  # noqa: E401,F401,F811  module-scoped server fixture
 from typer.testing import CliRunner
 

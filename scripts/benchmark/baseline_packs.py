@@ -59,7 +59,7 @@ URL = os.environ.get("DATABASE_URL") or ("postgresql://mpadmin:secret@localhost:
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -108,10 +108,10 @@ def normalize(canonical_json: str) -> str:
 
 async def capture() -> dict:
     """Run every benchmark question and record its full canonical pack."""
-    from api.models.memory import MemoryRequest
-    from api.services.corpora import corpus_id_for_name
-    from api.services.ingestion import IngestionService
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.corpora import corpus_id_for_name
+    from verilore.api.services.ingestion import IngestionService
+    from verilore.api.services.memory_public import execute_in_session
 
     engine = create_async_engine(
         URL.replace("postgresql://", "postgresql+asyncpg://"), poolclass=NullPool

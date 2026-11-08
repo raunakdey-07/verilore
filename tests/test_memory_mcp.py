@@ -9,15 +9,15 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
-import mcp_server
-from api.models.memory import MemoryRequest, MemoryResponse, MemoryWire, Snapshot, State
+import verilore.mcp_server as mcp_server
+from verilore.api.models.memory import MemoryRequest, MemoryResponse, MemoryWire, Snapshot, State
 
 OPERATIONS = ("current", "history", "changes", "evidence", "as-of", "snapshot", "replay", "pack")
 
 
 @pytest.fixture
 def service(monkeypatch):
-    module = ModuleType("api.services.memory_public")
+    module = ModuleType("verilore.api.services.memory_public")
 
     class MemoryError(Exception):
         def __init__(self, code, message, status_code):
@@ -71,7 +71,7 @@ async def test_tools_are_async_typed_and_preserve_legacy_tools():
         assert request_schema["properties"]["budget"]["maximum"] == 128000
         assert request_schema["properties"]["intent"]["default"] == "auto"
         # `MemoryWire`, the same shape REST declares, so both surfaces advertise one
-        # response contract. See `api.models.memory.MemoryWire`.
+        # response contract. See `verilore.api.models.memory.MemoryWire`.
         assert tool.output_schema == MemoryWire.model_json_schema()
         assert tool.annotations.read_only_hint == (operation != "snapshot")
         assert tool.annotations.destructive_hint is False

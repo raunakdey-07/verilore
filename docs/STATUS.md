@@ -302,7 +302,7 @@ same error as the `1583` figure this table used to carry.
 
 **Why the first two rows are not re-verified, established this session.**
 `scripts/benchmark/m011_rebuildability.py` builds a fresh per-run schema
-(`CREATE SCHEMA "m011_<uuid>"`) and replays `migrations/versions/*.py` into it.
+(`CREATE SCHEMA "m011_<uuid>"`) and replays `verilore/migrations/versions/*.py` into it.
 Migrations `008` and `009` create functions with `SET search_path = public`, so
 at `CREATE FUNCTION` time PostgreSQL validates the body against `public` — which
 in that database is empty. The run aborts:
@@ -750,7 +750,7 @@ identified parts:
   development set phrases these with wording that overlaps the authored keys; the
   held-out set phrases them indirectly and they are missed. A real weakness.
 - **multi-topic lexical 0/19 is a scoring artefact, not a retrieval gap.** The AND
-  matcher at `api/services/memory.py:528` requires *every* query token to appear
+  matcher at `verilore/api/services/memory.py:528` requires *every* query token to appear
   in a single claim, so a question containing "summarise" or "relies" can never
   match. Nothing is retrieved, and nothing is ranked. This was confirmed by
   reading the scorer, not inferred from the score.
@@ -811,7 +811,7 @@ not move when the host is busy. Between 5,002 and 25,000 claims on the scale fix
 | `matches` / `re.findall` | 21,815 | 395,349 | 18.12x | 1.80 |
 | Pydantic `Claim.__init__` | 33,490 | 453,686 | 13.55x | 1.62 |
 
-The term is the conflict scan at `api/services/memory.py:553`,
+The term is the conflict scan at `verilore/api/services/memory.py:553`,
 `combinations(active_by_key[key], 2)`. Conflicts equal the pairs that survive the
 filters, so the `_hash` count tracks it exactly. Pydantic validation grows 13.55x,
 close to claim count, so **model construction is not the term**.

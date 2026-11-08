@@ -94,7 +94,7 @@ def _cleanup_sdk_corpus():
 @requires_db
 def test_sdk_end_to_end(tmp_path):
     """The full product flow: create -> sync -> context with attribution."""
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -132,7 +132,7 @@ The system uses flurble-token authentication with wibble rotation every hour.
 
 @requires_db
 def test_sdk_budget_enforced(tmp_path):
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     docs = tmp_path / "docs"
     docs.mkdir()

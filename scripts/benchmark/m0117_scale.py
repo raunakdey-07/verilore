@@ -37,8 +37,8 @@ from sqlalchemy.pool import NullPool
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from api.services.rehydrate import backfill_claim_embeddings  # noqa: E402
-from memory_pack import MemoryPack  # noqa: E402
+from verilore.api.services.rehydrate import backfill_claim_embeddings  # noqa: E402
+from verilore.pack import MemoryPack  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 DIM = 384
@@ -116,7 +116,7 @@ def _doc(key: str, sentence: str) -> str:
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -161,10 +161,10 @@ async def cache_rows(conn, corpus_id: str) -> int:
 
 async def time_query(conn, schema: str, question: str, breakdown: bool) -> dict:
     """Time one public query, and optionally the archive load inside it."""
-    from api.models.memory import MemoryRequest
-    from api.services import memory
-    from api.services.corpora import get_corpus_by_name
-    from api.services.memory_public import State, project
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.memory_public import State, project
 
     request = MemoryRequest(corpus=schema, query=question, budget=128000)
     result = {"load": 0.0}
@@ -189,7 +189,7 @@ async def time_query(conn, schema: str, question: str, breakdown: bool) -> dict:
         )
         if breakdown:
             result["project"] = (time.perf_counter() - t0) * 1000
-        from api.services.memory_query import query as run_query
+        from verilore.api.services.memory_query import query as run_query
 
         t0 = time.perf_counter()
         response = await run_query(full, request, db=db, corpus_id=corpus["id"])
@@ -208,7 +208,7 @@ async def time_query(conn, schema: str, question: str, breakdown: bool) -> dict:
 
 
 async def measure_size(url: str, target: int, repeats: int) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(url, poolclass=NullPool)
     documents = build_documents(target)

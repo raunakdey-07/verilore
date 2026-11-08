@@ -70,10 +70,10 @@ async def two_tenants():
     the runtime role cannot, and a fixture that could would be testing something
     an application cannot do.
     """
-    from api.services import authz
-    from api.services.corpora import create_corpus
-    from api.services.db import admin_session_scope, principal_scope
-    from api.services.remember import remember
+    from verilore.api.services import authz
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import admin_session_scope, principal_scope
+    from verilore.api.services.remember import remember
 
     names = ("forge-alpha", "forge-beta")
     async with admin_session_scope() as db:
@@ -352,7 +352,7 @@ async def _session(role: str):
     if role == "runtime":
         engine = apply_as_runtime(runtime_url())
     else:
-        from api.services.db import admin_session_scope
+        from verilore.api.services.db import admin_session_scope
 
         async with admin_session_scope() as db:
             yield db

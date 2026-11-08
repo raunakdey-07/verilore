@@ -61,7 +61,7 @@ PROBE = (
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -75,13 +75,17 @@ def _session(conn):
 
 async def instrumented_once(conn, schema: str, corpus_id: str, question: str) -> dict:
     """Time one query exactly as the public path does it, stage by stage."""
-    from api.models.memory import MemoryRequest
-    from api.services import memory as memory_service
-    from api.services.claim_embeddings import load_cached, representation, representation_hash
-    from api.services.corpora import get_corpus_by_name
-    from api.services.embedder import Embedder
-    from api.services.memory_public import State, _claims, bounded_pack, project
-    from api.services.memory_query import interpret, select
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory as memory_service
+    from verilore.api.services.claim_embeddings import (
+        load_cached,
+        representation,
+        representation_hash,
+    )
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.memory_public import State, _claims, bounded_pack, project
+    from verilore.api.services.memory_query import interpret, select
 
     out: dict = {}
     total = time.perf_counter()
@@ -147,9 +151,9 @@ async def measure(claims: int, repeats: int) -> dict:
     """
     from m0117_scale import Offline, build_documents
 
-    from api.services.claim_embeddings import pending, store
-    from api.services.embedder import Embedder
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.claim_embeddings import pending, store
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(
         URL.replace("postgresql://", "postgresql+asyncpg://"), poolclass=NullPool

@@ -1,6 +1,6 @@
 """Tests for the Markdown parser."""
 
-from api.services.parser import extract_title, parse_markdown
+from verilore.api.services.parser import extract_title, parse_markdown
 
 
 def test_parse_frontmatter_and_body(sample_markdown):

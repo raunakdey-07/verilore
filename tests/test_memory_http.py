@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from api.main import app
-from api.models.memory import Evidence, MemoryRequest, MemoryResponse, State
-from api.routers import query
+from verilore.api.main import app
+from verilore.api.models.memory import Evidence, MemoryRequest, MemoryResponse, State
+from verilore.api.routers import query
 
 OPERATIONS = ("current", "history", "changes", "evidence", "as-of", "snapshot", "replay", "pack")
 
@@ -18,7 +18,7 @@ OPERATIONS = ("current", "history", "changes", "evidence", "as-of", "snapshot", 
 @pytest.fixture
 def service(monkeypatch):
     """Stub only the agreed public boundary, even before the service is available."""
-    module = ModuleType("api.services.memory_public")
+    module = ModuleType("verilore.api.services.memory_public")
 
     class MemoryError(Exception):
         def __init__(self, code, message, status_code):

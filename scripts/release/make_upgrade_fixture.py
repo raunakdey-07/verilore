@@ -11,7 +11,7 @@ An upgrade test that builds its fixture with the NEW code proves nothing. If the
 old release could not write the row, or wrote it differently, the new release
 reads back its own assumptions and calls the migration safe.
 
-So the fixture is written by v0.9.0, through `api.services.remember` -- the same
+So the fixture is written by v0.9.0, through `verilore.api.services.remember` -- the same
 call the CLI makes -- and everything afterwards is comparison.
 
 ## What goes in, and why each thing
@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import json
 import os
 import sys
@@ -61,33 +60,18 @@ def main() -> int:
     sys.path.insert(0, os.environ["SRC"])
     from sqlalchemy import text
 
-    from api.services import db as dbm
+    from verilore.api.services import db as dbm
+    from verilore.api.services import authz
 
-    # v0.9.0 predates the principal model: it has neither `api.services.authz`
-    # nor `db.principal_scope` / `db.admin_session_scope`. The fixture has to run
-    # on both sides of that change, because the whole point is to build the old
-    # archive with the old code.
-    try:
-        from api.services import authz
-
-        ADMIN = authz.ADMIN_PRINCIPAL
-    except ImportError:
-        ADMIN = None
+    ADMIN = authz.ADMIN_PRINCIPAL
 
     def admin():
-        return dbm.principal_scope(ADMIN) if ADMIN is not None else contextlib.nullcontext()
+        return dbm.principal_scope(ADMIN)
 
-    scope = dbm.admin_session_scope if hasattr(dbm, "admin_session_scope") else dbm.session_scope
-    from api.services.corpora import get_or_create_corpus
+    scope = dbm.admin_session_scope
 
-    # v0.9.0 is the first release with a dedicated `api.services.remember`
-    # module. v0.8.0 has the same schema -- head 007, the same memory tables --
-    # but its write path still lives in `api.services.memory`. Without this
-    # fallback the v0.8.0 upgrade cannot be exercised at all.
-    try:
-        from api.services.remember import remember
-    except ImportError:
-        from api.services.memory import remember
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.remember import remember
 
     async def build():
         async with scope() as db:
@@ -143,14 +127,14 @@ def main() -> int:
 
         async with scope() as db:
             with admin():
-                from api.services.memory import snapshot as take_snapshot
+                from verilore.api.services.memory import snapshot as take_snapshot
 
                 # NOT corpus_id_for_name("default"): the default corpus has its
                 # own literal id from migration 002, 63 characters long, while
                 # corpus_id_for_name hashes the NAME. Using the hash points at a
                 # corpus that does not exist, and the fixture fails on a detail
                 # that has nothing to do with upgrades.
-                from api.services.corpora import DEFAULT_CORPUS_ID
+                from verilore.api.services.corpora import DEFAULT_CORPUS_ID
 
                 snap = await take_snapshot(db, corpus_id=DEFAULT_CORPUS_ID)
                 await db.commit()
@@ -165,11 +149,7 @@ def main() -> int:
     else:
         writes, snap = asyncio.run(build())
 
-    try:
-        from mindpalace_sdk import MindPalace
-    except ImportError:
-        # v0.9.0's SDK is mindpalace_sdk; this branch's is verilore_sdk.
-        from verilore_sdk import Verilore as MindPalace
+    from verilore.sdk import Verilore as MindPalace
 
     mp = MindPalace(name="default")
     question = "What datastore does production use?"

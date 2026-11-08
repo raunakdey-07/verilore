@@ -2,7 +2,7 @@
 
 import pytest
 
-from api.services.evaluation import (
+from verilore.api.services.evaluation import (
     EvaluationService,
     ndcg_at_k,
     precision_at_k,

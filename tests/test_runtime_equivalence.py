@@ -193,14 +193,14 @@ PINNED = None  # set by the `seeded` fixture, once the corpus exists
 @pytest.fixture(scope="module")
 def live_runtime(tmp_path_factory):
     """A running runtime in its own state directory, stopped on teardown."""
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     state = tmp_path_factory.mktemp("m016-state")
     os.environ["VERILORE_STATE_DIR"] = str(state)
     runtime_module._ensure_token()
 
     process = subprocess.Popen(
-        [sys.executable, "-m", "verilore" "_runtime"],
+        [sys.executable, "-m", "verilore.runtime"],
         cwd=str(ROOT),
         env=dict(os.environ, PYTHONPATH=str(ROOT)),
         stdin=subprocess.DEVNULL,
@@ -268,10 +268,10 @@ def seeded(live_runtime):
     Leaving embedded chunks behind here made `test_search_semantics` fail on scores
     from a corpus it never created.
     """
-    from api.services import remember as remember_service
-    from api.services.corpora import get_or_create_corpus
-    from api.services.db import async_engine, session_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import remember as remember_service
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.db import async_engine, session_scope
+    from verilore.api.services.ingestion import IngestionService
 
     name = f"m016-equiv-{os.getpid()}"
 
@@ -306,8 +306,8 @@ def seeded(live_runtime):
 
 
 def ask_in_process(corpus: str, question: str, **fields) -> dict:
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute
 
     request = MemoryRequest.model_validate(
         {"corpus": corpus, "query": question, "include_receipt": True, "valid_at": PINNED, **fields}
@@ -413,8 +413,8 @@ def instant_between_versions(corpus: str) -> str | None:
     Scoped to the superseding change rather than to the corpus's earliest changes,
     which belong to other documents entirely.
     """
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute
 
     changes = asyncio.run(
         execute("history", MemoryRequest.model_validate({"corpus": corpus, "query": ""}))
@@ -450,7 +450,7 @@ def test_the_receipt_is_the_same_receipt(seeded, live_runtime):
 
     # And the receipt a person would hand over verifies against the response the
     # runtime actually returned -- the whole point of the file.
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     checked = verify_response_receipt(via["receipt"], via)
     assert checked["verified"], checked
@@ -466,8 +466,8 @@ def test_the_memory_pack_is_the_same_memory_pack(seeded, live_runtime):
     `valid_at` is pinned for the same reason as the receipt: the pack records the
     instant it was taken at, and two moments are two different packs.
     """
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute
 
     request = MemoryRequest.model_validate({"corpus": seeded, "query": "", "valid_at": PINNED})
     direct = asyncio.run(execute("pack", request)).model_dump(mode="json")
@@ -488,7 +488,7 @@ def test_a_failure_is_translated_not_invented(seeded, live_runtime):
     An unknown corpus is used because it fails for a reason the runtime cannot
     disguise: the authoritative lookup happens in the same code either way.
     """
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     missing = f"m016-no-such-corpus-{os.getpid()}"
 
@@ -513,7 +513,7 @@ def test_a_runtime_from_a_different_build_is_refused(seeded, live_runtime, monke
     This is what stops a stale runtime from serving a v0.9.0 answer to a v0.10.0
     request after an upgrade. The refusal says how to fix it.
     """
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     real = runtime_module.PROTOCOL
     reply = None
@@ -548,7 +548,7 @@ def test_one_failure_one_exception_class_everywhere(seeded, live_runtime):
     the test that holds it: a caller writes one `except` clause and it works however
     the request was served.
     """
-    from verilore_sdk import MemoryClientError, Verilore
+    from verilore.sdk import MemoryClientError, Verilore
 
     missing = f"m016-no-such-corpus-{os.getpid()}"
 
@@ -597,7 +597,7 @@ def test_a_bad_token_is_refused(seeded, live_runtime, monkeypatch):
     The refusal comes back as an answer, not an exception: a peer that cannot
     authenticate gets a refusal, and the connection closes.
     """
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     monkeypatch.setattr(runtime_module, "_read_token", lambda: "0" * 32)
     reply = runtime_module.call({"op": "status"}, timeout=5.0)
@@ -606,7 +606,7 @@ def test_a_bad_token_is_refused(seeded, live_runtime, monkeypatch):
 
 
 def test_the_runtime_ships_in_the_wheel():
-    """The CLI starts the runtime as `python -m verilore_runtime`.
+    """The CLI starts the runtime as `python -m verilore.runtime`.
 
     If that module is not packaged, `spawn()` fails silently on an installed
     package and every command quietly stays 6 seconds with nothing in the output to
@@ -615,9 +615,14 @@ def test_the_runtime_ships_in_the_wheel():
     import tomllib
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    modules = pyproject["tool"]["setuptools"]["py-modules"]
-    for required in ("verilore_runtime", "verilore_sdk", "memory_receipt"):
-        assert required in modules, (
+    include = pyproject["tool"]["setuptools"]["packages"]["find"]["include"]
+    # The runtime lives inside the `verilore` package now, not as a top-level
+    # py-module; the include that ships the package must cover it, and the
+    # module file must exist where the package expects it.
+    assert "verilore*" in include, f"the verilore package is not in the wheel include {include}"
+    for required in ("verilore.runtime", "verilore.sdk", "verilore.receipt"):
+        module_file = ROOT / f"{required.replace('.', '/')}.py"
+        assert module_file.exists(), (
             f"{required} must ship in the wheel; without it the runtime never starts "
             "on an installed package"
         )
@@ -630,11 +635,11 @@ def test_the_runtime_is_never_required(seeded, live_runtime, monkeypatch):
     turns it off must all be able to reach the same answers.
     """
     monkeypatch.setenv("VERILORE_RUNTIME", "0")
-    from api import runtime as runtime_module
+    from verilore.api import runtime as runtime_module
 
     assert not runtime_module.enabled()
     assert not runtime_module.reachable()
-    from verilore_sdk import Verilore
+    from verilore.sdk import Verilore
 
     direct = fingerprint(
         Verilore(name=seeded).recall(QUESTIONS["ordinary"]).model_dump(mode="json")

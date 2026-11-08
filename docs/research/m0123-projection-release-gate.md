@@ -147,7 +147,7 @@ variance.
 
 ### What `project` builds
 
-Traced from `api/services/memory_public.py`:
+Traced from `verilore/api/services/memory_public.py`:
 
 1. `_query_result(versions, ...)` resolves the whole archive: currency,
    supersession, validity, conflicts, change records.

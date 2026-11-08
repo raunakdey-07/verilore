@@ -11,8 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services.memory_feed import feed
-from api.services.memory_public import MemoryError
+from verilore.api.services.memory_feed import feed
+from verilore.api.services.memory_public import MemoryError
 from scripts import m009_release_validation as validation
 
 pytestmark = pytest.mark.asyncio

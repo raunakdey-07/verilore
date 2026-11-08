@@ -16,8 +16,8 @@ Two properties matter more than the extraction itself:
 
 import pytest
 
-from api.services.markdown_claims import supersession_references, extract, has_claims
-from api.services.parser import (
+from verilore.api.services.markdown_claims import supersession_references, extract, has_claims
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
     parse_markdown,
@@ -180,7 +180,7 @@ def test_a_short_fragment_is_not_a_claim():
 
 
 def test_an_authored_claims_block_is_never_second_guessed():
-    from api.services.markdown_claims import claims_for
+    from verilore.api.services.markdown_claims import claims_for
 
     metadata, _body = parse_markdown(
         "---\n"

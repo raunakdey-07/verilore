@@ -1,0 +1,1534 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Raunak Dey
+
+"""Verilore Python SDK: memory that remembers what changed, and why.
+
+The intended experience is five operations:
+
+    from verilore.sdk import Verilore
+
+    client = Verilore()                      # no configuration required
+
+    client.remember("Production uses PostgreSQL.")
+    result = client.recall("What database does production use?")
+    print(result.current_memories[0].claim)    # the answer
+
+    result = client.explain("What database does production use?")
+    print(result.receipt["memory_pack_digest"]) # why it was returned, provably
+
+    print(client.history("datastore").changes) # what it said before
+
+A statement becomes one claim with exact-substring evidence, through the same
+archive that synced documents use. `recall` never invents an answer: a question
+the archive does not cover abstains with a `constraint` rather than guessing. No
+embedding model is needed to write, recall or verify.
+
+The corpus defaults to ``default``. Pass one to scope memory explicitly.
+
+Everything above runs against a local PostgreSQL. Supply `base_url` to go over
+HTTP instead, which is how an agent reaches memory held by someone else:
+
+    client = Verilore(base_url="http://127.0.0.1:8000")
+
+The lower-level `client.memory.*` operations -- `current`, `changes`, `evidence`,
+`as_of`, `snapshot`, `replay`, `pack`, `feed`, and `query` with its intent and
+selector options -- remain available and unchanged.
+
+The synchronous local SDK cannot be called from an active event loop; async
+applications should await `verilore.api.services.memory_public.execute`. Remote failures
+raise MemoryClientError with code, message and status_code; local service failures
+propagate the central MemoryError unchanged.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from verilore.api.models.memory import FeedResponse, MemoryResponse
+    from verilore.api.services.context_packer import ContextPack
+    import httpx
+
+#: The corpus a first memory lands in, matching the CLI. Passing a name scopes
+#: memory explicitly and is never required.
+DEFAULT_CORPUS = "default"
+
+
+@dataclass
+class SyncSummary:
+    """Machine-readable result of a corpus synchronization."""
+
+    success: bool
+    added: int = 0
+    changed: int = 0
+    unchanged: int = 0
+    deleted: int = 0
+    failed: int = 0
+    chunk_count: int = 0
+    #: Claims the corpus holds after the sync. A document that produced no
+    #: claims is a document that contributes nothing to memory, and a sync
+    #: report that counts only chunks cannot say so.
+    claim_count: int = 0
+    duration_ms: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
+class CorpusNotFoundError(Exception):
+    """Raised when an operation references a corpus that does not exist."""
+
+
+@dataclass(frozen=True)
+class MemoryResult:
+    """What one ``remember`` wrote.
+
+    ``unchanged=True`` is the idempotency result, not a failure: the same
+    statement submitted twice resolves to the same identity and the same
+    authoritative memory, so there is nothing to write and nothing duplicated.
+    """
+
+    corpus: str
+    version_id: str | None
+    event: str
+    path: str
+    statement: str | None = None
+    key: str | None = None
+    #: Live claims that read like this write. The archive cannot tell a
+    #: supersession from a contradiction, so it names them and lets the caller
+    #: decide. Empty on a write that matched nothing already recorded.
+    related_active_claims: list[dict] = field(default_factory=list)
+    #: Handle for `verilore feedback <query_id> --verdict right|wrong`. Present
+    #: when the local query log is on, which it is unless the connection is
+    #: tenant-scoped or VERILORE_QUERY_LOG says otherwise.
+    query_id: str | None = None
+
+    @property
+    def unchanged(self) -> bool:
+        """True when this write was already recorded, so nothing was added."""
+        return self.event == "UNCHANGED"
+
+    @property
+    def created(self) -> bool:
+        """True when this write recorded a new version."""
+        return not self.unchanged
+
+    @classmethod
+    def from_write(cls, written: dict, corpus: str, statement) -> "MemoryResult":
+        """Build the result from the ingestion service's write result.
+
+        The identity comes from the write itself. Recomputing it here would let the
+        SDK name a key or a path the archive does not hold -- which it did, for a
+        whitespace-padded statement -- and a caller retrying with that key would
+        write a second memory instead of recognising the first.
+        """
+        return cls(
+            corpus=corpus,
+            version_id=written.get("version_id"),
+            event=written.get("event", "NEW"),
+            path=written.get("path", ""),
+            statement=statement,
+            key=written.get("key"),
+            related_active_claims=written.get("related_active_claims") or [],
+            query_id=written.get("query_id"),
+        )
+
+
+class MemoryClientError(Exception):
+    """Remote memory failure; server error codes/messages are preserved.
+
+    Adapter-generated codes are timeout (504), transport_error (503),
+    invalid_response (502), and http_error (the HTTP response status).
+
+    ``attempts`` is how many remote calls were made before the failure: one
+    when nothing is retried, ``retries + 1`` when the bound is exhausted. A
+    final 502/503/504 response is returned to the caller rather than turned
+    into an error here, so the call site's own mapping still decides the code.
+    """
+
+    def __init__(self, code: str, message: str, status_code: int, *, attempts: int = 1):
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        self.attempts = attempts
+        super().__init__(message)
+
+
+def _require_sync() -> None:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    raise RuntimeError(
+        "The synchronous local SDK cannot run inside an active event loop; "
+        "await verilore.api.services.memory_public.execute instead."
+    )
+
+
+def _as_client_error(exc: Exception) -> Exception:
+    """Present a service failure as the SDK's own exception type.
+
+    A caller should not have to care whether a request was answered in this process,
+    through a local runtime, or over HTTP -- all three are the same product, and one
+    condition must not arrive as three exception classes. The code, message and
+    status are carried across unchanged; only the class changes, so `except
+    MemoryClientError` is the one thing a caller needs to write.
+
+    Anything that is not a service error is returned untouched. A genuine defect must
+    not be dressed up as an API failure, which would send a user looking at their
+    request instead of at the bug.
+    """
+    from verilore.api.services.authz import AuthorizationError
+    from verilore.api.services.memory_public import MemoryError as ServiceMemoryError
+
+    if isinstance(exc, MemoryClientError):
+        return exc
+    # An authorization refusal carries the same three fields as a service error
+    # and, over HTTP, arrives in the same `{"code", "message"}` envelope. Left
+    # untranslated, the same refusal would reach a caller as
+    # `AuthorizationError` in-process and as `MemoryClientError` over the wire --
+    # two exception classes for one condition, so `except MemoryClientError`
+    # would not catch it locally.
+    if isinstance(exc, (ServiceMemoryError, AuthorizationError)):
+        return MemoryClientError(exc.code, exc.message, exc.status_code)
+    return exc
+
+
+def _remote_error(response, default_message: str, attempts: int = 1) -> MemoryClientError:
+    """Preserve the server's stable error code without exposing its body."""
+    code = "http_error"
+    message = default_message
+    try:
+        detail = response.json()
+        if isinstance(detail, dict):
+            detail = detail.get("detail", detail.get("error", detail))
+            if isinstance(detail, dict):
+                if isinstance(detail.get("code"), str):
+                    code = detail["code"]
+                if isinstance(detail.get("message"), str):
+                    message = detail["message"]
+    except ValueError:
+        pass
+    return MemoryClientError(code, message, response.status_code, attempts=attempts)
+
+
+#: HTTP statuses the SDK will retry on. 4xx is never retried.
+_RETRYABLE_STATUSES = (502, 503, 504)
+
+
+def _discard_stale_runtime() -> None:
+    """Stop a runtime that no longer matches the code on disk. Best effort.
+
+    Never raises: this runs on a path that is already handling a failure, and a
+    runtime that cannot be stopped is a performance problem, not a correctness
+    one. The next command starts a fresh one.
+    """
+    try:
+        from verilore.api import runtime as runtime_module
+
+        runtime_module.call({"op": "shutdown"}, timeout=2.0)
+    except Exception:  # noqa: BLE001 - best effort by definition
+        pass
+
+
+class MemoryClient:
+    """Thin adapter over MemoryRequest and the central memory operations.
+
+    Timestamps accept aware datetimes or ISO-8601 strings; validation belongs to
+    MemoryRequest. Corpus defaults to the parent client's name.
+    """
+
+    def __init__(self, client: Verilore):
+        self._client = client
+
+    def _corpus_name(self, corpus: str | None) -> str | None:
+        # `corpus=None` stays invalid: a caller who passes no corpus explicitly
+        # should be told so, not silently routed somewhere. The convenience default
+        # lives on Verilore's short methods, which name it for you.
+        return self._client.name if corpus is None else corpus
+
+    def _send(
+        self,
+        method: str,
+        url: str,
+        *,
+        timeout_message: str = "Memory request timed out",
+        **kwargs,
+    ) -> tuple[httpx.Response, int]:
+        """One remote HTTP call, with the client's bounded retry and backoff.
+
+        ``method`` is looked up on ``httpx`` at call time (``getattr(httpx,
+        method)``) so a test that monkeypatches ``httpx.post`` or ``httpx.get``
+        still applies; the SDK never uses ``httpx.Client`` or ``httpx.request``.
+
+        At most ``retries + 1`` attempts are made. Only ``httpx.TimeoutException``,
+        ``httpx.RequestError`` and a 502/503/504 response are retried; every other
+        status is returned as-is. Before retry ``n`` the call sleeps
+        ``backoff * 2 ** (n - 1)`` seconds (no jitter).
+
+        After the last attempt a timeout becomes ``MemoryClientError("timeout", ...,
+        504)`` and a transport error becomes ``MemoryClientError("transport_error",
+        ..., 503)``, both carrying ``attempts``. A final 502/503/504 response is
+        returned with its attempt count so the call site's own error mapping still
+        decides the code.
+        """
+        import httpx
+        import time
+
+        retries = self._client.retries
+        backoff = self._client.backoff
+        response = None
+        attempts = 0
+        for attempt in range(1, retries + 2):
+            attempts = attempt
+            try:
+                response = getattr(httpx, method)(
+                    url,
+                    timeout=self._client.timeout,
+                    headers=self._client.headers,
+                    **kwargs,
+                )
+            except httpx.TimeoutException as exc:
+                if attempt <= retries:
+                    if backoff:
+                        time.sleep(backoff * (2 ** (attempt - 1)))
+                    continue
+                raise MemoryClientError("timeout", timeout_message, 504, attempts=attempt) from exc
+            except httpx.RequestError as exc:
+                if attempt <= retries:
+                    if backoff:
+                        time.sleep(backoff * (2 ** (attempt - 1)))
+                    continue
+                raise MemoryClientError(
+                    "transport_error", "Memory service is unavailable", 503, attempts=attempt
+                ) from exc
+
+            if response.is_success:
+                break
+            if response.status_code in _RETRYABLE_STATUSES and attempt <= retries:
+                if backoff:
+                    time.sleep(backoff * (2 ** (attempt - 1)))
+                continue
+            break
+
+        if response is None:
+            raise MemoryClientError(
+                "transport_error", "Memory service is unavailable", 503, attempts=attempts
+            )
+        return response, attempts
+
+    def _through_runtime(self, operation: str, request) -> "MemoryResponse | None":
+        """Ask a running local runtime, if the caller opted in and one is up.
+
+        Returns None when there is no runtime, so the caller falls back to its own
+        process. Deliberately never raises: the runtime is an optimisation, and an
+        optimisation that can fail a query is not one.
+
+        Only useful for a caller that would otherwise pay a fresh model import per
+        call. A long-lived application has already paid it, which is why the SDK
+        defaults this off -- see `Verilore(runtime=...)`.
+
+        Lexical mode never uses the runtime. A runtime exists to hold the model, and
+        a developer who asked for model-free reads does not want that process in the
+        path. Bypassing it needs no protocol change and no second implementation: the
+        same `execute` runs here, in this process, and answers identically.
+        """
+        if not getattr(self._client, "use_runtime", False):
+            return None
+        from verilore.api.services.retrieval_mode import lexical_requested
+
+        if lexical_requested():
+            return None
+        from verilore.api import runtime as runtime_module
+
+        try:
+            reply = runtime_module.call(
+                {"op": operation, "request": request.model_dump(mode="json")},
+                timeout=self._client.timeout,
+            )
+        except Exception:  # noqa: BLE001 - unreachable runtime means "do it myself"
+            # A runtime whose code no longer matches this process is in the same
+            # category as an unreachable one -- it must not answer -- but it is
+            # worth discarding, because otherwise every subsequent command pays
+            # the same round trip to be told the same thing. The first command
+            # after an edit does the work in-process; the second gets a fresh
+            # runtime.
+            return None
+        if not reply.get("ok"):
+            # A runtime that answered is authoritative about failure: re-raise its
+            # error rather than silently producing a different answer in-process.
+            error = reply.get("error") or {}
+            if error.get("code") == "database_mismatch":
+                # The runtime is attached to another database, so it can only
+                # answer from the wrong archive. Discard it and answer here; the
+                # next command gets a runtime pointed at this database.
+                _discard_stale_runtime()
+                return None
+            raise MemoryClientError(
+                error.get("code", "error"),
+                error.get("message", "memory runtime failed"),
+                int(error.get("status", 1) or 1),
+            )
+        from verilore.api.models.memory import MemoryResponse
+
+        return MemoryResponse.model_validate(reply["result"])
+
+    def _execute(self, operation: str, corpus: str | None, query: str, **fields) -> MemoryResponse:
+        from verilore.api.models.memory import MemoryRequest, MemoryResponse
+
+        corpus_name = self._corpus_name(corpus)
+        request = MemoryRequest.model_validate({"corpus": corpus_name, "query": query, **fields})
+        if self._client.base_url is None:
+            _require_sync()
+            # The scope is entered before the runtime is consulted. It has to be:
+            # the socket is a process boundary, so a ContextVar cannot cross it,
+            # and the runtime resolves its own principal from
+            # `VERILORE_RUNTIME_CREDENTIAL`. Taking the shortcut *outside* the
+            # scope would mean the in-process path was authorized and the socket
+            # path was not, which is the one distinction that must not exist.
+            with self._client._as_caller():
+                remote = self._through_runtime(operation, request)
+                if remote is not None:
+                    return remote
+                from verilore.api.services.memory_public import execute
+
+                try:
+                    return asyncio.run(execute(operation, request))
+                except MemoryClientError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - re-raised, or translated
+                    raise _as_client_error(exc) from exc
+
+        response, attempts = self._send(
+            "post",
+            f"{self._client.base_url}/api/memory/{operation}",
+            json=request.model_dump(mode="json"),
+        )
+        if not response.is_success:
+            raise _remote_error(
+                response, f"Memory request failed (HTTP {response.status_code})", attempts=attempts
+            )
+        try:
+            return MemoryResponse.model_validate(response.json())
+        except ValueError as exc:
+            raise MemoryClientError(
+                "invalid_response",
+                "Memory service returned an invalid response",
+                502,
+                attempts=attempts,
+            ) from exc
+
+    def remember(
+        self,
+        statement: str | None = None,
+        *,
+        corpus: str | None = None,
+        key: str | None = None,
+        file: str | None = None,
+        supersedes_claim_id: str | None = None,
+        topic_key: str | None = None,
+        state: str | None = None,
+        scope: str | None = None,
+    ) -> MemoryResult:
+        """Record a fact as authoritative memory, and return what was written.
+
+        A statement becomes one claim with exact-substring evidence, through the
+        same archive a synced document uses::
+
+            client.memory.remember("Production uses PostgreSQL.", key="datastore")
+
+        Remembering the same statement twice returns ``unchanged=True`` and the
+        same ``version_id``: submitting identical memory is not duplication.
+        The remembered document carries today's date, so identical arguments sent
+        on the same day resolve to the same memory -- a retried write never
+        creates a second version.
+        Remembering the same ``key`` with new text supersedes the previous value.
+
+        ``state`` is the decision state of the claim: "approved" (default),
+        "draft" or "rejected". ``scope`` is an optional relative folder, e.g.
+        "campaigns/spring", prepended to the document path so the same key in two
+        scopes is two documents. With scope, the stored claim key is
+        f"{scope}/{key}"; the response's key is that full key, so sending it back
+        as key with the same scope is the same memory, and topic_key is scoped
+        the same way. ``file=`` reads a local path, so state and scope are not
+        supported with it -- read the file and send its content as the statement.
+
+        ``supersedes_claim_id`` retires a named claim in this corpus and
+        ``topic_key`` retires whatever is active under that key, both from any
+        document -- so a newer ADR supersedes an older one without either file
+        being edited. The id may be given in full, as any unique prefix of it
+        (which is the form :meth:`recall` prints), or as a phrase from the claim's
+        own text. A write that lands near claims which already exist reports them
+        as ``related_active_claims``.
+
+        Works locally against PostgreSQL, or over HTTP when the client has a
+        ``base_url``. Requires no embedding model either way. The same operation is
+        available as :meth:`Verilore.remember`.
+        """
+        if file is not None and (state is not None or scope is not None):
+            raise ValueError(
+                "state and scope are not supported with file=; file= reads a "
+                "local path on this machine. Read the file and send its content "
+                "as the statement."
+            )
+        name = self._corpus_name(corpus)
+        if self._client.base_url is None:
+            _require_sync()
+            from verilore.api.services.remember import remember as write
+
+            async def run() -> MemoryResult:
+                written = await write(
+                    statement,
+                    corpus=name,
+                    key=key,
+                    file=file,
+                    supersedes_claim_id=supersedes_claim_id,
+                    topic_key=topic_key,
+                    state=state,
+                    scope=scope,
+                )
+                return MemoryResult.from_write(written, name, statement)
+
+            try:
+                # Inside the scope for the same reason as `_execute`: the
+                # runtime resolves its own principal, and a client that cannot
+                # authenticate must fail here rather than at the socket.
+                with self._client._as_caller():
+                    if file is None:
+                        # A file is a local read, so it stays in this process. A
+                        # statement is not, and going through a runtime keeps the
+                        # corpus's connection pool warm for the recall that
+                        # usually follows.
+                        remote = self._remember_via_runtime(
+                            name,
+                            statement,
+                            key,
+                            supersedes_claim_id,
+                            topic_key,
+                            state=state,
+                            scope=scope,
+                        )
+                        if remote is not None:
+                            return remote
+                    return Verilore._run(run())
+            except MemoryClientError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - one exception type, whichever path ran
+                raise _as_client_error(exc) from exc
+
+        if file is not None:
+            # The HTTP contract is statement-only, on purpose: an unauthenticated
+            # endpoint must not read a path on the server. Say so here rather than
+            # sending a request that can only 422.
+            raise MemoryClientError(
+                "invalid_request",
+                "file= reads a path on this machine, which a remote service cannot do. "
+                "Read the file and send its content as the statement.",
+                422,
+            )
+
+        payload = {
+            k: v
+            for k, v in {
+                "corpus": name,
+                "statement": statement,
+                "key": key,
+                "supersedes_claim_id": supersedes_claim_id,
+                "topic_key": topic_key,
+                "state": state,
+                "scope": scope,
+            }.items()
+            if v is not None
+        }
+        response, attempts = self._send(
+            "post",
+            f"{self._client.base_url}/api/memory/remember",
+            json=payload,
+            timeout_message="Memory write timed out",
+        )
+        if not response.is_success:
+            raise _remote_error(
+                response, f"Memory write failed (HTTP {response.status_code})", attempts=attempts
+            )
+
+        from verilore.api.models.remember import RememberResult as WireResult
+
+        try:
+            written = WireResult.model_validate(response.json())
+        except ValueError as exc:
+            raise MemoryClientError(
+                "invalid_response", "Memory service returned an invalid response", 502
+            ) from exc
+        return MemoryResult(
+            corpus=written.corpus,
+            version_id=written.version_id,
+            event=written.event,
+            path=written.path,
+            statement=statement,
+            key=written.key,
+        )
+
+    def revalidate(
+        self,
+        artifact=None,
+        *,
+        receipt=None,
+        pack=None,
+        claim_ids=None,
+        corpus: str | None = None,
+        valid_at=None,
+        include_drift: bool = True,
+        path=None,
+    ):
+        """Revalidate a Receipt, Memory Pack, or claim ids against the live corpus.
+
+        Accepts a receipt/pack dict, a file path (str/Path), or explicit
+        ``claim_ids``. Returns the structured revalidation result (dict).
+        """
+        import json
+        from pathlib import Path
+
+        def _load(value):
+            if value is None:
+                return None
+            if isinstance(value, (str, Path)):
+                p = Path(value)
+                if p.exists():
+                    try:
+                        return json.loads(p.read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError) as exc:
+                        raise MemoryClientError(
+                            "invalid_request", f"cannot read artifact: {exc}", 422
+                        ) from exc
+                # try as JSON string
+                try:
+                    return json.loads(str(value))
+                except json.JSONDecodeError:
+                    raise MemoryClientError(
+                        "invalid_request", f"not a valid artifact or path: {value}", 422
+                    )
+            return value
+
+        receipt_data = receipt if receipt is not None else None
+        pack_data = pack if pack is not None else None
+        if receipt_data is None and pack_data is None and artifact is not None:
+            loaded = _load(artifact)
+            if isinstance(loaded, dict):
+                if "receipt" in loaded and "response" in loaded:
+                    receipt_data = loaded
+                elif "schema_version" in loaded and "corpus" in loaded and "state" in loaded:
+                    pack_data = loaded
+                else:
+                    # maybe contains claim ids?
+                    if "claim_ids" in loaded:
+                        claim_ids = loaded.get("claim_ids")
+                        corpus = loaded.get("corpus", corpus)
+                    else:
+                        # default: treat as receipt if has response
+                        if "response" in loaded:
+                            receipt_data = loaded
+                        else:
+                            pack_data = loaded
+        if path is not None:
+            loaded = _load(path)
+            if isinstance(loaded, dict):
+                if "receipt" in loaded and "response" in loaded:
+                    receipt_data = loaded
+                elif "schema_version" in loaded and "corpus" in loaded and "state" in loaded:
+                    pack_data = loaded
+                else:
+                    receipt_data = loaded
+
+        # normalise valid_at
+        if hasattr(valid_at, "isoformat"):
+            valid_at = valid_at.isoformat()
+
+        # resolve corpus for claim_ids
+        if claim_ids is not None:
+            corpus_name = self._corpus_name(corpus)
+        else:
+            corpus_name = corpus  # may be None, inferred server-side
+
+        if self._client.base_url is None:
+            _require_sync()
+            from verilore.api.services.db import session_scope
+            from verilore.api.services import revalidate as revalidate_service
+
+            async def run():
+                async with session_scope() as db:
+                    if receipt_data is not None:
+                        return await revalidate_service.revalidate_receipt(
+                            db, receipt_data, include_drift=include_drift
+                        )
+                    if pack_data is not None:
+                        return await revalidate_service.revalidate_pack(
+                            db, pack_data, include_drift=include_drift
+                        )
+                    return await revalidate_service.revalidate_claims(
+                        db,
+                        corpus_name,
+                        list(claim_ids or []),
+                        include_drift=include_drift,
+                        valid_at=valid_at,
+                    )
+
+            try:
+                with self._client._as_caller():
+                    return Verilore._run(run())
+            except Exception as exc:  # noqa: BLE001
+                raise _as_client_error(exc) from exc
+
+        payload = {}
+        if receipt_data is not None:
+            payload["receipt"] = receipt_data
+        elif pack_data is not None:
+            payload["pack"] = pack_data
+        else:
+            payload["claim_ids"] = list(claim_ids or [])
+            if corpus_name is not None:
+                payload["corpus"] = corpus_name
+            if valid_at is not None:
+                payload["valid_at"] = valid_at
+        payload["include_drift"] = include_drift
+        response, attempts = self._send(
+            "post",
+            f"{self._client.base_url}/api/memory/revalidate",
+            json=payload,
+            timeout_message="Revalidation timed out",
+        )
+        if not response.is_success:
+            raise _remote_error(
+                response, f"Revalidation failed (HTTP {response.status_code})", attempts=attempts
+            )
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise MemoryClientError(
+                "invalid_response", "Invalid response", 502, attempts=attempts
+            ) from exc
+
+    def _remember_via_runtime(
+        self,
+        name: str,
+        statement: str | None,
+        key: str | None,
+        supersedes_claim_id: str | None = None,
+        topic_key: str | None = None,
+        state: str | None = None,
+        scope: str | None = None,
+    ) -> "MemoryResult | None":
+        """One write through a running runtime, or None if there is not one."""
+        if not getattr(self._client, "use_runtime", False):
+            return None
+        from verilore.api.services.retrieval_mode import lexical_requested
+
+        if lexical_requested():
+            return None
+        from verilore.api import runtime as runtime_module
+
+        try:
+            reply = runtime_module.call(
+                {
+                    "op": "remember",
+                    "corpus": name,
+                    "statement": statement,
+                    "key": key,
+                    "supersedes_claim_id": supersedes_claim_id,
+                    "topic_key": topic_key,
+                    "state": state,
+                    "scope": scope,
+                },
+                timeout=self._client.timeout,
+            )
+        except Exception:  # noqa: BLE001 - unreachable runtime means "do it myself"
+            return None
+        if not reply.get("ok"):
+            error = reply.get("error") or {}
+            if error.get("code") in ("build_mismatch", "database_mismatch"):
+                # The runtime is running code this process is not, or is attached
+                # to another database. It must not answer. Discard it and do the
+                # work here, so the first command after an edit is correct rather
+                # than merely fast, and the second gets a runtime that matches.
+                _discard_stale_runtime()
+                return None
+            raise MemoryClientError(
+                error.get("code", "error"),
+                error.get("message", "memory write failed"),
+                int(error.get("status", 1) or 1),
+            )
+        result = reply["result"]
+        return MemoryResult(
+            corpus=result.get("corpus", name),
+            version_id=result.get("version_id"),
+            event=result.get("event", "NEW"),
+            path=result.get("path", ""),
+            statement=statement,
+            key=result.get("key"),
+            related_active_claims=result.get("related_active_claims") or [],
+            query_id=result.get("query_id"),
+        )
+
+    def recall(
+        self,
+        question: str,
+        corpus: str | None = None,
+        *,
+        as_of: datetime | str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        """Answer a question from memory, with its source and the time it was true.
+
+        The shortest path to a useful result. It never invents an answer, so a
+        question whose vocabulary the archive does not contain abstains with a
+        ``constraint`` rather than guessing::
+
+            result = client.recall("What datastore does production use?")
+            for memory in result.current_memories:
+                print(memory.claim, memory.path, memory.status)
+
+        The corpus defaults to ``default``. Pass one to scope memory explicitly.
+        """
+        return self._execute("query", corpus, question, as_of=as_of, path_prefix=path_prefix)
+
+    def explain(
+        self,
+        question: str,
+        corpus: str | None = None,
+        *,
+        as_of: datetime | str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        """Answer a question and attach why it was returned.
+
+        The same answer as :meth:`recall`, with the Memory Receipt attached, so
+        ``result.receipt`` names the claim identity, its source version and path,
+        its evidence with offsets, its validity window and its supersession
+        lineage.
+
+        This explains recorded provenance and temporal state. It is not a reasoning
+        trace, and it does not establish that the original source was factually
+        correct.
+        """
+        return self._execute(
+            "query", corpus, question, as_of=as_of, path_prefix=path_prefix, include_receipt=True
+        )
+
+    def query(
+        self,
+        query: str,
+        corpus: str | None = None,
+        *,
+        intent: Literal[
+            "auto", "current", "historical", "temporal", "change", "conflict", "provenance"
+        ] = "auto",
+        budget: int = 8000,
+        as_of: datetime | str | None = None,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+        path_prefix: str | list[str] | None = None,
+        claim_id: str | None = None,
+        snapshot_id: str | None = None,
+        include_receipt: bool = False,
+    ) -> MemoryResponse:
+        """Query memory with intent-aware evidence bounded in Unicode characters.
+
+        This is the full operation behind :meth:`recall` and :meth:`explain`: it
+        adds intent selection, an explicit budget, and selectors such as
+        ``claim_id`` and ``snapshot_id``. Reach for it when you need those;
+        otherwise prefer the two shorter methods.
+
+        ``include_receipt=True`` attaches the canonical Memory Receipt to
+        ``result.receipt``: what was returned, from which version, with what
+        evidence, and how to verify it later. The receipt is built by the same
+        service REST and MCP use, so it cannot differ between surfaces.
+        """
+        return self._execute(
+            "query",
+            corpus,
+            query,
+            intent=intent,
+            budget=budget,
+            as_of=as_of,
+            valid_at=valid_at,
+            path=path,
+            path_prefix=path_prefix,
+            claim_id=claim_id,
+            snapshot_id=snapshot_id,
+            include_receipt=include_receipt,
+        )
+
+    def current(
+        self,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+        path_prefix: str | list[str] | None = None,
+        include_states: list[str] | None = None,
+    ) -> MemoryResponse:
+        return self._execute(
+            "current",
+            corpus,
+            query,
+            valid_at=valid_at,
+            path=path,
+            path_prefix=path_prefix,
+            include_states=include_states,
+        )
+
+    def history(
+        self,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        as_of: datetime | str | None = None,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        return self._execute(
+            "history",
+            corpus,
+            query,
+            as_of=as_of,
+            valid_at=valid_at,
+            path=path,
+            path_prefix=path_prefix,
+        )
+
+    def changes(
+        self,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        as_of: datetime | str | None = None,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+    ) -> MemoryResponse:
+        return self._execute("changes", corpus, query, as_of=as_of, valid_at=valid_at, path=path)
+
+    def feed(
+        self,
+        corpus: str | None = None,
+        *,
+        page_size: int = 50,
+        cursor: str | None = None,
+    ) -> FeedResponse:
+        """Consume the durable corpus-scoped operational change feed."""
+        corpus_name = self._corpus_name(corpus)
+        if corpus_name is None:
+            raise ValueError("a corpus name is required")
+        if self._client.base_url is None:
+            _require_sync()
+            from verilore.api.services.db import session_scope
+            from verilore.api.services.memory_feed import feed
+
+            async def run() -> FeedResponse:
+                async with session_scope() as db:
+                    return await feed(db, corpus_name, cursor, page_size)
+
+            with self._client._as_caller():
+                return asyncio.run(run())
+        params = {"corpus": corpus_name, "page_size": page_size}
+        if cursor is not None:
+            params["cursor"] = cursor
+        response, attempts = self._send(
+            "get",
+            f"{self._client.base_url}/api/memory/feed",
+            params=params,
+            timeout_message="Memory feed request timed out",
+        )
+        if not response.is_success:
+            raise _remote_error(
+                response, f"Memory feed failed (HTTP {response.status_code})", attempts=attempts
+            )
+        from verilore.api.models.memory import FeedResponse
+
+        try:
+            return FeedResponse.model_validate(response.json())
+        except (TypeError, ValueError) as exc:
+            raise MemoryClientError(
+                "invalid_response",
+                "Memory feed returned an invalid response",
+                502,
+                attempts=attempts,
+            ) from exc
+
+    def evidence(
+        self,
+        claim_id: str,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        as_of: datetime | str | None = None,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+    ) -> MemoryResponse:
+        return self._execute(
+            "evidence", corpus, query, claim_id=claim_id, as_of=as_of, valid_at=valid_at, path=path
+        )
+
+    def as_of(
+        self,
+        timestamp: datetime | str,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+    ) -> MemoryResponse:
+        return self._execute("as-of", corpus, query, as_of=timestamp, valid_at=valid_at, path=path)
+
+    def snapshot(
+        self,
+        as_of: datetime | str | None = None,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+    ) -> MemoryResponse:
+        return self._execute("snapshot", corpus, query, as_of=as_of, valid_at=valid_at, path=path)
+
+    def replay_snapshot(
+        self,
+        snapshot_id: str,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        path: str | None = None,
+    ) -> MemoryResponse:
+        return self._execute("replay", corpus, query, snapshot_id=snapshot_id, path=path)
+
+    def pack(
+        self,
+        budget: int = 8000,
+        corpus: str | None = None,
+        query: str = "",
+        *,
+        as_of: datetime | str | None = None,
+        valid_at: datetime | str | None = None,
+        path: str | None = None,
+        path_prefix: str | list[str] | None = None,
+        snapshot_id: str | None = None,
+        include_states: list[str] | None = None,
+    ) -> MemoryResponse:
+        return self._execute(
+            "pack",
+            corpus,
+            query,
+            budget=budget,
+            as_of=as_of,
+            valid_at=valid_at,
+            path=path,
+            path_prefix=path_prefix,
+            snapshot_id=snapshot_id,
+            include_states=include_states,
+        )
+
+
+class Verilore:
+    """Local corpus client or remote memory client (when base_url is supplied)."""
+
+    def __init__(
+        self,
+        name: str | None = None,
+        *,
+        create_if_missing: bool = True,
+        base_url: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        api_key: str | None = None,
+        timeout: float = 30,
+        retries: int = 2,
+        backoff: float = 0.2,
+        runtime: bool = False,
+    ):
+        self.name = name
+        self.base_url = base_url.rstrip("/") if base_url is not None else None
+        self.headers = dict(headers or {})
+        if api_key is not None:
+            # A convenience over `headers`, so a credential is one argument
+            # rather than a hand-built header, and so the in-process and remote
+            # paths are configured the same way. In `required` mode a local
+            # client also authenticates, as `api_key` plus the tenant scope it
+            # resolves to.
+            self.headers.setdefault("Authorization", f"Bearer {api_key}")
+        if timeout <= 0:
+            raise ValueError("timeout must be greater than zero")
+        self.timeout = timeout
+        if retries < 0:
+            raise ValueError("retries must not be negative")
+        self.retries = retries
+        if backoff < 0:
+            raise ValueError("backoff must not be negative")
+        self.backoff = backoff
+        # Off by default, on purpose. A long-lived application pays the model import
+        # once and then has it resident, so a runtime would only add a socket hop and
+        # a second copy of the model. It exists for the caller who pays per call --
+        # a script, or the CLI -- so it is opt-in here rather than assumed.
+        self.use_runtime = bool(runtime)
+        self.memory = MemoryClient(self)
+        self._create_if_missing = create_if_missing
+        # Resolved for every local client, named or not. A local client runs in
+        # this process, so there is no request for the HTTP middleware to
+        # authenticate; this is where its identity comes from instead.
+        self._principal = self._local_principal(api_key) if base_url is None else None
+        if base_url is None and name is not None:
+            from verilore.api.services.embedder import Embedder
+            from verilore.api.services.ingestion import IngestionService
+
+            self._embedder = Embedder()
+            self._ingestion = IngestionService()
+            if create_if_missing:
+                with self._as_caller():
+                    self._run(self._ensure_corpus())
+
+    @contextlib.contextmanager
+    def _as_caller(self):
+        """Run one operation as this client's identity.
+
+        Re-established per operation rather than held for the client's lifetime,
+        because a `ContextVar` set once would be inherited by unrelated work in
+        the same process -- including, in a web application, the next request.
+        """
+        if self._principal is None:
+            yield
+            return
+        from verilore.api.services.db import principal_scope
+
+        with principal_scope(self._principal):
+            yield
+
+    def _local_principal(self, api_key: str | None):
+        """Resolve a local client's identity, or None in single-user mode.
+
+        None in the default single-user mode, where the process default already
+        is the local principal.
+
+        Called for *every* local client, named or not. An earlier version only
+        called it when a corpus name was supplied, which left `Verilore()`
+        without a name -- the shape the CLI builds -- authenticated in no mode:
+        its operations ran as the default local principal, unrestricted, with a
+        `{*}` database scope, even under `VERILORE_AUTH_MODE=required`. A
+        client that cannot authenticate must fail at construction regardless of
+        how it was constructed.
+        """
+        from verilore.api.services.authz import auth_required, resolve_principal
+        from verilore.api.services.db import AsyncSessionLocal
+
+        if not auth_required():
+            return None
+        if api_key is None:
+            raise MemoryClientError(
+                "unauthenticated",
+                "VERILORE_AUTH_MODE=required; pass api_key= to the client",
+                401,
+            )
+
+        async def _resolve():
+            async with AsyncSessionLocal() as db:
+                return await resolve_principal(db, f"Bearer {api_key}")
+
+        # Translated here because this runs from `__init__`, outside the
+        # try/except that wraps an operation. Without it a revoked or mistyped
+        # credential raised `AuthorizationError` out of the constructor, so
+        # `except MemoryClientError` -- the one line the SDK asks a caller to
+        # write -- did not catch it, while the identical refusal over HTTP did.
+        try:
+            return self._run(_resolve())
+        except MemoryClientError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - re-raised, or translated to ours
+            raise _as_client_error(exc) from exc
+
+    @staticmethod
+    def _run(coro):
+        """Run a coroutine on a fresh event loop with a disposed pool after.
+
+        asyncpg connections bind to their creating loop, so each SDK call
+        gets its own loop and the shared engine is disposed afterwards.
+        The engine uses the default queue pool; disposal warnings from
+        cross-loop close are suppressed as they are benign here.
+        """
+        try:
+            _require_sync()
+        except RuntimeError:
+            coro.close()
+            raise
+
+        import logging
+
+        from verilore.api.services.db import async_engine
+
+        logging.getLogger("sqlalchemy.pool.impl.AsyncAdaptedQueuePool").setLevel(logging.CRITICAL)
+        try:
+            return asyncio.run(coro)
+        finally:
+            try:
+                asyncio.run(async_engine.dispose())
+            except (RuntimeError, OSError):
+                pass
+
+    async def _ensure_corpus(self):
+        """The coroutine, and nothing else.
+
+        Kept free of `_run` on purpose: `_run` calls `asyncio.run`, so a coroutine
+        that drove it would try to nest a loop. `__init__` enters the caller's
+        scope around the single `_run` instead.
+        """
+        from verilore.api.services.corpora import get_or_create_corpus
+        from verilore.api.services.db import session_scope
+
+        if self.name is None:
+            raise ValueError("a corpus name is required")
+        async with session_scope() as db:
+            await get_or_create_corpus(db, self.name)
+
+    def sync(
+        self, path: str, *, delete_removed: bool = True, embed_chunks: bool = False
+    ) -> SyncSummary:
+        """Synchronize the corpus with a source directory.
+
+        Added files are ingested; changed files are reprocessed; files removed
+        from the source are dropped from the index (when ``delete_removed``).
+
+        ``embed_chunks`` asks for a vector for every chunk as well as every
+        claim. A document that produced claims is answered from the claim
+        archive, so its chunk vectors are the legacy chunk-level index; not
+        computing them costs about half the wall clock of a sync. A document
+        that produced no claims keeps its vectors either way, because the chunk
+        index is the only index it has. A chunk search gives the chunks it
+        needs a vector when it runs.
+        """
+        corpus_id = self._corpus_id(write=True)
+        with self._as_caller():
+            result = self._run(
+                self._ingestion.sync_repo(
+                    path, corpus_id, delete_removed=delete_removed, embed_chunks=embed_chunks
+                )
+            )
+        return SyncSummary(
+            success=result["success"],
+            added=result["added"],
+            changed=result["changed"],
+            unchanged=result["unchanged"],
+            deleted=result["deleted"],
+            failed=result["failed"],
+            chunk_count=result["chunk_count"],
+            claim_count=result.get("claim_count", 0),
+            duration_ms=result["duration_ms"],
+            errors=result.get("errors", []),
+        )
+
+    def remember(
+        self,
+        statement: str | None = None,
+        *,
+        corpus: str | None = None,
+        key: str | None = None,
+        file: str | None = None,
+        supersedes_claim_id: str | None = None,
+        topic_key: str | None = None,
+        state: str | None = None,
+        scope: str | None = None,
+    ) -> MemoryResult:
+        """Record a fact as authoritative memory, and return what was written.
+
+        A statement becomes one claim with exact-substring evidence, through the
+        same ingestion and archive path a synced document uses::
+
+            client.remember("Production uses PostgreSQL.", key="datastore")
+
+        Remembering the same statement twice returns ``unchanged=True`` and the
+        same ``version_id``: submitting identical memory is not duplication.
+        The remembered document carries today's date, so identical arguments sent
+        on the same day resolve to the same memory -- a retried write never
+        creates a second version.
+        Remembering the same ``key`` with new text supersedes the previous value,
+        which is what :meth:`history` then shows.
+
+        ``key`` is how you tell Verilore that two statements are about the same
+        fact. Omit it and each distinct statement is its own memory.
+
+        ``state`` is the decision state of the claim: "approved" (default),
+        "draft" or "rejected". ``scope`` is an optional relative folder, e.g.
+        "campaigns/spring", prepended to the document path so the same key in two
+        scopes is two documents. With scope, the stored claim key is
+        f"{scope}/{key}"; the response's key is that full key, so sending it back
+        as key with the same scope is the same memory, and topic_key is scoped
+        the same way.
+
+        Requires no embedding model. Semantic ranking fills in later; the
+        authoritative claim and its evidence are recorded either way.
+        """
+        return self.memory.remember(
+            statement,
+            corpus=corpus or self.name or DEFAULT_CORPUS,
+            key=key,
+            file=file,
+            supersedes_claim_id=supersedes_claim_id,
+            topic_key=topic_key,
+            state=state,
+            scope=scope,
+        )
+
+    def revalidate(
+        self,
+        artifact=None,
+        *,
+        receipt=None,
+        pack=None,
+        claim_ids=None,
+        corpus: str | None = None,
+        valid_at=None,
+        include_drift: bool = True,
+        path=None,
+    ):
+        return self.memory.revalidate(
+            artifact=artifact,
+            receipt=receipt,
+            pack=pack,
+            claim_ids=claim_ids,
+            corpus=corpus or self.name,
+            valid_at=valid_at,
+            include_drift=include_drift,
+            path=path,
+        )
+
+    def recall(
+        self,
+        question: str,
+        *,
+        corpus: str | None = None,
+        as_of: datetime | str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        """Answer a question from memory, with its source and the time it was true.
+
+        The shortest path to a useful result. It never invents an answer, so a
+        question the archive does not cover abstains with a ``constraint`` rather
+        than guessing.
+
+        ``as_of`` reconstructs the answer from an earlier instant, so "what did we
+        decide back then?" is answerable after the decision changes.
+        """
+        return self.memory.recall(
+            question, corpus or self.name or DEFAULT_CORPUS, as_of=as_of, path_prefix=path_prefix
+        )
+
+    def explain(
+        self,
+        question: str,
+        *,
+        corpus: str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        """Answer a question and attach why it was returned.
+
+        The same answer as :meth:`recall`, with the Memory Receipt attached: the
+        claim identity, its source version and path, its evidence with offsets,
+        its validity window and its supersession lineage.
+
+        This explains recorded provenance and temporal state. It is not a reasoning
+        trace, and it does not establish that the original source was factually
+        correct.
+        """
+        return self.memory.explain(
+            question, corpus or self.name or DEFAULT_CORPUS, path_prefix=path_prefix
+        )
+
+    def history(
+        self,
+        question: str = "",
+        *,
+        corpus: str | None = None,
+        path_prefix: str | list[str] | None = None,
+    ) -> MemoryResponse:
+        """Read what a memory said before, and what replaced it.
+
+        Reads the real supersession chain from the archive. Nothing here is
+        reconstructed: these are the versions and claims the archive actually
+        holds. Pass a key or a question to narrow it; pass nothing for the whole
+        corpus.
+        """
+        return self.memory.history(
+            corpus=corpus or self.name or DEFAULT_CORPUS,
+            query=question or "",
+            path_prefix=path_prefix,
+        )
+
+    def context(
+        self,
+        query: str,
+        *,
+        budget_tokens: int = 4096,
+        k: int = 8,
+        strategy: str = "hybrid_rrf",
+        as_of: str | None = None,
+        intent: str | None = None,
+    ) -> ContextPack:
+        """Assemble bounded, evidence-backed context for ``query``.
+
+        The archive decides what is true, what changed, what conflicts and what
+        is absent. Retrieval only adds raw source material, and is skipped when
+        no embedding model is available, so this still answers without one.
+        """
+        self._require_legacy()
+        from verilore.api.services.context_service import ContextError, build_context
+        from verilore.api.services.db import session_scope
+
+        corpus_name = self.name
+        if corpus_name is None:
+            raise ValueError("a corpus name is required")
+        cutoff = datetime.fromisoformat(as_of) if as_of else None
+
+        async def _build():
+            async with session_scope() as db:
+                return await build_context(
+                    db,
+                    corpus_name,
+                    query,
+                    budget_tokens=budget_tokens,
+                    k=k,
+                    strategy=strategy,
+                    as_of=cutoff,
+                    intent=intent,
+                )
+
+        try:
+            with self._as_caller():
+                pack, _ = self._run(_build())
+        except ContextError as exc:
+            raise MemoryClientError(exc.code, exc.message, exc.status_code) from exc
+        return pack
+
+    def search(self, query: str, *, k: int = 5, strategy: str = "hybrid_rrf"):
+        """Raw retrieval results (what is relevant), without packing."""
+        self._require_legacy()
+        from verilore.api.services.db import session_scope
+        from verilore.api.services.retrieval import RetrievalService
+
+        corpus_id = self._corpus_id(must_exist=True)
+        vector = self._embedder.embed_single(query)
+
+        async def _search():
+            async with session_scope() as db:
+                svc = RetrievalService(db, embedder=self._embedder)
+                return await svc.search(
+                    vector,
+                    k=k,
+                    hybrid=(strategy != "vector"),
+                    rrf=(strategy == "hybrid_rrf"),
+                    query_text=query if strategy != "vector" else None,
+                    corpus_id=corpus_id,
+                )
+
+        with self._as_caller():
+            return self._run(_search())
+
+    # -- internals ------------------------------------------------------
+
+    def _require_legacy(self) -> None:
+        if self.base_url is not None or self.name is None:
+            raise ValueError("sync/search/context require a named local Verilore client")
+
+    def _corpus_id(self, must_exist: bool = False, *, write: bool = False) -> str:
+        """Resolve this client's corpus to its id, checking the role it needs.
+
+        `write=True` for `sync`, which writes documents, chunks, the manifest and
+        the memory archive. Without the flag a `read_only` credential could write
+        through the SDK even though the REST route refused it -- two surfaces, two
+        answers to the same question.
+        """
+        self._require_legacy()
+        from verilore.api.services.corpora import get_corpus_by_name
+        from verilore.api.services.db import session_scope
+
+        if self.name is None:
+            raise ValueError("a corpus name is required")
+        name = self.name
+
+        async def _get():
+            async with session_scope() as db:
+                return await get_corpus_by_name(db, name, write=write)
+
+        with self._as_caller():
+            corpus = self._run(_get())
+        if not corpus:
+            raise CorpusNotFoundError(f"corpus '{self.name}' not found")
+        return corpus["id"]
+
+
+# ---------------------------------------------------------------------------
+# Receipt verification, re-exported
+# ---------------------------------------------------------------------------
+# A caller who received `result.receipt` should not have to import server or
+# database code to check it. These are the same stdlib-only functions the CLI
+# uses, re-exported so the SDK surface is one import.
+
+from verilore.receipt import (  # noqa: E402
+    ReceiptError,
+    verify_response_receipt,
+    verify_receipt,
+    verify_trust,
+)
+
+# The taxonomy is re-exported here rather than left in its own module to be
+# imported by path. An integrator should be able to write
+# `from verilore.sdk import ProviderError` and have that be a supported import,
+# not an accident of the file layout -- and `verilore_errors` stays importable
+# on its own for a deployment that wants it without the client.
+from verilore.errors import (  # noqa: E402
+    AuthenticationError as VeriloreAuthenticationError,
+    ConflictError as VeriloreConflictError,
+    DatabaseUnavailableError,
+    InternalError as VeriloreInternalError,
+    VeriloreError,
+    NotFoundError as VeriloreNotFoundError,
+    ProviderAuthenticationError,
+    ProviderError,
+    ProviderIncompatibleModelError,
+    ProviderMalformedResponseError,
+    ProviderRateLimitError,
+    ProviderRefusedError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    TransportError as VeriloreTransportError,
+    UnauthorizedError as VeriloreUnauthorizedError,
+    ValidationError as VeriloreValidationError,
+)
+
+__all__ = [
+    "DEFAULT_CORPUS",
+    "CorpusNotFoundError",
+    "DatabaseUnavailableError",
+    "MemoryClient",
+    "MemoryClientError",
+    "MemoryResult",
+    "Verilore",
+    "VeriloreAuthenticationError",
+    "VeriloreConflictError",
+    "VeriloreError",
+    "VeriloreInternalError",
+    "VeriloreNotFoundError",
+    "VeriloreTransportError",
+    "VeriloreUnauthorizedError",
+    "VeriloreValidationError",
+    "ProviderAuthenticationError",
+    "ProviderError",
+    "ProviderIncompatibleModelError",
+    "ProviderMalformedResponseError",
+    "ProviderRateLimitError",
+    "ProviderRefusedError",
+    "ProviderTimeoutError",
+    "ProviderUnavailableError",
+    "ReceiptError",
+    "SyncSummary",
+    "verify_receipt",
+    "verify_response_receipt",
+    "verify_trust",
+]

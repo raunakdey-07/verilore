@@ -46,8 +46,8 @@ from alembic.operations import Operations
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from api.services import claim_embeddings
-from api.services.memory import _nearest_active_claims
+from verilore.api.services import claim_embeddings
+from verilore.api.services.memory import _nearest_active_claims
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -92,8 +92,8 @@ async def two_corpora(monkeypatch):
     """
     import os
 
-    from api.services import db as db_module
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import db as db_module
+    from verilore.api.services import ingestion as ingestion_service
 
     url = os.getenv("MEMORY_TEST_DATABASE_URL") or os.getenv("DATABASE_URL")
     if not url:
@@ -114,7 +114,7 @@ async def two_corpora(monkeypatch):
                 await conn.execute(sa.text(f'SET LOCAL search_path TO "{schema}", public'))
 
                 def migrate(sync_conn):
-                    for path in sorted((ROOT / "migrations" / "versions").glob("*.py")):
+                    for path in sorted((ROOT / "verilore/migrations" / "versions").glob("*.py")):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
@@ -173,7 +173,7 @@ async def _seed(db, corpus: str, count: int, bucket: int) -> None:
     triggers; the vectors are injected afterwards because a real encoder is the
     one part of this the test cannot afford.
     """
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     body = "\n".join(f"- Corpus observation {j}, bucket {bucket}." for j in range(1, count + 1))
     await IngestionService(memory_enabled=True, require_embeddings=False).ingest_file(

@@ -23,8 +23,8 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from api.models.memory import MemoryRequest, MemoryResponse
-from verilore_sdk import MemoryClientError, Verilore
+from verilore.api.models.memory import MemoryRequest, MemoryResponse
+from verilore.sdk import MemoryClientError, Verilore
 
 STAMP = "2026-09-01T12:00:00Z"
 CLAIM_ID = "a" * 64
@@ -116,9 +116,9 @@ def response_body():
 @pytest.fixture
 def contract(monkeypatch, response_body):
     try:
-        service = importlib.import_module("api.services.memory_public")
+        service = importlib.import_module("verilore.api.services.memory_public")
     except ModuleNotFoundError as exc:
-        if exc.name != "api.services.memory_public":
+        if exc.name != "verilore.api.services.memory_public":
             raise
 
         class MemoryError(Exception):
@@ -126,7 +126,7 @@ def contract(monkeypatch, response_body):
                 self.code, self.message, self.status_code = code, message, status_code
                 super().__init__(message)
 
-        service = ModuleType("api.services.memory_public")
+        service = ModuleType("verilore.api.services.memory_public")
         service.MemoryError = MemoryError
         service.execute = None
         monkeypatch.setitem(sys.modules, service.__name__, service)
@@ -414,11 +414,11 @@ def test_import_and_remote_construction_do_not_load_local_services():
 import sys
 class BlockServices:
     def find_spec(self, fullname, *args):
-        if fullname.startswith('api.services'):
+        if fullname.startswith('verilore.api.services'):
             raise AssertionError('Remote SDK imported ' + fullname)
 sys.meta_path.insert(0, BlockServices())
-from verilore_sdk import Verilore
-from cli.main import app
+from verilore.sdk import Verilore
+from verilore.cli.main import app
 mp = Verilore('test', base_url='https://memory.example')
 assert not hasattr(mp, '_embedder')
 assert not hasattr(mp, '_ingestion')
@@ -436,9 +436,9 @@ assert not hasattr(mp, '_ingestion')
 
 @pytest.mark.parametrize("create", [True, False])
 def test_legacy_named_initialization_and_sync(monkeypatch, create):
-    embedder = ModuleType("api.services.embedder")
+    embedder = ModuleType("verilore.api.services.embedder")
     embedder.Embedder = Mock()
-    ingestion = ModuleType("api.services.ingestion")
+    ingestion = ModuleType("verilore.api.services.ingestion")
     ingestion.IngestionService = Mock()
     ingestion.IngestionService.return_value.sync_repo = AsyncMock(
         return_value={
@@ -481,7 +481,7 @@ def test_legacy_search_and_context(monkeypatch, strategy):
     async def session_scope():
         yield "session"
 
-    db = ModuleType("api.services.db")
+    db = ModuleType("verilore.api.services.db")
     db.session_scope = session_scope
     # The client resolves its identity at construction now, so it reaches for
     # these. The stub replaces the module wholesale, so anything the client
@@ -490,12 +490,12 @@ def test_legacy_search_and_context(monkeypatch, strategy):
     db.AsyncSessionLocal = session_scope
     db.principal_scope = contextlib.nullcontext
     db.async_engine = None
-    corpora = ModuleType("api.services.corpora")
+    corpora = ModuleType("verilore.api.services.corpora")
     corpora.get_corpus_by_name = AsyncMock(return_value={"id": "corpus-id"})
-    retrieval = ModuleType("api.services.retrieval")
+    retrieval = ModuleType("verilore.api.services.retrieval")
     retrieval.RetrievalService = Mock()
     retrieval.RetrievalService.return_value.search = AsyncMock(return_value=["evidence"])
-    builder = ModuleType("api.services.context_service")
+    builder = ModuleType("verilore.api.services.context_service")
     builder.ContextError = RuntimeError
 
     async def build_context(_db, corpus, query, **kwargs):
@@ -538,7 +538,7 @@ def test_legacy_search_and_context(monkeypatch, strategy):
         "intent": None,
     }
     corpora.get_corpus_by_name.return_value = None
-    from verilore_sdk import CorpusNotFoundError
+    from verilore.sdk import CorpusNotFoundError
 
     with pytest.raises(CorpusNotFoundError, match="legacy"):
         mp.search("question")
@@ -575,7 +575,7 @@ CLI_CASES = [
 
 @pytest.mark.parametrize("command,args,operation,fields", CLI_CASES)
 def test_cli_dispatch(contract, transport, command, args, operation, fields):
-    from cli.main import app
+    from verilore.cli.main import app
 
     calls, reply = transport
     # `--base-url` is explicit here because these cases are about the HTTP
@@ -608,7 +608,7 @@ def test_cli_dispatch(contract, transport, command, args, operation, fields):
 
 
 def test_cli_base_url_and_errors(contract, transport):
-    from cli.main import app
+    from verilore.cli.main import app
 
     calls, reply = transport
     reply.status, reply.body = 404, {"code": "corpus_not_found", "message": "No corpus"}
@@ -632,7 +632,7 @@ def test_cli_base_url_and_errors(contract, transport):
 
 @pytest.mark.parametrize("command,args,operation,fields", CLI_CASES)
 def test_cli_requires_corpus(contract, transport, command, args, operation, fields):
-    from cli.main import app
+    from verilore.cli.main import app
 
     result = CliRunner().invoke(app, ["memory", command, *args])
     assert result.exit_code == 2
@@ -659,7 +659,7 @@ def test_cli_requires_corpus(contract, transport, command, args, operation, fiel
     ],
 )
 def test_cli_invalid_arguments(contract, transport, args):
-    from cli.main import app
+    from verilore.cli.main import app
 
     result = CliRunner().invoke(app, ["memory", *args, "--corpus", "test"])
     assert result.exit_code == 2

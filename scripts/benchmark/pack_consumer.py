@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from memory_pack import (  # noqa: E402
+from verilore.pack import (  # noqa: E402
     CONFLICTING,
     NO_RELEVANT_MEMORY,
     MemoryPack,

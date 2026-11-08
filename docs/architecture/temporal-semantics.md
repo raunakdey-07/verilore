@@ -2,8 +2,8 @@
 
 This document covers the two clocks Verilore keeps separate, how selectors
 resolve them, and what the M009 feed does and does not promise about ordering.
-Evidence: `api/services/memory.py`, `api/services/memory_public.py`,
-`api/services/memory_query.py`, `api/services/memory_feed.py`, and
+Evidence: `verilore/api/services/memory.py`, `verilore/api/services/memory_public.py`,
+`verilore/api/services/memory_query.py`, `verilore/api/services/memory_feed.py`, and
 [`deployment.md`](../deployment.md).
 
 ## Two clocks
@@ -100,7 +100,7 @@ include or exclude an authored key. It cannot promote an old claim to `CURRENT`.
 
 ## Research-only temporal primitives
 
-`api/services/memory_reasoning.py` defines `TemporalState`, `temporal_state_at`,
+`verilore/api/services/memory_reasoning.py` defines `TemporalState`, `temporal_state_at`,
 `snapshot_diff`, and `conflict_lifecycle`. `temporal_state_at` classifies using
 explicit fields and returns `HISTORICAL` when the query time is at or past
 `valid_until`, before `valid_from`, or before `observed_at`. These types back

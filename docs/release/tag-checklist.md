@@ -41,12 +41,16 @@ Current state, measured 2026-10-13:
 
 ### The upgrade and downgrade claims, re-proven at this commit
 
-- [ ] `v0.9.0` archive → `upgrade head` preserves every claim identity; no claim
+- [ ] `$BASE_TAG` archive → `upgrade head` preserves every claim identity; no claim
       is lost; the old receipt still verifies offline; the Memory Pack is
-      byte-identical with the clock pinned.
-- [ ] `upgrade head` → `007` → `upgrade head` preserves the same, **and** a
+      byte-identical with the clock pinned. (`$BASE_TAG` defaults to v0.10.0 in
+      `scripts/release/upgrade_safety.sh`; override with `UPGRADE_BASE_TAG`.)
+- [ ] `upgrade head` → `$BASE_HEAD` → `upgrade head` preserves the same, **and** a
       mutation is proven to be caught. A mutation that *survives* is a release
-      blocker, not a documentation item.
+      blocker, not a documentation item. (`$BASE_HEAD` is derived from the base
+      tree's migration head by the script.)
+- [ ] After tagging, bump `BASE_TAG` in `scripts/release/upgrade_safety.sh` to the
+      new tag.
 - [ ] The downgrade-destroys-`memory_principals` claim in the CHANGELOG is
       still true at this commit. It is a destructive claim about a user's
       database; it is re-measured or it is not repeated.

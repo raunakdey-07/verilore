@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from api.services import query_log
+from verilore.api.services import query_log
 
 
 @pytest.fixture

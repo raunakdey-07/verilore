@@ -45,7 +45,7 @@ class Tenant:
     """A principal scoped to exactly one corpus."""
 
     def __init__(self, corpus: str):
-        from api.services.authz import Principal
+        from verilore.api.services.authz import Principal
 
         self.corpus = corpus
         self.principal = Principal(
@@ -67,7 +67,7 @@ async def pooled(monkeypatch):
     tests themselves drive, with scoped principals, which is the configuration
     that has to survive connection reuse.
     """
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
     from test_tenant_isolation import _provision
 
     _provision()
@@ -94,7 +94,7 @@ async def pooled(monkeypatch):
 
 
 def _admin():
-    from api.services.authz import ADMIN_PRINCIPAL
+    from verilore.api.services.authz import ADMIN_PRINCIPAL
 
     return ADMIN_PRINCIPAL
 
@@ -119,7 +119,7 @@ async def backend_pid(factory, db_module, principal) -> str:
 async def test_one_pooled_connection_serves_two_tenants_in_turn(pooled):
     """Alpha, then Beta, then Alpha again, on the same connection."""
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
 
@@ -138,7 +138,7 @@ async def test_one_pooled_connection_serves_two_tenants_in_turn(pooled):
 async def test_a_transaction_that_raises_leaves_no_scope_behind(pooled):
     """The failure path is the one that matters: a rollback, then a reuse."""
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
 
@@ -156,7 +156,7 @@ async def test_a_transaction_that_raises_leaves_no_scope_behind(pooled):
 
 async def test_a_rollback_leaves_no_scope_behind(pooled):
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
 
@@ -173,7 +173,7 @@ async def test_a_rollback_leaves_no_scope_behind(pooled):
 async def test_a_cancelled_request_leaves_no_scope_behind(pooled):
     """Cancellation is a `finally` path like any other, and is easier to get wrong."""
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
     started = asyncio.Event()
@@ -199,8 +199,8 @@ async def test_a_cancelled_request_leaves_no_scope_behind(pooled):
 async def test_no_tenant_context_sees_nothing(pooled):
     """The default must be empty, not unrestricted."""
     factory, _ = pooled
-    from api.services import db as db_module
-    from api.services.authz import Principal
+    from verilore.api.services import db as db_module
+    from verilore.api.services.authz import Principal
 
     anonymous = Principal("none", "none", "read_only", frozenset(), frozenset())
     assert await claims(factory, db_module, anonymous) == []
@@ -209,7 +209,7 @@ async def test_no_tenant_context_sees_nothing(pooled):
 async def test_concurrent_requests_for_two_tenants_stay_separate(pooled):
     """Interleaved transactions on a shared pool must not mix their scopes."""
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
 
@@ -229,7 +229,7 @@ async def test_concurrent_requests_for_two_tenants_stay_separate(pooled):
 async def test_a_connection_reused_after_a_protocol_error_still_resets(pooled):
     """An error that ends a connection must not leave a scope attached to it."""
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
     from sqlalchemy.exc import DBAPIError
 
     beta = Tenant(BETA_CORPORA["brand"])
@@ -252,7 +252,7 @@ async def test_the_scope_is_transaction_local_not_session_local(pooled):
     second request would be authorized as the first.
     """
     factory, _ = pooled
-    from api.services import db as db_module
+    from verilore.api.services import db as db_module
 
     alpha, beta = Tenant(ALPHA_CORPORA["brand"]), Tenant(BETA_CORPORA["brand"])
     async with factory() as db:

@@ -19,8 +19,8 @@ The SDK import probe confirms that `verilore_sdk` pulls in no `torch`,
 ```python
 import os
 
-from verilore_sdk import Verilore
-from memory_pack import MemoryPack
+from verilore import Verilore
+from verilore.pack import MemoryPack
 
 memory = Verilore("integration-demo", base_url=os.environ["MP_BASE_URL"])
 raw = memory.memory.query(corpus="integration-demo", query=QUESTION)
@@ -46,7 +46,7 @@ offsets, snapshots, or what a budget unit is.
 
 **Status is derived, not stored.** `MemoryResponse` carries `constraints` and
 `truncated` but no `status`. To ask "did this resolve, conflict, or find
-nothing", a caller has to know about `memory_pack.py` and wrap the response. The
+nothing", a caller has to know about `verilore/pack.py` and wrap the response. The
 information exists in `constraints`, so nothing is lost, but the default path
 makes a developer look in the wrong place. This is the clearest remaining
 developer-experience gap and it is small: a `status` derived on the response

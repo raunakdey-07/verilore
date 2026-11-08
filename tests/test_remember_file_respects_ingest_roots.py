@@ -25,7 +25,7 @@ def _run(args, env_extra):
     env = {**os.environ, **env_extra}
     env.pop("MEMORY_TEST_DATABASE_URL", None)
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main", *args],
+        [sys.executable, "-m", "verilore.cli.main", *args],
         cwd=ROOT,
         env=env,
         capture_output=True,

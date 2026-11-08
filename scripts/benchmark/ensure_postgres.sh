@@ -60,6 +60,5 @@ with engine.connect() as conn:
 print("extensions: ready")
 PY
 
-venvmp/bin/python -m alembic -c migrations/alembic.ini \
-    -x script_location=migrations upgrade head 2>&1 | tail -1
+venvmp/bin/python -m alembic -c verilore/migrations/alembic.ini upgrade head 2>&1 | tail -1
 echo "migrations: at head"

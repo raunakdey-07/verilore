@@ -27,8 +27,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from api.models.memory import Claim, Evidence, MemoryRequest, MemoryResponse, State
-from api.services import memory_relevance
+from verilore.api.models.memory import Claim, Evidence, MemoryRequest, MemoryResponse, State
+from verilore.api.services import memory_relevance
 
 CLOCK = datetime(2024, 6, 15, 12, tzinfo=timezone.utc)
 
@@ -141,7 +141,7 @@ class PartAwareEmbedder:
 
 def _order() -> list[str]:
     """The keys, best first."""
-    from api.services.claim_embeddings import representation
+    from verilore.api.services.claim_embeddings import representation
 
     request = MemoryRequest(corpus="test", query=QUESTION)
     policy = memory_relevance.RelevancePolicy.configured()

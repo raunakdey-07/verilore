@@ -76,7 +76,7 @@ def _ingest(tmp_path, body: str, corpus: str) -> str:
     }
     env.pop("MEMORY_TEST_DATABASE_URL", None)
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main", "ingest-repo", str(d), "--corpus", corpus],
+        [sys.executable, "-m", "verilore.cli.main", "ingest-repo", str(d), "--corpus", corpus],
         cwd=ROOT,
         env=env,
         capture_output=True,
@@ -136,7 +136,7 @@ def test_a_clean_document_is_not_warned_about(tmp_path):
     }
     env.pop("MEMORY_TEST_DATABASE_URL", None)
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main", "ingest-repo", str(d), "--corpus", "clean-ok"],
+        [sys.executable, "-m", "verilore.cli.main", "ingest-repo", str(d), "--corpus", "clean-ok"],
         cwd=ROOT,
         env=env,
         capture_output=True,

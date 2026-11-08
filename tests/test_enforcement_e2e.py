@@ -39,9 +39,9 @@ import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from api.main import app
-from api.services import authz, db as db_module
-from api.services.db import principal_scope
+from verilore.api.main import app
+from verilore.api.services import authz, db as db_module
+from verilore.api.services.db import principal_scope
 from tenant_harness import (
     ALPHA_CORPORA,
     BETA_CORPORA,
@@ -131,7 +131,7 @@ async def world(enforced_secret, monkeypatch):
     monkeypatch.setenv("VERILORE_SCOPE_SECRET", enforced_secret)
     monkeypatch.setenv("VERILORE_ENFORCE_SCOPE_TOKEN", "on")
 
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     # Provision the runtime role (idempotent; conftest may have done it already).
     apply_provision_sql()
@@ -243,7 +243,7 @@ async def test_admin_creates_a_corpus(world):
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "corpus",
             "create",
             corpus_name,
@@ -1038,7 +1038,7 @@ async def test_operator_procedure_per_docs(world):
         [
             sys.executable,
             "-m",
-            "cli.main",
+            "verilore.cli.main",
             "secret",
             "rotate",
             "--database-url",
@@ -1121,7 +1121,7 @@ async def test_operator_procedure_per_docs(world):
             sys.executable,
             "-m",
             "uvicorn",
-            "api.main:app",
+            "verilore.api.main:app",
             "--host",
             "127.0.0.1",
             "--port",

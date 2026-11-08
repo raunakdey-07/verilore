@@ -13,7 +13,7 @@ from math import sqrt
 import pytest
 from pydantic import ValidationError
 
-from api.models.memory import (
+from verilore.api.models.memory import (
     Change,
     Claim,
     Conflict,
@@ -22,7 +22,13 @@ from api.models.memory import (
     MemoryResponse,
     State,
 )
-from api.services import claim_embeddings, memory, memory_public, memory_query, memory_relevance
+from verilore.api.services import (
+    claim_embeddings,
+    memory,
+    memory_public,
+    memory_query,
+    memory_relevance,
+)
 
 try:
     from tests import test_memory_public as public
@@ -61,7 +67,7 @@ def representation(claim):
 def offline_embedder(monkeypatch):
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
     monkeypatch.setenv("TRANSFORMERS_OFFLINE", "1")
-    from api.services import embedder
+    from verilore.api.services import embedder
 
     fake = FakeEmbedder()
     monkeypatch.setattr(embedder, "Embedder", lambda: fake)

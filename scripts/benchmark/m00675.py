@@ -16,22 +16,22 @@ FROZEN = {
     "policy": ROOT / "eval/memory_query_policy.json",
 }
 SOURCES = (
-    ROOT / "api/services/memory_relevance.py",
-    ROOT / "api/services/memory_query.py",
-    ROOT / "api/services/memory_public.py",
-    ROOT / "api/services/memory_query_benchmark.py",
-    ROOT / "api/services/memory_benchmark.py",
-    ROOT / "api/models/memory.py",
+    ROOT / "verilore/api/services/memory_relevance.py",
+    ROOT / "verilore/api/services/memory_query.py",
+    ROOT / "verilore/api/services/memory_public.py",
+    ROOT / "verilore/api/services/memory_query_benchmark.py",
+    ROOT / "verilore/api/services/memory_benchmark.py",
+    ROOT / "verilore/api/models/memory.py",
 )
 # The held-out artifact is frozen at the M006.75 schema boundary. Later
 # post-release migrations are deliberately excluded so infrastructure changes do
 # not rewrite the released research result or its fixture identity.
 FROZEN_MIGRATIONS = (
-    ROOT / "migrations/versions/001_initial_schema.py",
-    ROOT / "migrations/versions/002_corpora.py",
-    ROOT / "migrations/versions/003_manifest_corpus.py",
-    ROOT / "migrations/versions/004_memory.py",
-    ROOT / "migrations/versions/005_multiple_evidence.py",
+    ROOT / "verilore/migrations/versions/001_initial_schema.py",
+    ROOT / "verilore/migrations/versions/002_corpora.py",
+    ROOT / "verilore/migrations/versions/003_manifest_corpus.py",
+    ROOT / "verilore/migrations/versions/004_memory.py",
+    ROOT / "verilore/migrations/versions/005_multiple_evidence.py",
 )
 FIXTURE_FILES = (
     ROOT / "eval/memory_benchmarks.yaml",
@@ -66,10 +66,23 @@ def source_fingerprint():
     ).hexdigest()
 
 
+def _recorded_name(path: Path) -> str:
+    """The path as it was when eval/m00675 was frozen.
+
+    v0.11 moved migrations/ under verilore/. The file bytes are hashed as they are
+    today, so any content change still breaks this digest; only the label is pinned
+    to the frozen layout.
+    """
+    name = path.relative_to(ROOT).as_posix()
+    if name.startswith("verilore/migrations/"):
+        return name.removeprefix("verilore/")
+    return name
+
+
 def fixture_hash() -> str:
     digest = hashlib.sha256()
     for path in FIXTURE_FILES:
-        digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
+        digest.update(_recorded_name(path).encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")

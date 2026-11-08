@@ -123,7 +123,7 @@ async def test_receipt_never_enters_the_authoritative_bytes(store):
 
 
 async def test_receipt_verifies_and_refuses_to_claim_authenticity(store):
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     response = await _ask(store, "primary datastore", include_receipt=True)
     result = verify_response_receipt(response.receipt, response.model_dump(mode="json"))
@@ -135,7 +135,7 @@ async def test_historical_receipt_names_the_superseded_truth(store):
     """The capability that makes this more than a hash."""
     from datetime import datetime, timezone
 
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     when = datetime(2026, 1, 15, tzinfo=timezone.utc)
     response = await _ask(store, "primary datastore", include_receipt=True, valid_at=when)
@@ -147,7 +147,7 @@ async def test_historical_receipt_names_the_superseded_truth(store):
 
 
 async def test_receipt_is_rejected_after_the_answer_is_edited(store):
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     response = await _ask(store, "primary datastore", include_receipt=True)
     tampered = response.model_dump(mode="json")
@@ -165,7 +165,7 @@ async def test_no_receipt_when_nothing_current_is_returned(store):
 
 async def test_receipt_survives_serialisation_for_later_verification(store):
     """It must be plain JSON a client can store and check offline."""
-    from memory_receipt import verify_response_receipt
+    from verilore.receipt import verify_response_receipt
 
     response = await _ask(store, "primary datastore", include_receipt=True)
     restored = json.loads(json.dumps(response.receipt))
@@ -177,7 +177,7 @@ async def test_sdk_accepts_include_receipt():
     """The SDK parameter exists and is passed through, not reimplemented."""
     import inspect
 
-    from verilore_sdk import MemoryClient
+    from verilore.sdk import MemoryClient
 
     signature = inspect.signature(MemoryClient.query)
     assert "include_receipt" in signature.parameters

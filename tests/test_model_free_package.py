@@ -78,7 +78,7 @@ def _run(argv: list[str], lexical: bool = False) -> tuple[int, str, str]:
         BLOCKER
         + "\n"
         + "from typer.testing import CliRunner\n"
-        + "from cli.main import app\n"
+        + "from verilore.cli.main import app\n"
         + "import sys\n"
         + f"result = CliRunner().invoke(app, {argv!r})\n"
         + "heavy = sorted(m for m in ('torch','transformers','sentence_transformers') "
@@ -162,9 +162,9 @@ def unembedded_corpus():
     test rather than the behaviour. `verilore remember` writes claims without
     embeddings by design, so authoring the corpus this way is the honest setup.
     """
-    from api.services import remember as remember_service
-    from api.services.corpora import get_or_create_corpus
-    from api.services.db import async_engine, session_scope
+    from verilore.api.services import remember as remember_service
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.db import async_engine, session_scope
 
     name = f"m016-novec-{os.getpid()}"
 

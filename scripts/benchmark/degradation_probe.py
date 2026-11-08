@@ -63,7 +63,7 @@ async def setup() -> int:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = _connect()
     schema = "degrade_" + uuid4().hex[:12]
@@ -93,13 +93,13 @@ async def probe(schema: str) -> int:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from api.models.memory import MemoryRequest
-    from api.services.context_packer import pack_context
-    from api.services.context_service import build_context
-    from api.services.corpora import get_corpus_by_name
-    from api.services.embedder import SEMANTIC_DEPENDENCY_ERRORS, Embedder
-    from api.services.memory_public import execute_in_session
-    from api.services.retrieval import RetrievalService
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.context_packer import pack_context
+    from verilore.api.services.context_service import build_context
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.embedder import SEMANTIC_DEPENDENCY_ERRORS, Embedder
+    from verilore.api.services.memory_public import execute_in_session
+    from verilore.api.services.retrieval import RetrievalService
 
     question = CASES[0]["question"]
     engine = _connect()

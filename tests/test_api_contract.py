@@ -14,15 +14,15 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import OperationalError
 
-from api.main import app
-from api.services.corpora import CorpusScopeNotFound
+from verilore.api.main import app
+from verilore.api.services.corpora import CorpusScopeNotFound
 
 
 @pytest.mark.asyncio
 async def test_create_corpus_201():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.create_corpus",
+        "verilore.api.services.corpora.create_corpus",
         new_callable=AsyncMock,
         return_value={"id": "c1", "name": "docs", "description": ""},
     ):
@@ -36,7 +36,7 @@ async def test_create_corpus_201():
 async def test_create_duplicate_corpus_409():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.create_corpus",
+        "verilore.api.services.corpora.create_corpus",
         new_callable=AsyncMock,
         side_effect=ValueError("corpus 'docs' already exists"),
     ):
@@ -49,7 +49,7 @@ async def test_create_duplicate_corpus_409():
 async def test_create_invalid_corpus_name_422():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.create_corpus",
+        "verilore.api.services.corpora.create_corpus",
         new_callable=AsyncMock,
         side_effect=ValueError("corpus name may contain only letters, digits, '-', '_', '.'"),
     ):
@@ -62,7 +62,7 @@ async def test_create_invalid_corpus_name_422():
 async def test_get_missing_corpus_404():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.corpus_stats",
+        "verilore.api.services.corpora.corpus_stats",
         new_callable=AsyncMock,
         return_value=None,
     ):
@@ -75,7 +75,7 @@ async def test_get_missing_corpus_404():
 async def test_delete_missing_corpus_404():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.delete_corpus",
+        "verilore.api.services.corpora.delete_corpus",
         new_callable=AsyncMock,
         return_value={
             "corpus": "nope",
@@ -111,7 +111,7 @@ async def test_delete_corpus_returns_a_deletion_report():
         "not_removed": "receipts and Memory Packs already exported by a customer...",
     }
     with patch(
-        "api.services.corpora.delete_corpus",
+        "verilore.api.services.corpora.delete_corpus",
         new_callable=AsyncMock,
         return_value=report,
     ):
@@ -139,7 +139,7 @@ async def test_delete_corpus_returns_a_deletion_report():
 async def test_delete_an_absent_corpus_is_404():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.delete_corpus",
+        "verilore.api.services.corpora.delete_corpus",
         new_callable=AsyncMock,
         return_value={
             "corpus": "gone",
@@ -159,7 +159,7 @@ async def test_delete_an_absent_corpus_is_404():
 async def test_corpora_db_unavailable_503():
     transport = ASGITransport(app=app)
     with patch(
-        "api.services.corpora.list_corpora",
+        "verilore.api.services.corpora.list_corpora",
         new_callable=AsyncMock,
         side_effect=OperationalError("SELECT 1", {}, Exception("down")),
     ):
@@ -185,12 +185,12 @@ async def test_sync_returns_machine_readable_summary():
     }
     with (
         patch(
-            "api.services.corpora.get_corpus_by_name",
+            "verilore.api.services.corpora.get_corpus_by_name",
             new_callable=AsyncMock,
             return_value={"id": "c1", "name": "docs", "description": ""},
         ),
         patch(
-            "api.services.ingestion.IngestionService.sync_repo",
+            "verilore.api.services.ingestion.IngestionService.sync_repo",
             new_callable=AsyncMock,
             return_value=summary,
         ),
@@ -207,7 +207,7 @@ async def test_sync_returns_machine_readable_summary():
 @pytest.mark.asyncio
 async def test_context_endpoint_contract():
     """The context endpoint returns bounded, attributable context."""
-    from api.services.retrieval import RetrievalResult
+    from verilore.api.services.retrieval import RetrievalResult
 
     def make_result(text, title, doc_id):
         return RetrievalResult(
@@ -229,11 +229,11 @@ async def test_context_endpoint_contract():
     ]
 
     transport = ASGITransport(app=app)
-    import api.services.context_service as cmod
+    import verilore.api.services.context_service as cmod
 
     with (
         patch(
-            "api.routers.context.resolve_corpus_scope",
+            "verilore.api.routers.context.resolve_corpus_scope",
             new_callable=AsyncMock,
             return_value=("c1", "docs"),
         ),
@@ -299,7 +299,7 @@ async def test_context_invalid_strategy_422():
 async def test_context_unknown_corpus_404():
     transport = ASGITransport(app=app)
     with patch(
-        "api.routers.context.resolve_corpus_scope",
+        "verilore.api.routers.context.resolve_corpus_scope",
         new_callable=AsyncMock,
         side_effect=CorpusScopeNotFound("corpus 'ghost' not found"),
     ):

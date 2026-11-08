@@ -84,7 +84,7 @@ def main() -> int:
 
     # 1. The v0.9.0 receipt still verifies, with no database reachable.
     code, output = run(
-        [sys.executable, "-m", "memory_proof_cli", "verify", str(before / "receipt.json")],
+        [sys.executable, "-m", "verilore.proof_cli", "verify", str(before / "receipt.json")],
         env={"DATABASE_URL": "postgresql://nobody:nobody@127.0.0.1:1/nothing"},
     )
     check("v0.9.0 receipt verifies offline after the upgrade", code == 0, output.strip()[:80])
@@ -198,14 +198,20 @@ def main() -> int:
             (["corpora"], "corpora"),
         ):
             code, output = run(
-                [sys.executable, "-m", "cli.main", *command],
+                [sys.executable, "-m", "verilore.cli.main", *command],
                 env={"VERILORE_RUNTIME": "0"},
             )
             check(f"`verilore {label}` still works", code == 0, output.strip()[:90])
 
         # 6. Local mode as a superuser, with no credential at all.
         code, output = run(
-            [sys.executable, "-m", "cli.main", "recall", "What datastore does production use?"],
+            [
+                sys.executable,
+                "-m",
+                "verilore.cli.main",
+                "recall",
+                "What datastore does production use?",
+            ],
             env={"VERILORE_RUNTIME": "0", "VERILORE_AUTH_MODE": "off"},
         )
         check("local mode as superuser, no credential", code == 0, output.strip()[:90])

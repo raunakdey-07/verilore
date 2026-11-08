@@ -121,8 +121,8 @@ async def _seed_corpus_ids():
     Async so seeding shares the test's event loop (asyncpg binds
     connections to the creating loop).
     """
-    from api.services.corpora import create_corpus
-    from api.services.db import session_scope
+    from verilore.api.services.corpora import create_corpus
+    from verilore.api.services.db import session_scope
 
     if _db_available():
         async with session_scope() as db:
@@ -135,7 +135,7 @@ async def _seed_corpus_ids():
 def _fresh_engine():
     import asyncio
 
-    from api.services.db import async_engine
+    from verilore.api.services.db import async_engine
 
     try:
         asyncio.run(async_engine.dispose())
@@ -176,8 +176,8 @@ Marmalade skies dominate the western forecast.
 
 
 async def _corpus_id(name: str) -> str:
-    from api.services.corpora import get_corpus_by_name
-    from api.services.db import session_scope
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.db import session_scope
 
     async with session_scope() as db:
         c = await get_corpus_by_name(db, name)
@@ -186,8 +186,8 @@ async def _corpus_id(name: str) -> str:
 
 
 async def _seed(cid: str, content: str, path: str):
-    from api.services.db import session_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.ingestion import IngestionService
 
     svc = IngestionService()
     async with session_scope() as db:
@@ -200,9 +200,9 @@ async def test_same_path_two_corpora_stays_independent():
     await _seed(await _corpus_id(CORPUS_A_NAME), DOC_A, "shared/doc.md")
     await _seed(await _corpus_id(CORPUS_B_NAME), DOC_B, "shared/doc.md")
 
-    from api.services.db import session_scope
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     emb = Embedder()
     emb.embed_single("warmup")
@@ -225,9 +225,9 @@ async def test_search_never_leaks_across_corpora():
     """A query matching only corpus A content returns nothing from corpus B."""
     await _seed(await _corpus_id(CORPUS_A_NAME), DOC_A, "only_a.md")
 
-    from api.services.db import session_scope
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     emb = Embedder()
     emb.embed_single("warmup")
@@ -251,7 +251,7 @@ async def test_sync_deletes_removed_source_files(tmp_path):
     f1.write_text(DOC_A.replace("Corpus A Doc", "Sync Keep"))
     f2.write_text(DOC_A.replace("Corpus A Doc", "Sync Gone"))
 
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     svc = IngestionService()
     first = await svc.sync_repo(str(d), await _corpus_id(CORPUS_A_NAME))
@@ -266,9 +266,9 @@ async def test_sync_deletes_removed_source_files(tmp_path):
     assert second["added"] == 0
 
     # 'gone' document must be absent from retrieval
-    from api.services.db import session_scope
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     emb = Embedder()
     emb.embed_single("warmup")
@@ -290,7 +290,7 @@ async def test_sync_summary_is_machine_readable(tmp_path):
     d.mkdir()
     (d / "one.md").write_text(DOC_A.replace("Corpus A Doc", "Summary One"))
 
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     svc = IngestionService()
     result = await svc.sync_repo(str(d), await _corpus_id(CORPUS_A_NAME))
@@ -308,7 +308,7 @@ async def test_failed_ingestion_leaves_no_success_state(tmp_path):
     d.mkdir()
     (d / "doomed.md").write_text(DOC_A.replace("Corpus A Doc", "Doomed Doc"))
 
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     svc = IngestionService()
     original = svc.embedder.embed

@@ -56,8 +56,8 @@ import hashlib
 import pytest
 from sqlalchemy import text
 
-from api.services.corpora import DEFAULT_CORPUS_ID, DEFAULT_CORPUS_NAME, corpus_id_for_name
-from api.services.memory import memory_document_id
+from verilore.api.services.corpora import DEFAULT_CORPUS_ID, DEFAULT_CORPUS_NAME, corpus_id_for_name
+from verilore.api.services.memory import memory_document_id
 
 # See tests/test_security.py: redundant under `asyncio_mode = "auto"`, and it
 # warned on every sync test in this module.
@@ -114,10 +114,10 @@ async def test_a_document_can_be_written_into_the_default_corpus():
     """
     import os
 
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.db import admin_session_scope
-    from api.services.remember import remember
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.db import admin_session_scope
+    from verilore.api.services.remember import remember
 
     if not os.getenv("DATABASE_URL"):
         pytest.skip("no DATABASE_URL")
@@ -156,9 +156,9 @@ async def test_a_document_can_be_written_into_the_default_corpus():
 
 
 async def _erase(corpus_id: str) -> None:
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.db import admin_session_scope
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.db import admin_session_scope
 
     async with admin_session_scope() as db:
         with db_module.principal_scope(authz.ADMIN_PRINCIPAL):
@@ -177,9 +177,9 @@ async def _restore_default_corpus() -> None:
     Restoring it any other way would leave the corpus unwritable again, which is
     the bug this file exists to catch.
     """
-    from api.services import authz
-    from api.services import db as db_module
-    from api.services.db import admin_session_scope
+    from verilore.api.services import authz
+    from verilore.api.services import db as db_module
+    from verilore.api.services.db import admin_session_scope
 
     async with admin_session_scope() as db:
         with db_module.principal_scope(authz.ADMIN_PRINCIPAL):

@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _migrations(conn):
-    for migration in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for migration in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(migration.stem, migration)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -49,11 +49,11 @@ def _migrations(conn):
 
 async def one_warm(conn, schema: str, question: str, sql_count: list) -> dict:
     """One public query, with each stage timed and each stage's output counted."""
-    from api.models.memory import MemoryRequest
-    from api.services import memory
-    from api.services.corpora import get_corpus_by_name
-    from api.services.memory_public import State, project
-    from api.services.memory_query import query as run_query
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.memory_public import State, project
+    from verilore.api.services.memory_query import query as run_query
 
     out: dict = {}
     request = MemoryRequest(corpus=schema, query=question, budget=128000)
@@ -105,7 +105,7 @@ async def one_warm(conn, schema: str, question: str, sql_count: list) -> dict:
 
 
 async def run(url: str, claims: int, repeats: int) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(url, poolclass=NullPool)
     schema = "hot_" + uuid4().hex[:10]
@@ -129,7 +129,7 @@ async def run(url: str, claims: int, repeats: int) -> dict:
                     bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
                 ) as db:
                     await service._ingest_content(db, content, path, corpus_id)
-            from api.services.rehydrate import backfill_claim_embeddings
+            from verilore.api.services.rehydrate import backfill_claim_embeddings
 
             async with AsyncSession(
                 bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False

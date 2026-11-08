@@ -23,8 +23,8 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from api.models.memory import MemoryRequest, MemoryResponse, State
-from api.services import memory, memory_public
+from verilore.api.models.memory import MemoryRequest, MemoryResponse, State
+from verilore.api.services import memory, memory_public
 
 try:
     from tests import test_memory_core as core
@@ -573,10 +573,10 @@ async def test_pack_change_previous_and_current_are_atomic(public_db):
 async def interfaces(public_db, monkeypatch):
     from typer.testing import CliRunner
 
-    import mcp_server
-    from api.main import app
-    from cli.main import app as cli_app
-    from verilore_sdk import Verilore
+    import verilore.mcp_server as mcp_server
+    from verilore.api.main import app
+    from verilore.cli.main import app as cli_app
+    from verilore.sdk import Verilore
 
     class SavepointSession:
         def begin(self):
@@ -701,7 +701,7 @@ async def test_real_rest_sdk_mcp_cli_consistency(public_db, interfaces, operatio
 async def test_missing_ids_errors_across_real_interfaces(
     public_db, interfaces, operation, fields, code, message
 ):
-    from verilore_sdk import MemoryClientError
+    from verilore.sdk import MemoryClientError
 
     request = MemoryRequest(**{"corpus": public_db.name, **fields})
     with pytest.raises(memory_public.MemoryError) as error:

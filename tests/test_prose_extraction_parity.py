@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from api.services import markdown_claims as mc
-from api.services.parser import parse_markdown
+from verilore.api.services import markdown_claims as mc
+from verilore.api.services.parser import parse_markdown
 
 STRUCTURED = """---
 title: Northstar

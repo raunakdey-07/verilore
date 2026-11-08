@@ -8,12 +8,12 @@ from fastapi import HTTPException, Response
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.exc import OperationalError
 
-import api.routers.context as context_router
-import api.routers.ingest as ingest_router
-import api.routers.query as query_router
-import api.routers.search as search_router
-from api.main import app
-from api.models.schemas import AskRequest
+import verilore.api.routers.context as context_router
+import verilore.api.routers.ingest as ingest_router
+import verilore.api.routers.query as query_router
+import verilore.api.routers.search as search_router
+from verilore.api.main import app
+from verilore.api.models.schemas import AskRequest
 
 
 @pytest.mark.asyncio
@@ -78,13 +78,13 @@ async def test_search_endpoint_no_results():
 
     with (
         patch(
-            "api.routers.search.resolve_corpus_scope",
+            "verilore.api.routers.search.resolve_corpus_scope",
             new_callable=AsyncMock,
             return_value=("c1", "docs"),
         ),
         patch.object(search_router, "embedder", _working_embedder()),
         patch(
-            "api.routers.search.RetrievalService.search",
+            "verilore.api.routers.search.RetrievalService.search",
             new_callable=AsyncMock,
         ) as mock_search,
     ):
@@ -124,13 +124,13 @@ async def test_search_backend_unavailable_is_503_not_empty():
 
     with (
         patch(
-            "api.routers.search.resolve_corpus_scope",
+            "verilore.api.routers.search.resolve_corpus_scope",
             new_callable=AsyncMock,
             return_value=("c1", "docs"),
         ),
         patch.object(search_router, "embedder", _working_embedder()),
         patch(
-            "api.routers.search.RetrievalService.search",
+            "verilore.api.routers.search.RetrievalService.search",
             new_callable=AsyncMock,
         ) as mock_search,
     ):
@@ -197,8 +197,8 @@ async def test_context_degrades_instead_of_503_when_model_is_missing():
 
     The endpoint stays 200, reports why, and leaks no dependency detail.
     """
-    import api.services.context_service as cserv
-    import api.services.embedder as embedder_mod
+    import verilore.api.services.context_service as cserv
+    import verilore.api.services.embedder as embedder_mod
 
     transport = ASGITransport(app=app)
     with (
@@ -237,13 +237,13 @@ async def test_ingest_model_failure_is_sanitized_503(route, monkeypatch):
 
     if route == "file":
         request = __import__(
-            "api.models.schemas", fromlist=["IngestFileRequest"]
+            "verilore.api.models.schemas", fromlist=["IngestFileRequest"]
         ).IngestFileRequest(content="x", path="x.md")
         with pytest.raises(HTTPException) as caught:
             await ingest_router.ingest_file(request)
     else:
         request = __import__(
-            "api.models.schemas", fromlist=["IngestRepoRequest"]
+            "verilore.api.models.schemas", fromlist=["IngestRepoRequest"]
         ).IngestRepoRequest(repo_path=".")
         with pytest.raises(HTTPException) as caught:
             await ingest_router.ingest_repo(request)

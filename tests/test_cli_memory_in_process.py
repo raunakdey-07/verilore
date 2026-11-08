@@ -21,7 +21,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from verilore_sdk import Verilore
+from verilore.sdk import Verilore
 
 CORPUS = "cli-memory-in-process"
 STATEMENT = "The default embedding backend is ONNX Runtime."
@@ -34,7 +34,7 @@ def seeded() -> None:
 
 
 def _invoke(args, base_url_env: str | None = None):
-    from cli.main import app
+    from verilore.cli.main import app
 
     env = dict(os.environ)
     env["VERILORE_RUNTIME"] = "0"

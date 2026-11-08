@@ -20,7 +20,7 @@ would retire a live fact, so that still raises.
 
 import pytest
 
-from api.services.ingestion import _reference_targets, _supersession_order
+from verilore.api.services.ingestion import _reference_targets, _supersession_order
 
 TRIPLE_BACKTICK = "```"
 

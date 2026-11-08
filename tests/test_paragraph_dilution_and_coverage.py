@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import pytest
 
-from api.models.memory import Claim, MemoryRequest
-from api.services import claim_embeddings, memory_relevance
+from verilore.api.models.memory import Claim, MemoryRequest
+from verilore.api.services import claim_embeddings, memory_relevance
 
 CLOCK = __import__("datetime").datetime(2024, 6, 15, 12, tzinfo=__import__("datetime").timezone.utc)
 
@@ -96,7 +96,7 @@ class FakeEmbedder:
 
 
 def _response(claims):
-    from api.models.memory import Evidence, MemoryResponse, State
+    from verilore.api.models.memory import Evidence, MemoryResponse, State
 
     response = MemoryResponse(query="", corpus="test", state=State(valid_at=CLOCK))
     response.current_memories = list(claims)

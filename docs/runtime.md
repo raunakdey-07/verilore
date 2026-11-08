@@ -71,7 +71,7 @@ stores vectors and records the model name and dimension, never the backend, so a
 corpus written under one is read by the other. Measured over claim text, a query,
 a key, a path, SQL, an empty string, 2,000 characters, non-ASCII and a truncation
 boundary: **minimum cosine 0.99999833**, maximum absolute difference 3.45e-04.
-`api/services/embedder.py` documents it and
+`verilore/api/services/embedder.py` documents it and
 `tests/test_embedder_backend_equivalence.py` asserts it per text, because a cosine
 of 0.98 would pass any check that only confirmed the vectors are vectors, and
 would silently re-rank every corpus in the field.
@@ -267,7 +267,7 @@ The production datastore is now distributed CockroachDB.
 ```
 
 This is a property of lexical ranking that predates v0.9.0 and is unchanged by it;
-`api/services/memory_relevance.py` scores on the reduced term set in both. It is also
+`verilore/api/services/memory_relevance.py` scores on the reduced term set in both. It is also
 why the CI step for this mode asserts that a *discriminating* question is answered,
 rather than only that the command exits successfully — a mode that abstained on
 everything would otherwise pass.

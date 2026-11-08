@@ -52,13 +52,13 @@ def _invoke(args, env: dict | None = None):
     """Run the CLI in-process with a controlled environment.
 
     Only for the cases that do not depend on *which* database is
-    configured. `api.services.db` reads `DATABASE_URL` once, when it is first
+    configured. `verilore.api.services.db` reads `DATABASE_URL` once, when it is first
     imported, and every connection afterwards goes to that address -- so a
     test that changes the URL mid-process is testing the first URL it saw.
     The tests that need a specific unreachable database run in a subprocess
     instead, which is also what a person actually experiences.
     """
-    from cli.main import app
+    from verilore.cli.main import app
 
     environment = dict(os.environ)
     environment.pop("VERILORE_RUNTIME", None)
@@ -85,7 +85,7 @@ def _run_cli(args, database_url: str, extra_env: dict | None = None) -> subproce
     if extra_env:
         environment.update(extra_env)
     return subprocess.run(
-        [sys.executable, "-m", "cli.main", *args],
+        [sys.executable, "-m", "verilore.cli.main", *args],
         capture_output=True,
         text=True,
         timeout=180,
@@ -310,7 +310,7 @@ def test_a_stopped_local_postgres_container_is_found(monkeypatch, tmp_path):
     `docker-compose.yml` -- so the name is not a heuristic here, it is the
     name the product chose.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, _exited_pgvector(), calls)
@@ -333,7 +333,7 @@ def test_a_running_container_is_not_a_candidate(monkeypatch, tmp_path):
     it would restart a working database on every command, which is a worse
     failure than the one being fixed.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     running = _exited_pgvector()
     running[0]["State"] = "running"
@@ -354,7 +354,7 @@ def test_a_container_on_another_port_is_not_a_candidate(monkeypatch, tmp_path):
     the one publishing 5432, and starting it would not put the configured
     database where the client is looking for it.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     elsewhere = _exited_pgvector()
     elsewhere[0]["Ports"] = [
@@ -381,7 +381,7 @@ def test_a_stopped_container_is_started_when_the_port_is_down(monkeypatch, tmp_p
     The container CLI is faked, so the assertion is about the decision and
     the command issued, not about the state of the machine.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, _exited_pgvector(), calls)
@@ -408,7 +408,7 @@ def test_a_running_database_is_left_alone(monkeypatch, tmp_path):
     Without this, the auto-start would fire on every command against a
     healthy database.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, _exited_pgvector(), calls)
@@ -428,7 +428,7 @@ def test_a_remote_database_is_never_touched(monkeypatch, tmp_path):
     A deployment whose database is on another host must not have a local
     container started for it, and must not be reported as a local failure.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, _exited_pgvector(), calls)
@@ -452,7 +452,7 @@ def test_a_missing_container_is_provisioned_with_a_restart_policy(monkeypatch, t
     flag is what stops the original defect from coming back after the next
     reboot, so it is asserted rather than assumed.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, [], calls)
@@ -478,7 +478,7 @@ def test_a_database_on_another_port_is_never_provisioned(monkeypatch, tmp_path):
     port that was chosen for something else. A database on any other port is
     one the operator runs.
     """
-    from cli import postgres
+    from verilore.cli import postgres
 
     calls = tmp_path / "calls.log"
     bindir = _fake_container_cli(tmp_path, [], calls)
@@ -592,14 +592,14 @@ def test_the_guide_does_not_replace_the_help_page():
 
 
 def test_the_installed_entry_point_prints_the_guide():
-    """`python -m cli.main` is what a developer without a console script runs.
+    """`python -m verilore.cli.main` is what a developer without a console script runs.
 
     The in-process test above would pass even if the module entry point were
     broken, and the module entry point is what the wheel's `verilore`
     script is a thin wrapper around.
     """
     done = subprocess.run(
-        [sys.executable, "-m", "cli.main"],
+        [sys.executable, "-m", "verilore.cli.main"],
         capture_output=True,
         text=True,
         timeout=120,

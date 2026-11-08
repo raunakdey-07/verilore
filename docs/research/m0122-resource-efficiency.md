@@ -151,9 +151,9 @@ root modules in wheel: ['mcp_server.py', 'memory_pack.py', 'verilore_sdk.py']
 
 | file | reason |
 |---|---|
-| `api/services/claim_embeddings.py` | removed the two large array parameters from `load_cached`; the fix |
-| `api/services/memory_relevance.py` | carried over `claim_terms` memoisation and the hoisted common-term difference, both unproven and labelled as such |
-| `api/services/memory_public.py`, `memory_query.py` | `vectorized` switch plumbing, default off, kept for the equivalence harness |
+| `verilore/api/services/claim_embeddings.py` | removed the two large array parameters from `load_cached`; the fix |
+| `verilore/api/services/memory_relevance.py` | carried over `claim_terms` memoisation and the hoisted common-term difference, both unproven and labelled as such |
+| `verilore/api/services/memory_public.py`, `memory_query.py` | `vectorized` switch plumbing, default off, kept for the equivalence harness |
 | `scripts/benchmark/ensure_postgres.sh` | reproducible database restore; the container died three times this session and a missing database was producing partial artifacts that read as product behaviour |
 | `scripts/benchmark/m0122_instrumented.py` | the single trustworthy measurement, with cache-hit assertion and raw samples |
 | `scripts/benchmark/m0122_plan_cliff.py` | plan comparison; retained because the negative result is the evidence that made the cause visible |

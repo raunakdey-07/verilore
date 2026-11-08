@@ -47,7 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from m0115_dataset import build_corpus, build_questions, dataset_hash  # noqa: E402
 
-from memory_pack import NO_RELEVANT_MEMORY, MemoryPack  # noqa: E402
+from verilore.pack import NO_RELEVANT_MEMORY, MemoryPack  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 VALID_AT = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -70,7 +70,7 @@ FAILURES = {
 
 
 def _migrate(sync_conn):
-    for path in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for path in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -101,11 +101,11 @@ async def select_with(conn, schema: str, question: str, *, lexical: bool) -> tup
     Returns (full_state, response). ``lexical=True`` skips the embedding call
     inside the relevance gate; everything else is the production path.
     """
-    from api.models.memory import MemoryRequest
-    from api.services import memory
-    from api.services.corpora import get_corpus_by_name
-    from api.services.memory_public import State, bounded_pack, project
-    from api.services.memory_query import interpret, select
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services import memory
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.memory_public import State, bounded_pack, project
+    from verilore.api.services.memory_query import interpret, select
 
     request = MemoryRequest(corpus=schema, query=question, valid_at=VALID_AT, budget=128000)
     async with _session(conn) as db:
@@ -120,7 +120,7 @@ async def select_with(conn, schema: str, question: str, *, lexical: bool) -> tup
     if lexical:
         result = select(full, request, intent, None, lexical=True)
     else:
-        from api.services.embedder import Embedder
+        from verilore.api.services.embedder import Embedder
 
         result = select(full, request, intent, Embedder())
     return full, bounded_pack(result, request.budget)
@@ -184,7 +184,7 @@ def classify(question, failed_code: str, lexical_ok: bool, semantic_ok: bool) ->
 
 
 async def run(url: str, repeats: int) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(_async_url(url), poolclass=NullPool)
     schema = "m115_" + uuid4().hex[:12]

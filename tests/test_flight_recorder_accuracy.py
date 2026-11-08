@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from api.services import query_log
+from verilore.api.services import query_log
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def rows(path):
 
 def _change(event="NEW", relationship="LIFECYCLE"):
     """A real `Change`, built through the model so a new required field shows up."""
-    from api.models.memory import Change
+    from verilore.api.models.memory import Change
 
     return Change(
         version_id="v1",
@@ -72,7 +72,7 @@ def _response(**overrides):
     response later shows up here as a missing argument instead of a silent
     `.get` that hides it.
     """
-    from api.models.memory import MemoryResponse
+    from verilore.api.models.memory import MemoryResponse
 
     base = {
         "query": "How large is the default install?",
@@ -90,7 +90,7 @@ def _response(**overrides):
 
 
 def _claim(identifier, text="a fact"):
-    from api.models.memory import Claim
+    from verilore.api.models.memory import Claim
 
     return Claim(
         id=identifier,
@@ -106,7 +106,7 @@ def _claim(identifier, text="a fact"):
 
 
 def _candidate(key, score, claim_id):
-    from api.models.memory import Candidate
+    from verilore.api.models.memory import Candidate
 
     return Candidate(
         key=key,
@@ -127,7 +127,7 @@ def _candidate(key, score, claim_id):
 
 def test_a_ranked_read_logs_its_own_outcome():
     """The case that already worked, so the change cannot have broken it."""
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(
         current_memories=[_claim("a" * 64)],
@@ -150,7 +150,7 @@ def test_a_history_read_logs_what_it_actually_returned():
     row has to say what came back anyway, or grading a history question files the
     verdict against a failed recall.
     """
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(
         current_memories=[_claim("b" * 64)],
@@ -165,7 +165,7 @@ def test_a_history_read_logs_what_it_actually_returned():
 
 def test_historical_claims_count_too():
     """A superseded claim retired today is the answer to a history question."""
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(historical_memories=[_claim("c" * 64)])
     assert _logged_outcome(response)["returned_claim_ids"] == ["c" * 64]
@@ -173,7 +173,7 @@ def test_historical_claims_count_too():
 
 def test_a_genuinely_empty_history_is_still_an_abstention():
     """Otherwise the fix inverts the meaning of the word."""
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response()
     logged = _logged_outcome(response)
@@ -183,7 +183,7 @@ def test_a_genuinely_empty_history_is_still_an_abstention():
 
 def test_a_history_that_returned_only_events_did_not_abstain():
     """`changes` is the result. A lifecycle row with no claims is still an answer."""
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(changes=[_change()])
     assert _logged_outcome(response)["match_status"] != "abstained"
@@ -193,7 +193,7 @@ def test_the_operation_name_is_the_one_the_caller_passed():
     """`execute()` used to hardcode `query`, so `history` was indistinguishable."""
     import inspect
 
-    from api.services.memory_public import execute
+    from verilore.api.services.memory_public import execute
 
     source = inspect.getsource(execute)
     assert 'Call("query"' not in source
@@ -212,7 +212,7 @@ def test_feedback_round_trips_on_a_history_row(log):
     pointing at it. A history row used to carry no claim ids and a status of
     `abstained`, so this is the exact case that could not be graded.
     """
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(current_memories=[_claim("d" * 64)])
     identifier = query_log.record(
@@ -234,7 +234,7 @@ def test_feedback_round_trips_on_a_history_row(log):
 
 def test_recall_and_history_get_distinct_rows_for_one_question(log):
     """Two weeks of grading cannot sort them apart if they share a query string."""
-    from api.services.memory_public import _logged_outcome
+    from verilore.api.services.memory_public import _logged_outcome
 
     response = _response(
         current_memories=[_claim("e" * 64)],
@@ -267,7 +267,7 @@ def test_the_suite_does_not_write_to_the_user_log():
     home directory in the message rather than with 32,738 invented rows in a file
     somebody meant to grade from.
     """
-    from api.services.query_log import default_path
+    from verilore.api.services.query_log import default_path
 
     configured = default_path()
     home_default = Path(os.path.expanduser("~/.verilore")) / "logs" / "queries.jsonl"
@@ -287,8 +287,8 @@ def test_a_product_call_from_an_ordinary_test_lands_in_the_scratch_file():
     through it exercises the same code the real product uses. The row must appear
     under pytest's `tmp_path` and the user's real log must not have grown.
     """
-    from api.services.memory_public import _logged_outcome
-    from api.services.query_log import default_path
+    from verilore.api.services.memory_public import _logged_outcome
+    from verilore.api.services.query_log import default_path
 
     before = _user_log_size()
     identifier = query_log.record(

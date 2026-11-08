@@ -46,7 +46,7 @@ VALID_AT = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _migrate(sync_conn):
-    for path in sorted((ROOT / "migrations/versions").glob("*.py")):
+    for path in sorted((ROOT / "verilore/migrations/versions").glob("*.py")):
         spec = importlib.util.spec_from_file_location(path.stem, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -68,8 +68,8 @@ def _session(conn):
 
 async def capture(conn, schema: str, questions) -> dict[str, str]:
     """Canonical JSON per question. This is the artefact being compared."""
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     out: dict[str, str] = {}
     for question in questions:
@@ -131,7 +131,7 @@ async def destroy_l2(conn, corpus_id: str) -> dict[str, int]:
 
 async def rebuild(conn, corpus_id: str) -> dict:
     """Rebuild L2 from the archive. The service does not commit, so this does."""
-    from api.services.rehydrate import rehydrate_corpus
+    from verilore.api.services.rehydrate import rehydrate_corpus
 
     async with _session(conn) as db:
         async with db.begin():
@@ -139,7 +139,7 @@ async def rebuild(conn, corpus_id: str) -> dict:
 
 
 async def run(url: str) -> dict:
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     engine = create_async_engine(_async_url(url), poolclass=NullPool)
     schema = "m011_" + uuid4().hex[:12]

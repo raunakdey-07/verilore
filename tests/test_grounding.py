@@ -28,7 +28,7 @@ pytestmark = pytest.mark.asyncio
 def _fresh_engine_per_test():
     import asyncio
 
-    from api.services.db import async_engine
+    from verilore.api.services.db import async_engine
 
     try:
         asyncio.run(async_engine.dispose())
@@ -75,14 +75,14 @@ async def _run_ask(question: str, monkeypatch, k: int = 3):
         captured["prompt"] = prompt
         return "STUB_ANSWER"
 
-    import api.routers.query as qmod
+    import verilore.api.routers.query as qmod
 
     monkeypatch.setattr(qmod.llm_service, "generate", fake_generate)
 
-    from api.models.schemas import AskRequest
-    from api.services.db import session_scope
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.models.schemas import AskRequest
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     request = AskRequest(question=question, k=k)
 
@@ -150,8 +150,8 @@ summary: "Unique grounding fixture"
 The zephyr quantum flux capacitor regulates wobble at 42 hertz.
 """
     # Ingest via sync engine URL-independent path (reuse lifecycle helpers)
-    from api.services.db import session_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.ingestion import IngestionService
 
     svc = IngestionService()
     async with session_scope() as db:
@@ -205,10 +205,10 @@ async def test_no_retrieval_short_circuits_llm(monkeypatch):
     ranks the whole corpus), so true empty retrieval requires filters that
     exclude everything.
     """
-    from api.models.schemas import AskRequest
-    from api.services.db import session_scope
-    from api.services.embedder import Embedder
-    from api.services.retrieval import RetrievalService
+    from verilore.api.models.schemas import AskRequest
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.embedder import Embedder
+    from verilore.api.services.retrieval import RetrievalService
 
     called = {"n": 0}
 
@@ -216,7 +216,7 @@ async def test_no_retrieval_short_circuits_llm(monkeypatch):
         called["n"] += 1
         return "SHOULD_NOT_BE_CALLED"
 
-    import api.routers.query as qmod
+    import verilore.api.routers.query as qmod
 
     monkeypatch.setattr(qmod.llm_service, "generate", fake_generate)
 
@@ -239,7 +239,7 @@ async def test_no_retrieval_short_circuits_llm(monkeypatch):
 
 async def test_empty_retrieval_answer_is_fixed_string():
     """The no-results path returns a deterministic abstention, not LLM output."""
-    from api.models.schemas import StructuredResponse
+    from verilore.api.models.schemas import StructuredResponse
 
     resp = StructuredResponse(
         answer="No relevant content found in the knowledge base.",

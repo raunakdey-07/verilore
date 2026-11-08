@@ -26,10 +26,10 @@ from pathlib import Path
 
 import pytest
 
-from api.services import memory as memory_service
-from api.services.memory import _active_claims, _hash
-from api.services.markdown_claims import claims_for
-from api.services.parser import (
+from verilore.api.services import memory as memory_service
+from verilore.api.services.memory import _active_claims, _hash
+from verilore.api.services.markdown_claims import claims_for
+from verilore.api.services.parser import (
     chunk_with_heading_paths,
     extract_sections_with_paths,
     read_table,
@@ -45,7 +45,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 async def _ingest_file(store, body: str, path: str) -> None:
     """Archive one document, the way `ingest-repo` does."""
-    from api.services import ingestion as ingestion_service
+    from verilore.api.services import ingestion as ingestion_service
 
     await ingestion_service.IngestionService(
         memory_enabled=True, require_embeddings=False
@@ -107,7 +107,7 @@ async def test_an_explicit_supersedes_that_names_nothing_is_refused(store):
     live claims about the same thing and the caller was told nothing.
     """
 
-    from api.services.remember import RememberError, remember
+    from verilore.api.services.remember import RememberError, remember
 
     before = len(await _active_claims(store.db, store.corpus, limit=None))
 
@@ -146,7 +146,7 @@ async def test_remember_with_a_file_still_supersedes(store, tmp_path):
     it was meant to retire standing.
     """
 
-    from api.services.remember import remember
+    from verilore.api.services.remember import remember
 
     await _ingest_file(
         store,
@@ -262,7 +262,7 @@ def _records(body: str) -> list[dict]:
 
 def test_the_sync_summary_counts_the_claims():
     """A sync report that counts only chunks cannot say the corpus learned nothing."""
-    from verilore_sdk import SyncSummary
+    from verilore.sdk import SyncSummary
 
     summary = SyncSummary(success=True, chunk_count=12, claim_count=34)
     assert summary.claim_count == 34
@@ -270,10 +270,10 @@ def test_the_sync_summary_counts_the_claims():
 
 def test_the_onnx_backend_puts_texts_of_a_length_together():
     """A batch is padded to its longest member, so a mixed batch is mostly padding."""
-    from api.services.embedder import ONNX_BATCH_SIZE
+    from verilore.api.services.embedder import ONNX_BATCH_SIZE
 
     assert ONNX_BATCH_SIZE >= 1
-    source = Path(ROOT, "api/services/embedder.py").read_text(encoding="utf-8")
+    source = Path(ROOT, "verilore/api/services/embedder.py").read_text(encoding="utf-8")
     # The length that matters is the token count, not the character count: a
     # key like `md:cv-embed-performance-baseline-bundle-sizes-21723ee4` is a
     # different number of tokens than it is characters.
@@ -291,8 +291,8 @@ def test_the_onnx_backend_puts_texts_of_a_length_together():
 async def test_a_history_read_that_found_something_does_not_say_abstained(store):
     """`abstained` is the one word on the wire that means nothing was found."""
 
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     await _ingest_file(
         store,
@@ -310,8 +310,8 @@ async def test_a_history_read_that_found_something_does_not_say_abstained(store)
 async def test_a_history_read_that_found_nothing_says_abstained(store):
     """The other half of the same truth."""
 
-    from api.models.memory import MemoryRequest
-    from api.services.memory_public import execute_in_session
+    from verilore.api.models.memory import MemoryRequest
+    from verilore.api.services.memory_public import execute_in_session
 
     response = await execute_in_session(
         store.db,

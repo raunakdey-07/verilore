@@ -19,7 +19,7 @@ Run it:
 
     pip install -e .
     export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-    python -m alembic -c migrations/alembic.ini upgrade head
+    python -m alembic -c verilore/migrations/alembic.ini upgrade head
     python examples/project-log/project_log.py
 
 Safe to run repeatedly: the same decisions produce the same memory.
@@ -38,7 +38,7 @@ from pathlib import Path
 # resolve. Deliberately the only path manipulation in the file.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from verilore_sdk import Verilore  # noqa: E402
+from verilore.sdk import Verilore  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 DECISIONS = HERE / "decisions.md"

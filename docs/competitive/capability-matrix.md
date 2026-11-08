@@ -49,7 +49,7 @@ remain valid; both are now behind. `graphiti-core` 0.30.2 is unchanged.
 
 Verilore archives the exact source bytes per version and requires a claim to
 be a literal substring of a chunk that was archived. The trigger enforcing that
-is in `migrations/versions/004_memory.py`.
+is in `verilore/migrations/versions/004_memory.py`.
 
 | System | Finding |
 |---|---|
@@ -71,7 +71,7 @@ reader can inspect that decision.
 
 | System | Finding |
 |---|---|
-| Verilore | Authored. Claims come from the document front matter, never from a model. `api/services/memory.py` rejects a claim whose text is not present in a supporting chunk. |
+| Verilore | Authored. Claims come from the document front matter, never from a model. `verilore/api/services/memory.py` rejects a claim whose text is not present in a supporting chunk. |
 | Graphiti | Extracted and then structured. Entities, facts, communities and optional developer-defined ontology. Entity summaries evolve as new episodes arrive. |
 | Mem0 (OSS) | Extracted by an LLM by default. The documented sequence is context lookup, LLM fact extraction, deduplication and embedding, then entity extraction. The path is additive: a new fact is stored without silently rewriting an old one, and `update` or `delete` is the explicit correction route. |
 | Letta / MemFS | Agent-authored. The agent edits its own files with ordinary file tools and commits. Structure is a directory tree the agent chooses, and the tree itself is in the system prompt. |

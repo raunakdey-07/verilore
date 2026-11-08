@@ -28,32 +28,32 @@ cut line is "owner decides" for every item.
 
 | ID | Requirement | Priority (report) | Verdict | Evidence | Belongs in | Cut line |
 |---|---|---|---|---|---|---|
-| MP-SE-01 | Persistent memory storage | P0 | **exists** | `api/routers/memory.py:63` (`POST /remember`), `api/services/memory.py` (claims/evidence versions); `tests/test_memory_core.py`, `tests/test_memory_http.py` | core | owner decides |
-| MP-SE-02 | Historical memory | P0 | **exists** | `api/routers/memory.py:150` (`POST /history`), `api/routers/memory.py:226` (`POST /as-of`); `tests/test_history_lineage.py` | core | owner decides |
-| MP-SE-03 | Evidence provenance | P0 | **exists** | `api/routers/memory.py:220` (`POST /evidence`); `memory_evidence` table, `MemoryResponse.evidence`; `tests/test_memory_multiple_evidence.py` | core | owner decides |
-| MP-SE-04 | Supersession handling | P0 | **exists** (limitations) | `api/services/remember.py:405` (`supersedes_claim_id`, `topic_key`); `tests/test_cross_document_supersession.py`, `test_adversarial_supersession.py`; conflict scan keyed (docs/STATUS.md §3) | core | owner decides |
-| MP-SE-05 | Conflict representation | P0 | **exists** | `MemoryResponse.conflicts`; `api/services/memory.py` conflict scan; `tests/test_memory_adjudication.py` | core | owner decides |
-| MP-SE-06 | Semantic retrieval | P1 | **exists** (quality limits) | `api/routers/query.py`, `api/routers/search.py`, `memory_query.py`; `tests/test_search_semantics.py` (18 backend skips); frozen M006.75 45/60 exact | core | owner decides |
-| MP-SE-07 | Bounded context packing | P1 | **exists** (chars, not tokens) | `api/routers/memory.py:244` (`POST /pack`), `memory_pack.py`, `ContextPack`; budget in Unicode characters (see §2.3) | core | owner decides |
-| MP-SE-08 | Python SDK | P0 | **exists** | `verilore_sdk.py` (53 KB); `tests/test_sdk.py`, `test_memory_client.py`; typed errors documented | core | owner decides |
-| MP-SE-09 | REST API | P0 | **exists** | `api/routers/*.py` (memory, corpora, ingest, context, query, search); `examples/MEMORY_API.md` | core | owner decides |
-| MP-SE-10 | Immutable snapshots | P2 | **exists** | `api/routers/memory.py:232` (`POST /snapshot`), `:238` (`POST /replay`); `memory_snapshot_seals`; `tests/test_memory_snapshot_seal.py` | core | owner decides |
-| MP-SE-11 | Change feed | P2 | **exists** | `api/routers/memory.py:156` (`GET /feed`); `FeedResponse`; pagination documented (no exactly-once guarantee) | core | owner decides |
+| MP-SE-01 | Persistent memory storage | P0 | **exists** | `verilore/api/routers/memory.py:63` (`POST /remember`), `verilore/api/services/memory.py` (claims/evidence versions); `tests/test_memory_core.py`, `tests/test_memory_http.py` | core | owner decides |
+| MP-SE-02 | Historical memory | P0 | **exists** | `verilore/api/routers/memory.py:150` (`POST /history`), `verilore/api/routers/memory.py:226` (`POST /as-of`); `tests/test_history_lineage.py` | core | owner decides |
+| MP-SE-03 | Evidence provenance | P0 | **exists** | `verilore/api/routers/memory.py:220` (`POST /evidence`); `memory_evidence` table, `MemoryResponse.evidence`; `tests/test_memory_multiple_evidence.py` | core | owner decides |
+| MP-SE-04 | Supersession handling | P0 | **exists** (limitations) | `verilore/api/services/remember.py:405` (`supersedes_claim_id`, `topic_key`); `tests/test_cross_document_supersession.py`, `test_adversarial_supersession.py`; conflict scan keyed (docs/STATUS.md §3) | core | owner decides |
+| MP-SE-05 | Conflict representation | P0 | **exists** | `MemoryResponse.conflicts`; `verilore/api/services/memory.py` conflict scan; `tests/test_memory_adjudication.py` | core | owner decides |
+| MP-SE-06 | Semantic retrieval | P1 | **exists** (quality limits) | `verilore/api/routers/query.py`, `verilore/api/routers/search.py`, `memory_query.py`; `tests/test_search_semantics.py` (18 backend skips); frozen M006.75 45/60 exact | core | owner decides |
+| MP-SE-07 | Bounded context packing | P1 | **exists** (chars, not tokens) | `verilore/api/routers/memory.py:244` (`POST /pack`), `verilore/pack.py`, `ContextPack`; budget in Unicode characters (see §2.3) | core | owner decides |
+| MP-SE-08 | Python SDK | P0 | **exists** | `verilore/sdk.py` (53 KB); `tests/test_sdk.py`, `test_memory_client.py`; typed errors documented | core | owner decides |
+| MP-SE-09 | REST API | P0 | **exists** | `verilore/api/routers/*.py` (memory, corpora, ingest, context, query, search); `examples/MEMORY_API.md` | core | owner decides |
+| MP-SE-10 | Immutable snapshots | P2 | **exists** | `verilore/api/routers/memory.py:232` (`POST /snapshot`), `:238` (`POST /replay`); `memory_snapshot_seals`; `tests/test_memory_snapshot_seal.py` | core | owner decides |
+| MP-SE-11 | Change feed | P2 | **exists** | `verilore/api/routers/memory.py:156` (`GET /feed`); `FeedResponse`; pagination documented (no exactly-once guarantee) | core | owner decides |
 | MP-SE-12 | Workspace/tenant authorization | P0 | **partial** | Credentials + RLS per corpus exist (`migrations/008`, `015`, `docs/security.md`); but no workspace/organisation entity; isolation test list needs verification (see §2.5) | core | owner decides |
 | MP-SE-13 | Brand/campaign isolation | P0 | **partial** | Primitives exist (corpus, path, state); no brand/campaign concept in core (by design — belongs in consumer adapter). See §2.4 | consumer adapter | owner decides |
-| MP-SE-14 | Structured marketing ingestion | P0 | **absent** (as native) | `POST /api/memory/remember` exists (`api/routers/memory.py:63`); no marketing event schema. Belongs in consumer adapter (`examples/marketing-campaign-memory`). | consumer adapter | owner decides |
-| MP-SE-15 | Stable source mapping | P0 | **partial** | `source_hash`, `path`, `version_id` in `memory_documents`/`memory_versions`; idempotency on identical `remember` (docs/STATUS.md). Update semantics via `supersedes_claim_id`/`topic_key` (api/services/remember.py:405,426-429). See §2.1 and gap #1 below. | core + adapter | owner decides |
+| MP-SE-14 | Structured marketing ingestion | P0 | **absent** (as native) | `POST /api/memory/remember` exists (`verilore/api/routers/memory.py:63`); no marketing event schema. Belongs in consumer adapter (`examples/marketing-campaign-memory`). | consumer adapter | owner decides |
+| MP-SE-15 | Stable source mapping | P0 | **partial** | `source_hash`, `path`, `version_id` in `memory_documents`/`memory_versions`; idempotency on identical `remember` (docs/STATUS.md). Update semantics via `supersedes_claim_id`/`topic_key` (verilore/api/services/remember.py:405,426-429). See §2.1 and gap #1 below. | core + adapter | owner decides |
 | MP-SE-16 | Idempotent event ingestion | P1 | **partial** | Idempotent `remember` returns same `version_id` with `changed=false` (docs/STATUS.md "Idempotency"). Outbox/retry not in core (consumer adapter). | consumer adapter | owner decides |
-| MP-SE-17 | Memory authority hierarchy | P0 | **partial** | `info_state` (approved/draft/superseded/rejected/…) written at api/services/memory.py:1168-1171; NOT used as a filter in current/pack/query (those filter only `v.event <> 'DELETED'` at api/services/memory.py:476,617,1372). **Probe c (run 41287500689, raw output issue #105 comment 6555683810) confirmed:** current and pack both return draft/rejected/superseded claims by default; query returns approved only. No consumer-side authority evaluation. | core (primitives) + adapter (evaluation) | owner decides |
+| MP-SE-17 | Memory authority hierarchy | P0 | **partial** | `info_state` (approved/draft/superseded/rejected/…) written at verilore/api/services/memory.py:1168-1171; NOT used as a filter in current/pack/query (those filter only `v.event <> 'DELETED'` at verilore/api/services/memory.py:476,617,1372). **Probe c (run 41287500689, raw output issue #105 comment 6555683810) confirmed:** current and pack both return draft/rejected/superseded claims by default; query returns approved only. No consumer-side authority evaluation. | core (primitives) + adapter (evaluation) | owner decides |
 | MP-SE-18 | Correction classification | P1 | **absent** (core) | No correction type in core. Report §9.2 proposes 5 categories. Belongs in consumer adapter. | consumer adapter | owner decides |
 | MP-SE-19 | Persistent human-feedback workflow | P1 | **partial** | `remember` + supersession + history exist; correction promotion policy not in core. | consumer adapter | owner decides |
 | MP-SE-20 | Approved/rejected example distinction | P1 | **partial** | `info_state` distinguishes approved/rejected/superseded but is NOT used to filter current/pack/query (see MP-SE-17 above). **Probe c (issue #105 comment 6555683810) confirmed:** rejected content appears in pack by default. | core (state) + adapter (query) | owner decides |
 | MP-SE-21 | Marketing-specific retrieval | P1 | **partial** | Exact document path match, doc state, corpus scope exist; no arbitrary key/value filter (see §2.4). | core candidate (general metadata filter) | owner decides |
-| MP-SE-22 | Token-aware context builder | P1 | **absent** | Pack budgets in Unicode characters, not tokens (`memory_pack.py`, `ContextPack.budget`; §2.3). **Probe f (issue #105 comment 6555683810) confirmed:** `budget_unit` = `unicode_characters` in live pack response. | core candidate | owner decides |
+| MP-SE-22 | Token-aware context builder | P1 | **absent** | Pack budgets in Unicode characters, not tokens (`verilore/pack.py`, `ContextPack.budget`; §2.3). **Probe f (issue #105 comment 6555683810) confirmed:** `budget_unit` = `unicode_characters` in live pack response. | core candidate | owner decides |
 | MP-SE-23 | Generation-service integration | P1 | **partial** | `POST /api/memory/pack`, `POST /api/context`, SDK; no generation orchestration in core (correct — belongs in adapter). | consumer adapter | owner decides |
 | MP-SE-24 | Generation provenance | P2 | **partial** | `memory_proof` / `memory_receipt` / `memory_pack` digests; `source_hash`, `version_id`, `observed_at` in responses. | core (primitives) + adapter (logging) | owner decides |
 | MP-SE-25 | Durable sync/retries | P1 | **absent** (core) | No outbox in core; report §7.4 recommends app-level outbox. Belongs in consumer adapter. | consumer adapter | owner decides |
-| MP-SE-26 | Graceful memory-service failure | P1 | **partial** | SDK raises `MemoryClientError` with code/message/status; default timeout 30s (`verilore_sdk.py:918`); `httpx.TimeoutException` → 504 (`verilore_sdk.py:334`); no automatic retry. **Probe g confirmed:** connection refused → `MemoryClientError` (transport_error, 503); no retry loop observed. | core (SDK) + adapter | owner decides |
+| MP-SE-26 | Graceful memory-service failure | P1 | **partial** | SDK raises `MemoryClientError` with code/message/status; default timeout 30s (`verilore/sdk.py:918`); `httpx.TimeoutException` → 504 (`verilore/sdk.py:334`); no automatic retry. **Probe g confirmed:** connection refused → `MemoryClientError` (transport_error, 503); no retry loop observed. | core (SDK) + adapter | owner decides |
 | MP-SE-27 | Marketing evaluation benchmark | P1 | **absent** | No marketing benchmark in core; agency_readiness benchmark is domain-neutral marketing-shaped fixtures (not a consumer benchmark). | Verilore example | owner decides |
 | MP-SE-28 | Multi-user isolation tests | P0 | **exists** (core) | `tests/test_tenant_isolation.py`, `test_tenant_connection_isolation.py`, `test_tenant_control_effectiveness.py`, `test_scope_forgery.py`, `test_credential_management.py`, `test_error_and_log_hygiene.py`. V1 comparison: 202 tests combined across all nine tenant-isolation files (not test_tenant_isolation.py alone), zero outcome differences between main run and rerun; issue #84. | core | owner decides |
 | MP-SE-29 | Retention and permanent erasure | P0 (real deploy) | **partial** | `DELETE /api/corpora/{name}` → `mindpalace_erase_corpus` (migration 009); append-only triggers remain; receipts/packs/backups survive (docs/security.md §data lifecycle). No TTL/purge. | core (primitives) + adapter (policy) | owner decides |
@@ -61,7 +61,7 @@ cut line is "owner decides" for every item.
 | MP-SE-31 | Persistent claim-vector index | P2 | **absent** | `memory_claim_embeddings` table exists (migration 007) but `recall` recomputes vectors (docs/STATUS.md §7). | core candidate | owner decides |
 | MP-SE-32 | Production monitoring | P2 | **partial** | `/health/ready`, `verilore posture`, `mp_scope_enforcement_status`, structured logs. No metrics endpoint. | core | owner decides |
 | MP-SE-33 | General application integration guide | P2 | **partial** | `examples/MEMORY_API.md`, `examples/marketing-campaign-memory/`; `docs/integration/` does not exist yet (being built in v0.10.0 I-series). | core (docs) | owner decides |
-| MP-SE-34 | Secure production deployment validation | P0 (real deploy) | **partial** | Server profile refuses unsafe role, scope-secret mismatch, enforcement off (`api/main.py` lifespan, docs/security.md). Validated by CI ("A server deployment refuses/starts"). | core | owner decides |
+| MP-SE-34 | Secure production deployment validation | P0 (real deploy) | **partial** | Server profile refuses unsafe role, scope-secret mismatch, enforcement off (`verilore/api/main.py` lifespan, docs/security.md). Validated by CI ("A server deployment refuses/starts"). | core | owner decides |
 
 ## 2. Answers to the specific questions
 
@@ -78,11 +78,11 @@ Probe a results (50,000-claim scale not needed; single-corpus, in-process SDK):
 
 What the code does:
 
-- `api/services/remember.py:405` `remember()` accepts `supersedes_claim_id` (names a claim this one replaces) and `topic_key` (supersedes whatever is active under that key). `api/services/remember.py:426-429`: "`supersedes_claim_id` names a claim in this corpus that the new one replaces, wherever it lives. `topic_key` supersedes whatever is currently active under that key instead, which is how `adr-002.md` retires `adr-001.md` without either file being edited."
-- `api/services/memory.py:1064`: event = "NEW" if not previous else "RESTORED" if previous["event"] == "DELETED" else "MODIFIED". Idempotent re-write of identical content returns skipped=True (`api/services/memory.py:1054-1055`).
-- Withdrawal: `api/services/memory.py:1187-1195` `record_deletion()` appends a `DELETED` tombstone version for a path (via sync file deletion per docs/security.md:726-728). `api/services/revalidate.py:145,147`: revalidate treats `event == "DELETED"` as not-current. `api/services/memory.py:476,617,1372`: current/pack/query filter `v.event <> 'DELETED'`.
+- `verilore/api/services/remember.py:405` `remember()` accepts `supersedes_claim_id` (names a claim this one replaces) and `topic_key` (supersedes whatever is active under that key). `verilore/api/services/remember.py:426-429`: "`supersedes_claim_id` names a claim in this corpus that the new one replaces, wherever it lives. `topic_key` supersedes whatever is currently active under that key instead, which is how `adr-002.md` retires `adr-001.md` without either file being edited."
+- `verilore/api/services/memory.py:1064`: event = "NEW" if not previous else "RESTORED" if previous["event"] == "DELETED" else "MODIFIED". Idempotent re-write of identical content returns skipped=True (`verilore/api/services/memory.py:1054-1055`).
+- Withdrawal: `verilore/api/services/memory.py:1187-1195` `record_deletion()` appends a `DELETED` tombstone version for a path (via sync file deletion per docs/security.md:726-728). `verilore/api/services/revalidate.py:145,147`: revalidate treats `event == "DELETED"` as not-current. `verilore/api/services/memory.py:476,617,1372`: current/pack/query filter `v.event <> 'DELETED'`.
 
-**Gap #1 (rewrite):** Retire via `supersedes_claim_id` / `topic_key` and via sync tombstone (`record_deletion`, `api/services/memory.py:1187`) exist.
+**Gap #1 (rewrite):** Retire via `supersedes_claim_id` / `topic_key` and via sync tombstone (`record_deletion`, `verilore/api/services/memory.py:1187`) exist.
 - **Probe a raw output (issue #105 comment 6555683810):** `remember` #3 (changed content, same key) → event=MODIFIED, version_id=V2. `current` returns V2 as CURRENT only; V1 appears in `historical_memories` as SUPERSEDED. So supersession via same-key re-remember DOES remove the prior claim from `current_memories` — but this requires supplying a replacement statement.
 - **Separately (probe c, issue #105 comment 6555683810):** `info_state` claims (approved/draft/rejected/superseded) are all returned by `current` and `pack` by default — there is no filtering by `info_state` in those paths. Only `query` returns approved claims.
 - **Retire WITHOUT replacement:** Observed per route (probe d/e v2, issue #105 comment 6556424199):
@@ -90,7 +90,7 @@ What the code does:
   - `POST /remember` with `topic_key` but no `statement` → validation error (requires statement)
   - `POST /revalidate` → does not retire claims
   - `DELETE /api/corpora/{name}` → erases whole corpus, not one claim
-  - `sync` after file deletion → adds DELETED tombstone (per docs/security.md); current/pack filter `v.event <> 'DELETED'` (api/services/memory.py:476,617,1372)
+  - `sync` after file deletion → adds DELETED tombstone (per docs/security.md); current/pack filter `v.event <> 'DELETED'` (verilore/api/services/memory.py:476,617,1372)
   **Conclusion: no route retires one claim without a replacement statement.** (Unverified for `sync` path: raw output from v2 probe was posted but sync behavior not directly observed in v2 run.)
 Priority: owner decides.
 
@@ -145,7 +145,7 @@ Verilore primitives:
 
 - **Corpus boundary** (RLS per corpus, migration 008/015): strongest isolation. Campaign A and Campaign B of the same brand are different corpora → no cross-read (enforced by `mindpalace_allowed_corpus` policy, `migrations/008_tenant_scoped_access.py:120-128`).
 - **Path filter**: `MemoryRequest.path` filters by exact document path match in `memory.py` (line 1250: `d.path = :path`); `memory_public.py:445` raises `document_not_found` unless a version path equals request.path. Not a prefix/directory match.
-- **Doc state** (`info_state`): written at `api/services/memory.py:1168-1171` but NOT used as a filter in `current`/`pack`/`query` (those filter only `v.event <> 'DELETED'` at `api/services/memory.py:476,617,1372`). **Probe c (issue #105 comment 6555683810) confirmed:** rejected content appears in pack by default (see #114 for the fix).
+- **Doc state** (`info_state`): written at `verilore/api/services/memory.py:1168-1171` but NOT used as a filter in `current`/`pack`/`query` (those filter only `v.event <> 'DELETED'` at `verilore/api/services/memory.py:476,617,1372`). **Probe c (issue #105 comment 6555683810) confirmed:** rejected content appears in pack by default (see #114 for the fix).
 
 **Concrete test of absence of leak:** V1 comparison (issue #84): 202 tests combined across all nine tenant-isolation files (not `test_tenant_isolation.py` alone), zero outcome differences between main run and rerun. `tests/test_scope_forgery.py` proves forged scopes return zero rows. `tests/test_corpus_isolation.py` proves cross-corpus reads return zero.
 
@@ -160,7 +160,7 @@ a conflict group keeps only its in-scope sides, and one side left becomes curren
 
 **Verified by probe f (run 41287500689, raw output issue #105 comment 6555683810).** Derived from code reading + live probe.
 
-- `ContextPack` budgets are in **Unicode characters**, not tokens (`memory_pack.py`, `ContextPack.budget`; `api/routers/memory.py:244` `POST /pack`). docs/STATUS.md §5: "pack construction is ~0.2 ms at every size measured".
+- `ContextPack` budgets are in **Unicode characters**, not tokens (`verilore/pack.py`, `ContextPack.budget`; `verilore/api/routers/memory.py:244` `POST /pack`). docs/STATUS.md §5: "pack construction is ~0.2 ms at every size measured".
 - The sealed benchmark's `token_budget` (1200) is in characters, per the pack's `budget_unit`.
 - **Probe f confirmed:** live pack response includes `"budget_unit": "unicode_characters"`. A `budget=1200` request returns at most 1200 Unicode characters of claim text, not 1200 tokens.
 
@@ -185,14 +185,14 @@ From tests: V1 comparison (issue #84): 202 tests combined across all nine tenant
 
 **Verified by probe g (run 41287500689).**
 
-Verified from code (`verilore_sdk.py`):
-- SDK raises `MemoryClientError` with `code`, `message`, `status_code` on HTTP errors (`verilore_sdk.py:139`).
-- Default timeout is 30s (`verilore_sdk.py:918`: `timeout: float = 30`), passed as `timeout=self._client.timeout` to httpx calls (`verilore_sdk.py:331,447,604,819`).
-- `httpx.TimeoutException` → `MemoryClientError("timeout", ..., 504)` (`verilore_sdk.py:334,450,607,822`).
-- `httpx.RequestError` → `MemoryClientError("transport_error", ..., 503)` (`verilore_sdk.py:336,451,606,821`).
+Verified from code (`verilore/sdk.py`):
+- SDK raises `MemoryClientError` with `code`, `message`, `status_code` on HTTP errors (`verilore/sdk.py:139`).
+- Default timeout is 30s (`verilore/sdk.py:918`: `timeout: float = 30`), passed as `timeout=self._client.timeout` to httpx calls (`verilore/sdk.py:331,447,604,819`).
+- `httpx.TimeoutException` → `MemoryClientError("timeout", ..., 504)` (`verilore/sdk.py:334,450,607,822`).
+- `httpx.RequestError` → `MemoryClientError("transport_error", ..., 503)` (`verilore/sdk.py:336,451,606,821`).
 
 **Verified by probe g (run 41287500689, raw output issue #105 comment 6555683810):**
-- Connection refused to port 9999 → `MemoryClientError` (transport_error, 503) raised immediately; no hang. SDK default timeout 30s confirmed from source (`verilore_sdk.py:918`).
+- Connection refused to port 9999 → `MemoryClientError` (transport_error, 503) raised immediately; no hang. SDK default timeout 30s confirmed from source (`verilore/sdk.py:918`).
 
 The SDK now defaults to `retries=2` and `backoff=0.2` alongside the 30 s timeout, so a brief blip is retried at most `retries + 1` times with exponential backoff (0.2 s, 0.4 s) before `MemoryClientError("timeout", ..., 504)` or `MemoryClientError("transport_error", ..., 503)`. `retries=0` turns retrying off. A retried `remember` is safe because identical arguments on the same day return `UNCHANGED`, so a retry never writes a second version.
 
@@ -202,7 +202,7 @@ Each line = one issue, one small PR. Cut line is "owner decides" for every item.
 
 | # | Gap | Priority | Cut line | Notes |
 |---|---|---|---|---|
-| 1 | Single-claim withdraw/tombstone endpoint (MP-SE-15) | P0 | owner decides | Consumer needs per-claim withdraw. **Probe a (issue #105 comment 6555683810):** `remember` with changed content (same key) creates MODIFIED version (V2); prior claim (V1) moves to `historical_memories` as SUPERSEDED — so same-key re-remember DOES retire. **Probe d/e v2 (issue #105 comment 6556424199):** no route found to retire a claim without supplying a replacement statement (tried `POST /remember` with `supersedes_claim_id`/`topic_key`, `POST /revalidate`, `DELETE` — none exist). `sync` after file deletion adds DELETED tombstone; code filters `v.event <> 'DELETED'` (api/services/memory.py:476,617,1372). See gap #1 in §2.1. |
+| 1 | Single-claim withdraw/tombstone endpoint (MP-SE-15) | P0 | owner decides | Consumer needs per-claim withdraw. **Probe a (issue #105 comment 6555683810):** `remember` with changed content (same key) creates MODIFIED version (V2); prior claim (V1) moves to `historical_memories` as SUPERSEDED — so same-key re-remember DOES retire. **Probe d/e v2 (issue #105 comment 6556424199):** no route found to retire a claim without supplying a replacement statement (tried `POST /remember` with `supersedes_claim_id`/`topic_key`, `POST /revalidate`, `DELETE` — none exist). `sync` after file deletion adds DELETED tombstone; code filters `v.event <> 'DELETED'` (verilore/api/services/memory.py:476,617,1372). See gap #1 in §2.1. |
 | 2 | Token-aware context budgets (MP-SE-22, MP-SE-07) | P1 | owner decides | Today characters; report assumes tokens. Cost: tokenizer dep. |
 | 3 | General metadata filters (MP-SE-21) | P1 | owner decides | Path prefix + state exist; arbitrary key/value not. Keep core domain-neutral. |
 | 4 | SDK timeouts + retry guidance (MP-SE-26) | P1 | owner decides | Default timeout 30s; no automatic retry found in SDK code. |

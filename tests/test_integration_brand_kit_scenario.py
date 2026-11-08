@@ -20,7 +20,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from verilore_sdk import MemoryClientError, Verilore
+from verilore.sdk import MemoryClientError, Verilore
 
 from live_server import live_server  # noqa: F401,F811  module-scoped server fixture
 from tenant_harness import RUNTIME_ROLE, apply_as_runtime, runtime_url

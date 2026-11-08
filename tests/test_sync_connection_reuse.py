@@ -55,8 +55,8 @@ def repo(tmp_path):
 
 async def _corpus(name: str) -> str:
     """A corpus of this test's own, and its id."""
-    from api.services.corpora import get_or_create_corpus
-    from api.services.db import session_scope
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.db import session_scope
 
     async with session_scope() as db:
         corpus = await get_or_create_corpus(db, name)
@@ -65,7 +65,7 @@ async def _corpus(name: str) -> str:
 
 async def _paths(corpus_id: str) -> list[str]:
     """The paths the corpus holds, in order."""
-    from api.services.db import session_scope
+    from verilore.api.services.db import session_scope
 
     async with session_scope() as db:
         rows = (
@@ -84,7 +84,7 @@ def _count_connections():
     is the count that matters. It is patched onto the instance and put back
     afterwards.
     """
-    from api.services.db import async_engine
+    from verilore.api.services.db import async_engine
 
     pool = async_engine.sync_engine.pool
     original = pool.connect
@@ -104,7 +104,7 @@ async def test_a_sync_opens_one_connection_for_the_whole_run(repo):
     The old code opened two per document. The count is asserted exactly,
     because "fewer" would not catch a regression back to one per document.
     """
-    from api.services.ingestion import IngestionService
+    from verilore.api.services.ingestion import IngestionService
 
     corpus_id = await _corpus("sync-reuse-connections")
     pool, original, opened = _count_connections()
@@ -125,8 +125,8 @@ async def test_a_failing_document_is_rolled_back_and_the_run_carries_on(repo, mo
     but left the half-written document behind would be worse than one that
     stopped.
     """
-    from api.services import memory as memory_service
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import memory as memory_service
+    from verilore.api.services.ingestion import IngestionService
 
     corpus_id = await _corpus("sync-reuse-rollback")
     original = memory_service.record_version
@@ -154,10 +154,10 @@ async def test_the_tenant_scope_is_written_for_every_document(repo, monkeypatch)
     see its own scope: a connection that carried a scope across documents would
     show the previous document's value here.
     """
-    from api.services import memory as memory_service
-    from api.services.authz import Principal
-    from api.services.db import principal_scope
-    from api.services.ingestion import IngestionService
+    from verilore.api.services import memory as memory_service
+    from verilore.api.services.authz import Principal
+    from verilore.api.services.db import principal_scope
+    from verilore.api.services.ingestion import IngestionService
 
     corpus_id = await _corpus("sync-reuse-scope")
     principals = [
@@ -226,10 +226,10 @@ async def test_the_benchmark_deletes_the_corpus_it_wrote_into(tmp_path, monkeypa
     The live corpus is the one a reader is using. The benchmark used to erase
     it outright under `--reset`.
     """
-    from api.services import ingestion as ingestion_service
-    from api.services.corpora import get_corpus_by_name
-    from api.services.db import session_scope
-    from api.services.repository import upsert_document
+    from verilore.api.services import ingestion as ingestion_service
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.db import session_scope
+    from verilore.api.services.repository import upsert_document
     from scripts.benchmark import ingest_profile
 
     live = "sync-reuse-live"

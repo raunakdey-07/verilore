@@ -13,7 +13,7 @@ A small documentation tree, ingested and queried.
 
 ```bash
 python - <<'EOF'
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 mp = Verilore("product-docs")
 summary = mp.sync("examples/docs")
@@ -33,7 +33,7 @@ Point Verilore at any directory containing Markdown.
 
 ```bash
 python - <<'EOF'
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 mp = Verilore("repo-memory")
 mp.sync("./")   # or any repository path with .md files
@@ -49,7 +49,7 @@ Papers and notes.
 
 ```bash
 python - <<'EOF'
-from verilore_sdk import Verilore
+from verilore import Verilore
 
 mp = Verilore("research")
 mp.sync("~/notes/papers")   # adjust to your path
@@ -69,7 +69,7 @@ Connect an MCP-compatible client (Claude Desktop, any MCP host):
   "mcpServers": {
     "verilore": {
       "command": "/path/to/your/venv/bin/python",
-      "args": ["-m", "mcp_server"],
+      "args": ["-m", "verilore.mcp_server"],
       "env": {
         "DATABASE_URL": "postgresql://mpadmin:secret@localhost:5432/verilore"
       }

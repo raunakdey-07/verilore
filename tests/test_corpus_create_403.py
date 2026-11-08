@@ -26,7 +26,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import ProgrammingError
 
-from api.services import authz
+from verilore.api.services import authz
 from test_tenant_isolation import world as _shared_world_fixture
 
 world = _shared_world_fixture
@@ -113,7 +113,7 @@ async def test_corpus_create_programming_error_propagates_500(world, monkeypatch
     async def mock_create_corpus(*args, **kwargs):
         raise error
 
-    with patch("api.services.corpora.create_corpus", side_effect=mock_create_corpus):
+    with patch("verilore.api.services.corpora.create_corpus", side_effect=mock_create_corpus):
         response = await world.client.post(
             "/api/corpora",
             json={"name": "should-still-fail", "description": "test"},

@@ -70,7 +70,7 @@ def repo(tmp_path):
 
 def _invoke(args, roots: str | None = None):
     """Run the CLI with a controlled ingest-root environment."""
-    from cli.main import app
+    from verilore.cli.main import app
 
     env = dict(os.environ)
     if roots is None:
@@ -89,9 +89,9 @@ def _claims(corpus: str) -> list[str]:
     """
     import asyncio
 
-    from api.services import memory
-    from api.services.corpora import get_corpus_by_name
-    from api.services.db import session_scope
+    from verilore.api.services import memory
+    from verilore.api.services.corpora import get_corpus_by_name
+    from verilore.api.services.db import session_scope
 
     async def read() -> list[str]:
         async with session_scope() as db:
