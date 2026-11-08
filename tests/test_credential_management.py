@@ -994,70 +994,70 @@ def test_no_request_serving_surface_reads_a_raw_file():
 
     #: Deliberate, each with a reason. Keyed by file and enclosing function.
     ALLOWED = {
-        ("cli/main.py", "_verify_response_bundle"): (
+        ("verilore/cli/main.py", "_verify_response_bundle"): (
             "documented exception: `verify` reads a receipt the caller produced, "
             "and bounding it would defeat offline verification on a foreign machine"
         ),
-        ("cli/main.py", "revalidate"): (
+        ("verilore/cli/main.py", "revalidate"): (
             "documented exception: `revalidate` reads a receipt or Memory Pack the "
             "caller produced, and bounding it would defeat revalidation of an "
             "artifact on a foreign machine"
         ),
-        ("cli/main.py", "ingest"): (
+        ("verilore/cli/main.py", "ingest"): (
             "reads the path `require_permitted` returned, on the line above"
         ),
-        ("cli/main.py", "eval_gate"): "benchmark baseline and report; operator-supplied",
-        ("cli/main.py", "eval_memory"): "write, not a read",
-        ("cli/main.py", "eval_retrieval"): (
+        ("verilore/cli/main.py", "eval_gate"): "benchmark baseline and report; operator-supplied",
+        ("verilore/cli/main.py", "eval_memory"): "write, not a read",
+        ("verilore/cli/main.py", "eval_retrieval"): (
             "benchmark definition file, operator-supplied; the same class as the "
             "documented `--baseline` exception, flagged for documentation not code"
         ),
-        ("api/runtime.py", "build_hash"): "the runtime hashes its own source files",
-        ("api/runtime.py", "_read_token"): "the runtime's own token file",
-        ("api/runtime.py", "_ensure_token"): "the runtime writes its own token, 0600",
-        ("api/services/query_log.py", "record"): (
+        ("verilore/api/runtime.py", "build_hash"): "the runtime hashes its own source files",
+        ("verilore/api/runtime.py", "_read_token"): "the runtime's own token file",
+        ("verilore/api/runtime.py", "_ensure_token"): "the runtime writes its own token, 0600",
+        ("verilore/api/services/query_log.py", "record"): (
             "appends to the operator's own query log, at the path "
             "VERILORE_QUERY_LOG names. Not caller input, and append-only, so "
             "there is nothing here for a request to disclose"
         ),
-        ("api/services/query_log.py", "feedback"): (
+        ("verilore/api/services/query_log.py", "feedback"): (
             "reads and appends the same operator-configured query log, to grade a "
             "call the caller names by query_id. Same reason as `record`"
         ),
-        ("cli/main.py", "feedback_summary"): (
+        ("verilore/cli/main.py", "feedback_summary"): (
             "reads the same operator-configured query log, with no path argument "
             "on the command line at all"
         ),
-        ("api/services/embedder.py", "physical_cores"): (
+        ("verilore/api/services/embedder.py", "physical_cores"): (
             "reads /proc/cpuinfo, which is the machine's own processor list and "
             "not caller input. It decides how many threads the ONNX session uses"
         ),
-        ("cli/postgres.py", "_read_proc_version"): (
+        ("verilore/cli/postgres.py", "_read_proc_version"): (
             "reads /proc/version to detect WSL2; machine's own kernel string, " "not caller input"
         ),
-        ("cli/postgres.py", "_read_os_release_text"): (
+        ("verilore/cli/postgres.py", "_read_os_release_text"): (
             "reads /etc/os-release to detect the Linux distribution; machine's "
             "own configuration, not caller input"
         ),
-        ("verilore_sdk.py", "_load"): (
+        ("verilore/sdk.py", "_load"): (
             "reads a caller-supplied receipt or Memory Pack artifact, like the "
             "CLI revalidate exception"
         ),
     }
     #: Files that are not request-serving paths at all.
     OFF_SURFACE = {
-        "api/services/memory_query_benchmark.py",
-        "api/services/memory_benchmark.py",
-        "api/services/memory_adjudication.py",
-        "api/services/memory_decision_dataset.py",
-        "api/services/evaluation.py",
-        "api/services/source_formats.py",
+        "verilore/api/services/memory_query_benchmark.py",
+        "verilore/api/services/memory_benchmark.py",
+        "verilore/api/services/memory_adjudication.py",
+        "verilore/api/services/memory_decision_dataset.py",
+        "verilore/api/services/evaluation.py",
+        "verilore/api/services/source_formats.py",
     }
     #: These resolve the caller's path before reading it, and have tests that say so.
     RESOLVER_CALLERS = {
-        "api/services/remember.py",
-        "api/services/ingestion.py",
-        "mcp_server.py",
+        "verilore/api/services/remember.py",
+        "verilore/api/services/ingestion.py",
+        "verilore/mcp_server.py",
     }
 
     pattern = re.compile(r"\bopen\s*\(|\.read_text\s*\(|\.read_bytes\s*\(")
@@ -1081,10 +1081,10 @@ def test_no_request_serving_surface_reads_a_raw_file():
 
     surfaces = [
         p
-        for p in list(Path("cli").rglob("*.py")) + list(Path("api").rglob("*.py"))
+        for p in list(Path("verilore/cli").rglob("*.py")) + list(Path("verilore/api").rglob("*.py"))
         if "__pycache__" not in str(p)
     ]
-    surfaces.append(Path("verilore_sdk.py"))
+    surfaces.append(Path("verilore/sdk.py"))
 
     offenders = []
     for path in surfaces:

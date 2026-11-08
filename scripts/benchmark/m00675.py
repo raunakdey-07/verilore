@@ -16,12 +16,12 @@ FROZEN = {
     "policy": ROOT / "eval/memory_query_policy.json",
 }
 SOURCES = (
-    ROOT / "api/services/memory_relevance.py",
-    ROOT / "api/services/memory_query.py",
-    ROOT / "api/services/memory_public.py",
-    ROOT / "api/services/memory_query_benchmark.py",
-    ROOT / "api/services/memory_benchmark.py",
-    ROOT / "api/models/memory.py",
+    ROOT / "verilore/api/services/memory_relevance.py",
+    ROOT / "verilore/api/services/memory_query.py",
+    ROOT / "verilore/api/services/memory_public.py",
+    ROOT / "verilore/api/services/memory_query_benchmark.py",
+    ROOT / "verilore/api/services/memory_benchmark.py",
+    ROOT / "verilore/api/models/memory.py",
 )
 # The held-out artifact is frozen at the M006.75 schema boundary. Later
 # post-release migrations are deliberately excluded so infrastructure changes do
