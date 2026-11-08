@@ -28,6 +28,16 @@ shims for v0.11 (they emit a `DeprecationWarning` and are removed in v0.12).
 `script_location = %(here)s` in `alembic.ini` is unchanged). Migration
 revision ids do not change.
 
+### Fixed
+
+**Stable claim keys (#160).** Inserting, moving or deleting a list item no longer
+rewrites the history of the items around it. On re-ingest, extracted claims are
+matched against the document's previous version: unchanged text keeps its key,
+an item edited in place keeps its key and supersedes its old text, and a new item
+gets a key no version of the document has used. Authored `claims:` blocks and
+statements written with `remember` are unaffected. Documents already in an
+archive keep their keys; alignment applies from their next ingest.
+
 ## [v0.10.0] - 2026-11-07
 
 ### Renamed
