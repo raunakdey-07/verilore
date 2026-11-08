@@ -61,63 +61,18 @@ def main() -> int:
     sys.path.insert(0, os.environ["SRC"])
     from sqlalchemy import text
 
-    # The fixture must be written by the code under test. The migrated layout
-    # lives under verilore.api.services; older trees have api.services at the
-    # root. Check which layout the source tree actually has so an editable
-    # install of another layout (on sys.path via site-packages) doesn't shadow
-    # the code we mean to exercise.
-    use_verilore_layout = os.path.isdir(os.path.join(os.environ["SRC"], "verilore"))
+    from verilore.api.services import db as dbm
+    from verilore.api.services import authz
 
-    if use_verilore_layout:
-        from verilore.api.services import db as dbm
-
-        # v0.9.0 predates the principal model: it has neither
-        # `verilore.api.services.authz` nor `db.principal_scope` /
-        # `db.admin_session_scope`.
-        try:
-            from verilore.api.services import authz
-
-            ADMIN = authz.ADMIN_PRINCIPAL
-        except ImportError:
-            ADMIN = None
-    else:
-        from api.services import db as dbm
-
-        try:
-            from api.services import authz
-
-            ADMIN = authz.ADMIN_PRINCIPAL
-        except ImportError:
-            ADMIN = None
+    ADMIN = authz.ADMIN_PRINCIPAL
 
     def admin():
-        return dbm.principal_scope(ADMIN) if ADMIN is not None else contextlib.nullcontext()
+        return dbm.principal_scope(ADMIN)
 
-    scope = dbm.admin_session_scope if hasattr(dbm, "admin_session_scope") else dbm.session_scope
+    scope = dbm.admin_session_scope
 
-    if use_verilore_layout:
-        from verilore.api.services.corpora import get_or_create_corpus
-
-        # v0.9.0 is the first release with a dedicated
-        # `verilore.api.services.remember` module. v0.8.0 has the same schema --
-        # head 007, the same memory tables -- but its write path still lives in
-        # `verilore.api.services.memory`. Without this fallback the v0.8.0
-        # upgrade cannot be exercised at all.
-        try:
-            from verilore.api.services.remember import remember
-        except ImportError:
-            from verilore.api.services.memory import remember
-    else:
-        from api.services.corpora import get_or_create_corpus
-
-        # v0.9.0 is the first release with a dedicated `api.services.remember`
-        # module. v0.8.0 has the same schema -- head 007, the same memory tables
-        # -- but its write path still lives in `api.services.memory`. Without
-        # this fallback the v0.8.0 upgrade cannot be exercised at all.
-        try:
-            from api.services.remember import remember
-        except ImportError:
-            from api.services.memory import remember
+    from verilore.api.services.corpora import get_or_create_corpus
+    from verilore.api.services.remember import remember
 
     async def build():
         async with scope() as db:
@@ -173,20 +128,14 @@ def main() -> int:
 
         async with scope() as db:
             with admin():
-                try:
-                    from verilore.api.services.memory import snapshot as take_snapshot
-                except ImportError:
-                    from api.services.memory import snapshot as take_snapshot
+                from verilore.api.services.memory import snapshot as take_snapshot
 
                 # NOT corpus_id_for_name("default"): the default corpus has its
                 # own literal id from migration 002, 63 characters long, while
                 # corpus_id_for_name hashes the NAME. Using the hash points at a
                 # corpus that does not exist, and the fixture fails on a detail
                 # that has nothing to do with upgrades.
-                try:
-                    from verilore.api.services.corpora import DEFAULT_CORPUS_ID
-                except ImportError:
-                    from api.services.corpora import DEFAULT_CORPUS_ID
+                from verilore.api.services.corpora import DEFAULT_CORPUS_ID
 
                 snap = await take_snapshot(db, corpus_id=DEFAULT_CORPUS_ID)
                 await db.commit()
@@ -201,11 +150,7 @@ def main() -> int:
     else:
         writes, snap = asyncio.run(build())
 
-    try:
-        from mindpalace_sdk import MindPalace
-    except ImportError:
-        # v0.9.0's SDK is mindpalace_sdk; this branch's is verilore_sdk.
-        from verilore.sdk import Verilore as MindPalace
+    from verilore.sdk import Verilore as MindPalace
 
     mp = MindPalace(name="default")
     question = "What datastore does production use?"

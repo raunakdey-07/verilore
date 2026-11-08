@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upgrade safety: build a v0.9.0 archive, upgrade it to head, prove nothing moved.
+# Upgrade safety: build a previous-release archive, upgrade it to head, prove nothing moved.
 #
 #   DATABASE_URL=postgresql://... ./scripts/release/upgrade_safety.sh
 #
@@ -12,25 +12,30 @@
 #
 # ## What it does, in order
 #
-#   1. check out v0.9.0 into a temporary tree
-#   2. migrate a FRESH database to v0.9.0's head, which is 007
-#   3. populate it through v0.9.0's own `remember`, including the default corpus,
-#      a superseded claim, a conflict and a snapshot
-#   4. export a receipt and a Memory Pack with v0.9.0, and record them
-#   5. migrate the same database to this branch's head
-#   6. assert: the old receipt still verifies offline, claim identities did not
+#   1. check out BASE_TAG (default v0.10.0) into a temporary tree
+#   2. install that release into its own venv (never the editable HEAD install)
+#   3. migrate a FRESH database to the base release's head, derived from the base
+#      tree's own migration files
+#   4. populate it through the base release's own `remember`, including the default
+#      corpus, a superseded claim, a conflict and a snapshot
+#   5. export a receipt and a Memory Pack with the base release, and record them
+#   6. migrate the same database to this branch's head
+#   7. assert: the old receipt still verifies offline, claim identities did not
 #      move, no claim was lost, and the pack is byte-identical with the clock pinned
-#   7. downgrade back to 007 and up again, and assert the same things
+#   8. downgrade back to the base head and up again, and assert the same things
 #
-# Step 3 uses the OLD source tree deliberately. An upgrade test that builds its
+# Step 4 uses the BASE source tree deliberately. An upgrade test that builds its
 # fixture with the NEW code proves nothing: it reads back its own assumptions.
+# The base release builds its own fixture with its own code in its own venv --
+# that is what this job is meant to prove.
 
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY="${PYTHON:-python}"
 WORK="$(mktemp -d)"
-OLD="$WORK/v0.9.0"
+BASE_TAG="${UPGRADE_BASE_TAG:-v0.10.0}"
+OLD="$WORK/$BASE_TAG"
 BEFORE="$WORK/before"
 AFTER="$WORK/after"
 
@@ -45,8 +50,7 @@ trap cleanup EXIT
 say() { printf '  %s\n' "$*"; }
 
 # alembic.ini for a tree: old releases keep migrations/alembic.ini, the new
-# layout lives at verilore/migrations/alembic.ini. Pick by what exists so the
-# same script works against the v0.9.0 tree and against this branch's head.
+# layout lives at verilore/migrations/alembic.ini. Pick by what exists.
 alembic_ini_for() {
   local tree="$1"
   if [ -f "$tree/verilore/migrations/alembic.ini" ]; then
@@ -59,26 +63,45 @@ alembic_ini_for() {
   fi
 }
 
-OLD_INI="$(alembic_ini_for "$REPO")"
+NEW_INI="$(alembic_ini_for "$REPO")"
 
 [ -n "${DATABASE_URL:-}" ] || { echo "::error::DATABASE_URL is required"; exit 1; }
 
-# 1. The old release, from its tag. Not from a branch: the tag is what users
+# 1. The previous release, from its tag. Not from a branch: the tag is what users
 #    installed, and a branch would drift.
-say "checking out v0.9.0"
-git -C "$REPO" worktree add --detach --force "$OLD" v0.9.0 >/dev/null 2>&1 \
-  || { echo "::error::could not check out v0.9.0"; exit 1; }
+say "checking out $BASE_TAG"
+git -C "$REPO" worktree add --detach --force "$OLD" "$BASE_TAG" >/dev/null 2>&1 \
+  || { echo "::error::could not check out $BASE_TAG"; exit 1; }
+
 OLD_INI="$(alembic_ini_for "$OLD")"
 
-# 2. v0.9.0's schema. Its head is 007; the branch's is 010.
-say "migrating the fresh database to v0.9.0's head (007)"
-( cd "$OLD" && DATABASE_URL="$DATABASE_URL" PYTHONPATH="$OLD" \
-    "$PY" -m alembic -c "$OLD_INI" upgrade head >/dev/null )
+# The base release builds and runs in its own venv, so the editable HEAD install
+# on this branch cannot shadow its imports (for example verilore.api.services
+# resolving to HEAD code that references columns the base schema lacks).
+BASE_VENV="$WORK/base-venv"
+BASE_PY="$BASE_VENV/bin/python"
+say "installing $BASE_TAG into its own venv ($OLD[cli])"
+"$PY" -m venv "$BASE_VENV" >/dev/null
+"$BASE_PY" -m pip install -q "$OLD[cli]"
 
-# 3 + 4. Write through the OLD code, and export the proof with the OLD code.
-say "populating through v0.9.0's own write path and exporting its proof"
-SRC="$OLD" "$PY" "$REPO/scripts/release/make_upgrade_fixture.py" \
-  --out "$BEFORE" --label v0.9.0
+# The base head revision, derived from the base tree's own migration files --
+# never hard-coded, so the job survives the next tag.
+BASE_HEAD="$("$BASE_PY" -m alembic -c "$OLD_INI" heads 2>/dev/null | awk '{print $1}')"
+if [ -z "$BASE_HEAD" ]; then
+  echo "::error::could not determine the base migration head from $OLD_INI" >&2
+  exit 1
+fi
+say "base migration head: $BASE_HEAD"
+
+# 2. The base release's schema. Migrate a fresh database to the base head.
+say "migrating the fresh database to $BASE_TAG's head ($BASE_HEAD)"
+( cd "$OLD" && DATABASE_URL="$DATABASE_URL" PYTHONPATH="$OLD" \
+    "$BASE_PY" -m alembic -c "$OLD_INI" upgrade "$BASE_HEAD" >/dev/null )
+
+# 3 + 4. Write through the BASE code, and export the proof with the BASE code.
+say "populating through $BASE_TAG's own write path and exporting its proof"
+SRC="$OLD" "$BASE_PY" "$OLD/scripts/release/make_upgrade_fixture.py" \
+  --out "$BEFORE" --label "$BASE_TAG"
 
 # 5. The upgrade, with this branch.
 say "upgrading to this branch's head"
@@ -108,7 +131,7 @@ if ! psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -v runtime_password=upgrade-safety-role-password \
   -f "$REPO/scripts/db/runtime_roles.sql"; then
   echo "::error::could not provision the least-privileged runtime role."
-  echo "::error::Every assertion after this point would run against a database"
+  echo "::error::Every assertion after it would run against a database"
   echo "::error::with no row-level security, so this is fatal rather than skipped."
   exit 1
 fi
@@ -182,8 +205,8 @@ SRC="$REPO" "$PY" "$REPO/scripts/release/make_upgrade_fixture.py" \
 # 7. The round trip. A downgrade that loses memory is a release blocker; a
 #    downgrade that destroys tenants is a documented consequence, not a failure,
 #    so the assertions after it are about memory, not about principals.
-say "downgrading to 007 and back up again"
-"$PY" -m alembic -c "$NEW_INI" downgrade 007_claim_embedding_cache >/dev/null
+say "downgrading to $BASE_HEAD and back up again"
+"$PY" -m alembic -c "$NEW_INI" downgrade "$BASE_HEAD" >/dev/null
 "$PY" -m alembic -c "$NEW_INI" upgrade head >/dev/null
 
 ROUND="$WORK/roundtrip"
