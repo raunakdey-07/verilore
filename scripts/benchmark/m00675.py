@@ -66,10 +66,23 @@ def source_fingerprint():
     ).hexdigest()
 
 
+def _recorded_name(path: Path) -> str:
+    """The path as it was when eval/m00675 was frozen.
+
+    v0.11 moved migrations/ under verilore/. The file bytes are hashed as they are
+    today, so any content change still breaks this digest; only the label is pinned
+    to the frozen layout.
+    """
+    name = path.relative_to(ROOT).as_posix()
+    if name.startswith("verilore/migrations/"):
+        return name.removeprefix("verilore/")
+    return name
+
+
 def fixture_hash() -> str:
     digest = hashlib.sha256()
     for path in FIXTURE_FILES:
-        digest.update(str(path.relative_to(ROOT)).encode("utf-8"))
+        digest.update(_recorded_name(path).encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
