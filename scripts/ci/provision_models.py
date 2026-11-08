@@ -49,7 +49,8 @@ from pathlib import Path
 #: Model identifier -> pinned commit sha.
 #:
 #: `EMBEDDING_MODEL` and `RERANKER_MODEL` are the application's own overrides, kept
-#: in step with `verilore/api/services/embedder.py` and `verilore/api/services/reranker.py`. A pinned
+#: in step with `verilore/api/services/embedder.py` and
+#: `verilore/api/services/reranker.py`. A pinned
 #: revision only means anything if the identifier still matches the one the
 #: application asks for, so `--verify` compares them.
 PINS: dict[str, str] = {

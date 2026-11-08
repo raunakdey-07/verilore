@@ -112,7 +112,9 @@ async def test_a_runtime_credential_cannot_read_another_organisation(world, monk
     from verilore.api.runtime import _dispatch, _Runtime
 
     monkeypatch.setenv("VERILORE_RUNTIME_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
-    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr(
+        "verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal
+    )
 
     from verilore.api.services import authz
 
@@ -268,11 +270,13 @@ async def test_mcp_resolves_its_credential_as_a_bearer_header(world, monkeypatch
     passing the secret alone failed the scheme check and every MCP tool answered
     401 -- including with a correctly configured credential.
     """
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     monkeypatch.setenv("VERILORE_RUNTIME_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
-    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr(
+        "verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal
+    )
 
     principal = await mcp_server._resolved_principal()
     assert principal.unrestricted is False
@@ -280,12 +284,14 @@ async def test_mcp_resolves_its_credential_as_a_bearer_header(world, monkeypatch
 
 
 async def test_mcp_refuses_every_tool_without_a_credential_in_required_mode(world, monkeypatch):
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
     from verilore.api.services import authz
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     monkeypatch.delenv("VERILORE_MCP_CREDENTIAL", raising=False)
-    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr(
+        "verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal
+    )
     with pytest.raises(authz.AuthorizationError):
         await mcp_server._resolved_principal()
 
@@ -299,7 +305,7 @@ async def test_mcp_hands_its_credential_to_the_clients_it_builds(world, monkeypa
     were correctly scoped. Asserted on the constructed client, which is where the
     credential has to arrive.
     """
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     monkeypatch.setenv("VERILORE_AUTH_MODE", "required")
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", world.credentials["alpha-creator"]["secret"])
@@ -734,7 +740,7 @@ def test_the_mcp_credential_is_read_from_the_environment_not_a_tool_argument():
     """
     import inspect
 
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     source = inspect.getsource(mcp_server)
     assert "VERILORE_MCP_CREDENTIAL" in source
@@ -1222,7 +1228,9 @@ async def test_a_read_only_credential_is_refused_on_mcp_and_the_runtime_socket(
     # way the existing MCP identity tests do it, so the tool sees a real
     # read_only credential rather than a hand-built principal. A hand-built
     # principal has no secret, and `_client()` needs one to build the SDK client.
-    monkeypatch.setattr("verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal)
+    monkeypatch.setattr(
+        "verilore.api.services.db.AsyncSessionLocal", world.db_module.AsyncSessionLocal
+    )
     monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", secret)
 
     # --- MCP --------------------------------------------------------------
@@ -1462,7 +1470,7 @@ issued = asyncio.run(issue())
 os.environ["VERILORE_AUTH_MODE"] = "required"
 os.environ["VERILORE_MCP_CREDENTIAL"] = issued["secret"]
 
-import verilore.mcp_server
+import verilore.mcp_server as mcp_server
 
 mcp_server._clients.clear()
 

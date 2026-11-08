@@ -205,7 +205,13 @@ def main() -> int:
 
         # 6. Local mode as a superuser, with no credential at all.
         code, output = run(
-            [sys.executable, "-m", "verilore.cli.main", "recall", "What datastore does production use?"],
+            [
+                sys.executable,
+                "-m",
+                "verilore.cli.main",
+                "recall",
+                "What datastore does production use?",
+            ],
             env={"VERILORE_RUNTIME": "0", "VERILORE_AUTH_MODE": "off"},
         )
         check("local mode as superuser, no credential", code == 0, output.strip()[:90])

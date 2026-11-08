@@ -200,7 +200,9 @@ def test_metrics_on_ranked_results():
 async def test_hybrid_rrf_scores_descending(embedder):
     """Regression: RRF mode previously returned keyword_rank integers as scores,
     producing non-descending output. Scores must now be descending RRF values."""
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "ensemble weighted averaging"
         results = await svc.search(embedder.embed_single(q), query_text=q, k=10, hybrid=True)
@@ -213,7 +215,9 @@ async def test_hybrid_rrf_scores_descending(embedder):
 
 @requires_db
 async def test_vector_scores_descending_and_bounded(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         results = await svc.search(embedder.embed_single("mel spectrogram"), k=5)
     scores = [r.score for r in results]
@@ -227,7 +231,9 @@ async def test_vector_scores_descending_and_bounded(embedder):
     reason="reranking needs the [torch] extra; the default install does not have it",
 )
 async def test_rerank_scores_are_logits_can_be_negative(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "feature leakage"
         results = await svc.search(embedder.embed_single(q), query_text=q, k=3, rerank=True)
@@ -239,7 +245,9 @@ async def test_rerank_scores_are_logits_can_be_negative(embedder):
 
 @requires_db
 async def test_document_type_filter_excludes_other_types(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "ensemble weighted averaging bird"
         results = await svc.search(
@@ -275,7 +283,9 @@ async def test_document_type_filter_excludes_other_types(embedder):
 
 @requires_db
 async def test_tag_filter_excludes_nonmatching(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "portfolio tracking"
         results = await svc.search(
@@ -292,7 +302,9 @@ async def test_tag_filter_excludes_nonmatching(embedder):
 
 @requires_db
 async def test_k_bounds_result_count(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "project"
         for k in (1, 3, 7):
@@ -302,7 +314,9 @@ async def test_k_bounds_result_count(embedder):
 
 @requires_db
 async def test_source_metadata_propagates(embedder):
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         results = await svc.search(embedder.embed_single("bird classification"), k=3)
     for r in results:
@@ -314,7 +328,9 @@ async def test_source_metadata_propagates(embedder):
 @requires_db
 async def test_deterministic_ordering_across_runs(embedder):
     """Same query must produce identical ordering on repeated runs."""
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         q = "ensemble weighted averaging"
         runs = []
@@ -328,7 +344,9 @@ async def test_deterministic_ordering_across_runs(embedder):
 async def test_empty_query_returns_without_crash(embedder):
     """Empty/whitespace queries must not crash; behavior is defined as
     'return whatever the SQL ranks first' rather than an error."""
-    async with __import__("verilore.api.services.db", fromlist=["session_scope"]).session_scope() as db:
+    async with __import__(
+        "verilore.api.services.db", fromlist=["session_scope"]
+    ).session_scope() as db:
         svc = RetrievalService(db)
         for q in ("", "   "):
             results = await svc.search(embedder.embed_single(q), query_text=q, k=3)

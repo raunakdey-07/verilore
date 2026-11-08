@@ -159,8 +159,7 @@ def test_wheel_ships_only_the_verilore_namespace(tmp_path):
         top_level = {
             name.split("/")[0]
             for name in archive.namelist()
-            if not name.split("/")[0].endswith(".dist-info")
-            and "__pycache__" not in name
+            if not name.split("/")[0].endswith(".dist-info") and "__pycache__" not in name
         }
     # dist-info directories are excluded above; the first path component of every
     # remaining file is the namespace it ships under.

@@ -158,10 +158,10 @@ def test_the_existing_sdk_error_still_catches_everything():
     import verilore.sdk
 
     assert issubclass(VeriloreError, Exception)
-    assert hasattr(verilore_sdk, "MemoryClientError")
+    assert hasattr(verilore.sdk, "MemoryClientError")
     # The old base is unrelated to the taxonomy, and the SDK adapter must raise
     # it for remote failures. What must not happen is the taxonomy shadowing it.
-    assert verilore_sdk.MemoryClientError is not VeriloreError
+    assert verilore.sdk.MemoryClientError is not VeriloreError
 
 
 def test_status_codes_agree_with_the_classes():

@@ -46,7 +46,7 @@ async def run() -> int:
     try:
         import verilore.sdk
 
-        missing = [s for s in REQUIRED_SDK_SYMBOLS if not hasattr(verilore_sdk, s)]
+        missing = [s for s in REQUIRED_SDK_SYMBOLS if not hasattr(verilore.sdk, s)]
         checks.append(
             Check(
                 "the public SDK imports and exposes its documented symbols",

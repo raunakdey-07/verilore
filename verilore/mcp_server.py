@@ -553,7 +553,11 @@ async def memory_revalidate(
     """
     from verilore.api.services.authz import AuthorizationError, require_corpus
     from verilore.api.services.db import current_principal, principal_scope, session_scope
-    from verilore.api.services.revalidate import revalidate_claims, revalidate_pack, revalidate_receipt
+    from verilore.api.services.revalidate import (
+        revalidate_claims,
+        revalidate_pack,
+        revalidate_receipt,
+    )
 
     receipt_data = _load_artifact(receipt)
     pack_data = _load_artifact(pack)

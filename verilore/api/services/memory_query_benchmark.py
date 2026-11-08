@@ -1002,7 +1002,10 @@ async def run_reliability(mode, policy_file=None):
                             return scores, interpreted, work
 
                         before = cache.counts.copy()
-                        with patch("verilore.api.services.memory_relevance.relevance", side_effect=observe):
+                        with patch(
+                            "verilore.api.services.memory_relevance.relevance",
+                            side_effect=observe,
+                        ):
                             selected = select(authority, request, intent, cache, policy)
                         row.update(captured, embedding_work=dict(cache.counts - before))
                         row.update(

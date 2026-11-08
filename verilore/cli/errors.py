@@ -37,7 +37,8 @@ def database_hint() -> str:
 
 _START_DATABASE = "Start it with: docker compose up -d postgresql"
 _APPLY_SCHEMA = (
-    "Apply the schema with:\n" "    python -m alembic -c verilore/migrations/alembic.ini upgrade head"
+    "Apply the schema with:\n"
+    "    python -m alembic -c verilore/migrations/alembic.ini upgrade head"
 )
 _CHECK_PASSWORD = (
     "Check the password in DATABASE_URL. The local database's password is "

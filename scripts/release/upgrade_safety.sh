@@ -59,8 +59,7 @@ alembic_ini_for() {
   fi
 }
 
-OLD_INI="$(alembic_ini_for "$OLD")"
-NEW_INI="$(alembic_ini_for "$REPO")"
+OLD_INI="$(alembic_ini_for "$REPO")"
 
 [ -n "${DATABASE_URL:-}" ] || { echo "::error::DATABASE_URL is required"; exit 1; }
 
@@ -69,6 +68,7 @@ NEW_INI="$(alembic_ini_for "$REPO")"
 say "checking out v0.9.0"
 git -C "$REPO" worktree add --detach --force "$OLD" v0.9.0 >/dev/null 2>&1 \
   || { echo "::error::could not check out v0.9.0"; exit 1; }
+OLD_INI="$(alembic_ini_for "$OLD")"
 
 # 2. v0.9.0's schema. Its head is 007; the branch's is 010.
 say "migrating the fresh database to v0.9.0's head (007)"

@@ -703,7 +703,15 @@ def run_benchmark():
     finally:
         try:
             subprocess.run(
-                [sys.executable, "-m", "verilore.cli.main", "corpus", "delete", corpus_name, "--yes"],
+                [
+                    sys.executable,
+                    "-m",
+                    "verilore.cli.main",
+                    "corpus",
+                    "delete",
+                    corpus_name,
+                    "--yes",
+                ],
                 cwd=str(ROOT),
                 env={**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", "")},
                 capture_output=True,

@@ -24,7 +24,7 @@ def loop():
 
 
 def _call(loop, **kwargs):
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     return loop.run_until_complete(mcp_server.mcp.call_tool("memory_revalidate", kwargs))
 
@@ -43,7 +43,7 @@ def _skip_if_no_db():
 
 
 def test_memory_revalidate_is_registered():
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     tools = asyncio.run(mcp_server.mcp.list_tools())
     names = {t.name for t in tools}

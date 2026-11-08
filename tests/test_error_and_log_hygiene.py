@@ -224,7 +224,11 @@ async def test_the_embedding_cache_warnings_do_not_print_claim_text(caplog):
 
     import logging as _logging
 
-    for module in ("verilore.api.services.ingestion", "verilore.api.services.memory_query", "verilore.api.services.rehydrate"):
+    for module in (
+        "verilore.api.services.ingestion",
+        "verilore.api.services.memory_query",
+        "verilore.api.services.rehydrate",
+    ):
         logger = _logging.getLogger(module)
         logger.error(
             "claim_embedding_cache_fill_failed", extra={"error": type(caught.value).__name__}

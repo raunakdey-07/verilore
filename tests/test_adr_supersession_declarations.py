@@ -100,7 +100,9 @@ async def store(monkeypatch):
                     import importlib.util
                     from pathlib import Path
 
-                    for path in sorted((Path(ROOT) / "verilore/migrations" / "versions").glob("*.py")):
+                    for path in sorted(
+                        (Path(ROOT) / "verilore/migrations" / "versions").glob("*.py")
+                    ):
                         spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)

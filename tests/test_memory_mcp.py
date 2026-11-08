@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
-import verilore.mcp_server
+import verilore.mcp_server as mcp_server
 from verilore.api.models.memory import MemoryRequest, MemoryResponse, MemoryWire, Snapshot, State
 
 OPERATIONS = ("current", "history", "changes", "evidence", "as-of", "snapshot", "replay", "pack")

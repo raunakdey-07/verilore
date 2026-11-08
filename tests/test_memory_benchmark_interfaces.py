@@ -64,7 +64,7 @@ async def workload(monkeypatch):
 async def interfaces(workload, monkeypatch):
     from typer.testing import CliRunner
 
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
     from verilore.api.main import app
     from verilore.cli.main import app as cli_app
     from verilore.sdk import Verilore
@@ -323,7 +323,7 @@ async def test_foreign_corpus_claim_snapshot_and_path_do_not_leak(workload, inte
 
 
 async def test_hostile_evidence_is_preserved_without_execution(workload, interfaces, monkeypatch):
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
     from verilore.api.services.embedder import Embedder
     from verilore.api.services.llm_service import LLMService
 

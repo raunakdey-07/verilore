@@ -10,7 +10,15 @@ from time import perf_counter
 
 import pytest
 
-from verilore.api.models.memory import Change, Claim, Conflict, Evidence, MemoryResponse, Snapshot, State
+from verilore.api.models.memory import (
+    Change,
+    Claim,
+    Conflict,
+    Evidence,
+    MemoryResponse,
+    Snapshot,
+    State,
+)
 from verilore.api.services import memory_public
 from verilore.api.services.memory_public import MemoryError, _attach, _claims, bounded_pack
 

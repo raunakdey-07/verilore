@@ -77,7 +77,11 @@ async def instrumented_once(conn, schema: str, corpus_id: str, question: str) ->
     """Time one query exactly as the public path does it, stage by stage."""
     from verilore.api.models.memory import MemoryRequest
     from verilore.api.services import memory as memory_service
-    from verilore.api.services.claim_embeddings import load_cached, representation, representation_hash
+    from verilore.api.services.claim_embeddings import (
+        load_cached,
+        representation,
+        representation_hash,
+    )
     from verilore.api.services.corpora import get_corpus_by_name
     from verilore.api.services.embedder import Embedder
     from verilore.api.services.memory_public import State, _claims, bounded_pack, project

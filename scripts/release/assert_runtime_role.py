@@ -110,11 +110,27 @@ def main() -> int:
 
     # -- 0. a scratch corpus, and a credential issued against only that one ----
     code, _ = run(
-        [sys.executable, "-m", "verilore.cli.main", "corpora", "create", args.issued_with], superuser
+        [
+            sys.executable,
+            "-m",
+            "verilore.cli.main",
+            "corpora",
+            "create",
+            args.issued_with,
+        ],
+        superuser,
     )
     if code != 0:
         code, _ = run(
-            [sys.executable, "-m", "verilore.cli.main", "corpus", "create", args.issued_with], superuser
+            [
+                sys.executable,
+                "-m",
+                "verilore.cli.main",
+                "corpus",
+                "create",
+                args.issued_with,
+            ],
+            superuser,
         )
     check(f"scratch corpus {args.issued_with} exists", code == 0, f"exit={code}")
 

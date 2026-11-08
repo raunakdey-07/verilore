@@ -30,8 +30,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover - names the lazy imports for a checker
     import verilore.sdk
 
-    MemoryClientError = verilore_sdk.MemoryClientError
-    Verilore = verilore_sdk.Verilore
+    MemoryClientError = verilore.sdk.MemoryClientError
+    Verilore = verilore.sdk.Verilore
 
 
 app = typer.Typer(

@@ -575,7 +575,8 @@ def test_the_installed_wheel_verifies_without_the_runtime(wheel, tmp_path):
         [
             str(python),
             "-c",
-            "import verilore, verilore.pack, verilore.proof, verilore.receipt;print(verilore.proof.__file__)",
+            "import verilore, verilore.pack, verilore.proof, verilore.receipt;"
+            "print(verilore.proof.__file__)",
         ],
         capture_output=True,
         text=True,

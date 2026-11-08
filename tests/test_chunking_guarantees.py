@@ -94,7 +94,8 @@ def test_lists_and_tables_retained():
 
 def test_frontmatter_not_part_of_body():
     md = '---\ntitle: "T"\ndate: 2024-01-01\n---\n\n# Body\n\nText.\n'
-    _, body = __import__("verilore.api.services.parser", fromlist=["parse_markdown"]).parse_markdown(md)
+    parser = __import__("verilore.api.services.parser", fromlist=["parse_markdown"])
+    _, body = parser.parse_markdown(md)
     assert "title:" not in body
     chunks = _chunk(body)
     assert all("frontmatter" not in c["text"] for c in chunks)

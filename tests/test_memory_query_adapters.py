@@ -10,7 +10,7 @@ import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 from typer.testing import CliRunner
 
-import verilore.mcp_server
+import verilore.mcp_server as mcp_server
 from verilore.api.main import app
 from verilore.api.models.memory import Evidence, MemoryRequest, MemoryResponse, MemoryWire
 from verilore.api.routers import query as ask_router

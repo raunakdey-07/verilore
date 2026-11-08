@@ -161,7 +161,7 @@ async def surfaces(store, monkeypatch):
     transaction via savepoints.
     """
     import httpx
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
     from typer.testing import CliRunner
 
     from verilore.api.main import app

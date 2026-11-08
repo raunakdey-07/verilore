@@ -653,7 +653,14 @@ def reproducibility(
     }
     if server_port is not None:
         result["server"] = {
-            "command": ["uvicorn", "verilore.api.main:app", "--host", "127.0.0.1", "--port", "<free-port>"],
+            "command": [
+                "uvicorn",
+                "verilore.api.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "<free-port>",
+            ],
             "host": "127.0.0.1",
             "port": server_port,
         }

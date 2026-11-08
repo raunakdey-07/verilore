@@ -253,7 +253,7 @@ async def test_include_drift_flags(store):
 def test_cross_corpus_mismatch_mcp():
     import asyncio
     import json
-    import verilore.mcp_server
+    import verilore.mcp_server as mcp_server
 
     async def run():
         return await mcp_server.mcp.call_tool(

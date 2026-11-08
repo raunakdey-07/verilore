@@ -22,7 +22,13 @@ from verilore.api.models.memory import (
     MemoryResponse,
     State,
 )
-from verilore.api.services import claim_embeddings, memory, memory_public, memory_query, memory_relevance
+from verilore.api.services import (
+    claim_embeddings,
+    memory,
+    memory_public,
+    memory_query,
+    memory_relevance,
+)
 
 try:
     from tests import test_memory_public as public

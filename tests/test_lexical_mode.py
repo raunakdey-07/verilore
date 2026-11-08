@@ -95,7 +95,16 @@ def read(corpus: str, question: str, *, lexical: bool) -> dict:
     if lexical:
         env["VERILORE_LEXICAL"] = "1"
     done = subprocess.run(
-        [sys.executable, "-m", "verilore.cli.main", "recall", question, "--corpus", corpus, "--json"],
+        [
+            sys.executable,
+            "-m",
+            "verilore.cli.main",
+            "recall",
+            question,
+            "--corpus",
+            corpus,
+            "--json",
+        ],
         cwd=str(ROOT),
         env=env,
         capture_output=True,
