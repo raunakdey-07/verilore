@@ -176,7 +176,7 @@ def test_classify_current_vs_stale():
 
 def test_integrity_exception_propagates():
     bundle = {"receipt": {"receipts": []}, "response": {"corpus": "c", "current_memories": []}}
-    with mock.patch("memory_receipt.verify_response_receipt", side_effect=RuntimeError("boom")):
+    with mock.patch("verilore.receipt.verify_response_receipt", side_effect=RuntimeError("boom")):
         with pytest.raises(RuntimeError):
             import asyncio
 

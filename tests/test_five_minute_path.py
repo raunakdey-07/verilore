@@ -1268,9 +1268,14 @@ async def test_the_wheel_ships_what_verification_needs():
     import tomllib
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    modules = pyproject["tool"]["setuptools"]["py-modules"]
+    include = pyproject["tool"]["setuptools"]["packages"]["find"]["include"]
+    # The verifier lives inside the `verilore` package now, not as top-level
+    # py-modules; the include that ships the package must cover it, and the
+    # module file must exist where the package expects it.
+    assert "verilore*" in include, f"the verilore package is not in the wheel include {include}"
     for required in ("verilore.receipt", "verilore.proof", "verilore.pack", "verilore.sdk"):
-        assert required in modules, f"{required} must ship in the wheel"
+        module_file = ROOT / f"{required.replace('.', '/')}.py"
+        assert module_file.exists(), f"{required} must ship in the wheel"
 
 
 @pytest.mark.skipif(

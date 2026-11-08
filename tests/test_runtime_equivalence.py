@@ -615,9 +615,14 @@ def test_the_runtime_ships_in_the_wheel():
     import tomllib
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    modules = pyproject["tool"]["setuptools"]["py-modules"]
+    include = pyproject["tool"]["setuptools"]["packages"]["find"]["include"]
+    # The runtime lives inside the `verilore` package now, not as a top-level
+    # py-module; the include that ships the package must cover it, and the
+    # module file must exist where the package expects it.
+    assert "verilore*" in include, f"the verilore package is not in the wheel include {include}"
     for required in ("verilore.runtime", "verilore.sdk", "verilore.receipt"):
-        assert required in modules, (
+        module_file = ROOT / f"{required.replace('.', '/')}.py"
+        assert module_file.exists(), (
             f"{required} must ship in the wheel; without it the runtime never starts "
             "on an installed package"
         )

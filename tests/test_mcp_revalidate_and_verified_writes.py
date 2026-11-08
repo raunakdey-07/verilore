@@ -68,7 +68,7 @@ def test_quote_exact_accepted(tmp_root, loop):
     doc = tmp_root / "note.md"
     doc.write_text("The production datastore is PostgreSQL.\n")
     result = loop.run_until_complete(
-        __import__("verilore.mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "The production datastore is PostgreSQL.",
@@ -85,7 +85,7 @@ def test_quote_mutation_rejected(tmp_root, loop):
     doc = tmp_root / "note.md"
     doc.write_text("The production datastore is PostgreSQL.\n")
     result = loop.run_until_complete(
-        __import__("verilore.mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "The production datastore is Postgres.",
@@ -100,7 +100,7 @@ def test_quote_mutation_rejected(tmp_root, loop):
 def test_unresolved_supersedes_rejected(loop):
     _skip_without_db()
     result = loop.run_until_complete(
-        __import__("verilore.mcp_server").mcp.call_tool(
+        __import__("verilore.mcp_server", fromlist=["mcp"]).mcp.call_tool(
             "memory_remember",
             {
                 "statement": "Production uses CockroachDB.",

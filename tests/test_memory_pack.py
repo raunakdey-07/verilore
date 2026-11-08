@@ -146,7 +146,7 @@ def test_reader_imports_nothing_from_the_server():
         "import sys, json;"
         "sys.path.insert(0, %r);"
         "import verilore.pack;"
-        "p = memory_pack.MemoryPack.from_dict(json.loads(sys.stdin.read()));"
+        "p = verilore.pack.MemoryPack.from_dict(json.loads(sys.stdin.read()));"
         "banned = [m for m in ('api', 'sqlalchemy', 'torch', 'asyncpg', 'fastapi',"
         " 'verilore_sdk', 'sentence_transformers') if m in sys.modules];"
         "print(json.dumps({'banned': banned, 'digest': p.digest()}))" % str(ROOT)

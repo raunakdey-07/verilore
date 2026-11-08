@@ -89,7 +89,7 @@ def load_development_examples(root: Path | None = None) -> list[MemoryDecisionEx
     exist; treating every corpus claim as negative would manufacture labels.
     """
 
-    root = Path(root or Path(__file__).resolve().parents[2])
+    root = Path(root or Path(__file__).resolve().parents[3])
     examples = []
     for question in _development_questions(root):
         expected_claims = set(question["expected_current_claims"])

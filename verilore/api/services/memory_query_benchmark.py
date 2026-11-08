@@ -266,7 +266,7 @@ def _aggregate(rows):
 
 
 async def run_end_to_end():
-    question_file = Path(__file__).resolve().parents[2] / "eval/memory_questions.yaml"
+    question_file = Path(__file__).resolve().parents[3] / "eval/memory_questions.yaml"
     additional_spec = yaml.safe_load(question_file.read_text(encoding="utf-8"))
     additional = additional_spec["queries"]
     if additional_spec["version"] != 1 or len(additional) != 40:
@@ -827,7 +827,7 @@ async def run_reliability(mode, policy_file=None):
     from verilore.api.services.memory_query import interpret, select
     from verilore.api.services.memory_relevance import RelevancePolicy, plan, relevance
 
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     # Resolve policy file relative to project root for consistent behavior.
     policy_path = (root / policy_file).resolve() if policy_file else None
     frozen, freeze = _frozen_policy(policy_path) if policy_path else (None, None)

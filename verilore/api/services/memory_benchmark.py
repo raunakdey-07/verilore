@@ -498,7 +498,7 @@ async def memory_benchmark_workload(file=DEFAULT_FILE, *, embeddings="fixture", 
                 await connection.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
 
                 def migrate(sync_connection):
-                    root = Path(__file__).resolve().parents[2] / "verilore/migrations/versions"
+                    root = Path(__file__).resolve().parents[3] / "verilore/migrations/versions"
                     for path in sorted(root.glob("*.py")):
                         module_spec = importlib.util.spec_from_file_location(path.stem, path)
                         module = importlib.util.module_from_spec(module_spec)
