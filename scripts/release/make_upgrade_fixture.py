@@ -76,6 +76,7 @@ def main() -> int:
         # `db.admin_session_scope`.
         try:
             from verilore.api.services import authz
+
             ADMIN = authz.ADMIN_PRINCIPAL
         except ImportError:
             ADMIN = None
@@ -84,6 +85,7 @@ def main() -> int:
 
         try:
             from api.services import authz
+
             ADMIN = authz.ADMIN_PRINCIPAL
         except ImportError:
             ADMIN = None
