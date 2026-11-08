@@ -63,7 +63,7 @@ def child_env(state: Path, **extra: str) -> dict:
 
 def launch(state: Path, **extra: str) -> subprocess.Popen:
     return subprocess.Popen(
-        [sys.executable, "-m", "verilore" "_runtime"],
+        [sys.executable, "-m", "verilore.runtime"],
         cwd=str(ROOT),
         env=child_env(state, **extra),
         stdin=subprocess.DEVNULL,

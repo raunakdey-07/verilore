@@ -200,7 +200,7 @@ def live_runtime(tmp_path_factory):
     runtime_module._ensure_token()
 
     process = subprocess.Popen(
-        [sys.executable, "-m", "verilore" "_runtime"],
+        [sys.executable, "-m", "verilore.runtime"],
         cwd=str(ROOT),
         env=dict(os.environ, PYTHONPATH=str(ROOT)),
         stdin=subprocess.DEVNULL,

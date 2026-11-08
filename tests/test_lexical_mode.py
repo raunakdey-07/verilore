@@ -295,7 +295,7 @@ def test_lexical_mode_bypasses_a_running_runtime(corpus, tmp_path):
     os.environ["VERILORE_STATE_DIR"] = str(state)
     runtime_module._ensure_token()
     process = subprocess.Popen(
-        [sys.executable, "-m", "verilore" "_runtime"],
+        [sys.executable, "-m", "verilore.runtime"],
         cwd=str(ROOT),
         env=env,
         stdin=subprocess.DEVNULL,
