@@ -82,7 +82,7 @@ BASE_VENV="$WORK/base-venv"
 BASE_PY="$BASE_VENV/bin/python"
 say "installing $BASE_TAG into its own venv ($OLD[cli])"
 "$PY" -m venv "$BASE_VENV" >/dev/null
-"$BASE_PY" -m pip install -q "$OLD[cli]"
+"$BASE_PY" -m pip install "$OLD[cli]"
 
 # The base head revision, derived from the base tree's own migration files --
 # never hard-coded, so the job survives the next tag.
