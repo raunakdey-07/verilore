@@ -47,9 +47,8 @@ def storage_unavailable(exc: Exception | None = None) -> str:
         f"Why: it could not connect to PostgreSQL at {database_hint()}.\n"
         "\n"
         "What to do:\n"
-        "  docker compose up -d postgresql\n"
+        "  verilore init\n"
         "\n"
         "Then check it works:\n"
-        "  python -m alembic -c verilore/migrations/alembic.ini upgrade head\n"
         "  verilore init" + detail
     )

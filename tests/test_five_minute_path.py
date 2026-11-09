@@ -806,9 +806,9 @@ def test_a_dead_database_says_what_to_do(monkeypatch):
     text_out = render(explain(failure), failure)
 
     assert "memory database is unavailable" in text_out.lower()
-    assert "Why:" in text_out, "the reason must be stated"
+    assert "why:" in text_out, "the reason must be stated"
     assert "localhost:5432" in text_out, "the address must be the real one"
-    assert "docker compose up -d postgresql" in text_out, "the fix must be runnable"
+    assert "verilore init" in text_out, "the fix must be runnable"
     assert "OperationalError" not in text_out, "the driver class is not the answer"
 
 
@@ -838,7 +838,7 @@ def test_error_text_survives_an_unreadable_database_url(monkeypatch):
         status_code = 503
 
     text_out = render(explain(Hostile()), Hostile())
-    assert "What to do:" in text_out
+    assert "fix:" in text_out
 
 
 async def test_the_cli_recall_renders_an_abstention_as_an_abstention(store, surfaces):

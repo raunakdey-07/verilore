@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -51,14 +49,12 @@ def _assert_uniform_failure(result, label: str):
     assert result.exit_code == 1, f"{label}: exit {result.exit_code}\n{result.output}"
     assert "error:" in result.output, f"{label}: missing 'error:'\n{result.output}"
     # The code follows the `what` text in parentheses.
-    assert re.search(r"\((vl_[a-z_]+|memory_unavailable|database_unavailable|error)\)", result.output) or re.search(
-        r"\([a-z_]+\)", result.output
-    ), f"{label}: no (code) in output\n{result.output}"
+    assert re.search(
+        r"\((vl_[a-z_]+|memory_unavailable|database_unavailable|error)\)", result.output
+    ) or re.search(r"\([a-z_]+\)", result.output), f"{label}: no (code) in output\n{result.output}"
     assert "why:" in result.output, f"{label}: missing 'why:'\n{result.output}"
     assert "fix:" in result.output, f"{label}: missing 'fix:'\n{result.output}"
-    assert "verilore doctor" in result.output, (
-        f"{label}: missing the doctor hint\n{result.output}"
-    )
+    assert "verilore doctor" in result.output, f"{label}: missing the doctor hint\n{result.output}"
     assert "Traceback" not in result.output, f"{label}: leaked a traceback\n{result.output}"
 
 
@@ -69,9 +65,11 @@ def test_init_uses_the_one_error_format():
 
 @pytest.mark.parametrize("command", ["recall", "ingest-repo", "remember"])
 def test_commands_use_the_one_error_format(command):
-    args = {"recall": ["recall", "What is the datastore?"],
-            "ingest-repo": ["ingest-repo", "./docs"],
-            "remember": ["remember", "The production datastore is PostgreSQL."]}[command]
+    args = {
+        "recall": ["recall", "What is the datastore?"],
+        "ingest-repo": ["ingest-repo", "./docs"],
+        "remember": ["remember", "The production datastore is PostgreSQL."],
+    }[command]
     result = _invoke(args)
     _assert_uniform_failure(result, command)
 
@@ -104,9 +102,9 @@ def test_no_hint_names_a_retired_command():
                         offenders.append(f"{path.relative_to(ROOT)}: {line.strip()[:90]}")
             elif token in text:
                 offenders.append(f"{path.relative_to(ROOT)}: {token!r}")
-    assert [line for line in offenders if "uvicorn verilore.api.main" not in line] == [], (
-        "retired command names still appear in CLI hints:\n" + "\n".join(offenders)
-    )
+    assert [
+        line for line in offenders if "uvicorn verilore.api.main" not in line
+    ] == [], "retired command names still appear in CLI hints:\n" + "\n".join(offenders)
 
 
 def test_the_format_has_the_mandated_lines():
@@ -114,10 +112,16 @@ def test_the_format_has_the_mandated_lines():
     from verilore.cli import errors
 
     rendered = errors.render(
-        errors.Advice("database_unavailable", "The memory database is unavailable.", "nope", "verilore init", 503),
+        errors.Advice(
+            "database_unavailable",
+            "The memory database is unavailable.",
+            "nope",
+            "verilore init",
+            503,
+        ),
         RuntimeError("nope"),
     )
-    lines = [line for line in rendered.splitlines() if line.strip()]
+    lines = [line.strip() for line in rendered.splitlines() if line.strip()]
     assert lines[0] == "error: The memory database is unavailable. (database_unavailable)"
     assert lines[1].startswith("why: ")
     assert lines[2].startswith("fix: ")
@@ -129,10 +133,14 @@ def test_doctor_reports_fail_with_fix_and_skips_dependents(monkeypatch):
     from verilore.cli import doctor as doctor_module
 
     monkeypatch.setattr(doctor_module, "check_python", lambda: (True, "python 3.11.9", ""))
-    monkeypatch.setattr(doctor_module, "check_package_version", lambda: (True, "verilore 0.11.0", ""))
+    monkeypatch.setattr(
+        doctor_module, "check_package_version", lambda: (True, "verilore 0.11.0", "")
+    )
     monkeypatch.setattr(doctor_module, "check_config", lambda: (False, "", "run `verilore init`"))
     monkeypatch.setattr(doctor_module, "check_engine", lambda: (True, "podman 5.7.0", ""))
-    monkeypatch.setattr(doctor_module, "check_database_reachable", lambda: (True, "127.0.0.1:5432", ""))
+    monkeypatch.setattr(
+        doctor_module, "check_database_reachable", lambda: (True, "127.0.0.1:5432", "")
+    )
     monkeypatch.setattr(doctor_module, "check_credentials", lambda: (True, "mpadmin ok", ""))
     monkeypatch.setattr(doctor_module, "check_pgvector", lambda: (True, "pgvector 0.8.1", ""))
     monkeypatch.setattr(doctor_module, "check_schema_at_head", lambda: (True, "head 016", ""))
@@ -156,22 +164,33 @@ def test_doctor_dependent_checks_skip(monkeypatch):
     from verilore.cli import doctor as doctor_module
 
     monkeypatch.setattr(doctor_module, "check_python", lambda: (True, "python 3.11.9", ""))
-    monkeypatch.setattr(doctor_module, "check_package_version", lambda: (True, "verilore 0.11.0", ""))
+    monkeypatch.setattr(
+        doctor_module, "check_package_version", lambda: (True, "verilore 0.11.0", "")
+    )
     monkeypatch.setattr(doctor_module, "check_config", lambda: (True, "ok", ""))
     monkeypatch.setattr(doctor_module, "check_engine", lambda: (True, "podman 5.7.0", ""))
     # Database unreachable: every check that depends on the DB must skip, not fail.
-    monkeypatch.setattr(doctor_module, "check_database_reachable", lambda: (False, "", "verilore init"))
+    monkeypatch.setattr(
+        doctor_module, "check_database_reachable", lambda: (False, "", "verilore init")
+    )
     monkeypatch.setattr(doctor_module, "check_credentials", lambda: (True, "should-not-run", ""))
     monkeypatch.setattr(doctor_module, "check_pgvector", lambda: (True, "should-not-run", ""))
     monkeypatch.setattr(doctor_module, "check_schema_at_head", lambda: (True, "should-not-run", ""))
-    monkeypatch.setattr(doctor_module, "check_embedding_model", lambda: (True, "should-not-run", ""))
+    monkeypatch.setattr(
+        doctor_module, "check_embedding_model", lambda: (True, "should-not-run", "")
+    )
     monkeypatch.setattr(doctor_module, "check_ingest_roots", lambda: (True, "should-not-run", ""))
     monkeypatch.setattr(doctor_module, "check_runtime", lambda: (True, "should-not-run", ""))
 
     checks = doctor_module.run_checks()
     by_name = {c["name"]: c for c in checks}
-    for dependent in ("credentials accepted", "pgvector extension", "schema at head",
-                      "embedding model", "ingest roots"):
+    for dependent in (
+        "credentials accepted",
+        "pgvector extension",
+        "schema at head",
+        "embedding model",
+        "ingest roots",
+    ):
         assert by_name[dependent]["status"] == "SKIP", (dependent, by_name[dependent])
 
 
@@ -199,7 +218,11 @@ def test_report_redacts_secrets(tmp_path, monkeypatch):
         engine="podman 5.7.0",
         logs="tail of the log with password=supersecret in it",
     )
-    for secret in ("supersecret", "mpk_1234567890abcdef1234567890abcdef", "cursor-should-be-hidden"):
+    for secret in (
+        "supersecret",
+        "mpk_1234567890abcdef1234567890abcdef",
+        "cursor-should-be-hidden",
+    ):
         assert secret not in report, f"leaked: {secret}"
     assert "***" in report
 
@@ -207,8 +230,9 @@ def test_report_redacts_secrets(tmp_path, monkeypatch):
 def test_error_docs_name_only_real_classes_and_codes():
     """docs/errors.md must not name retired classes or `mp_*` codes."""
     from verilore import errors as taxonomy
+    from verilore import sdk as sdk_module
 
-    known_classes = {name for name in dir(taxonomy)}
+    known_classes = {name for name in dir(taxonomy)} | {name for name in dir(sdk_module)}
     text = (ROOT / "docs" / "errors.md").read_text(encoding="utf-8")
     for stale in (
         "MindPalaceValidationError",
@@ -223,4 +247,6 @@ def test_error_docs_name_only_real_classes_and_codes():
         assert code not in text, f"docs/errors.md still uses code {code}"
     # Every class name written in the doc must exist.
     for found in re.findall(r"`([A-Za-z][A-Za-z0-9_]*(?:Error|Exception))`", text):
-        assert found in known_classes, f"docs/errors.md names {found}, which is not in verilore/errors.py"
+        assert (
+            found in known_classes
+        ), f"docs/errors.md names {found}, which is not in verilore/errors.py"

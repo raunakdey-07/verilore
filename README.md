@@ -94,6 +94,8 @@ runtime holds it and the connection pool warm after that;
 `verilore runtime status` says whether one is up. `VERILORE_RUNTIME=0` turns
 it off, and `VERILORE_LEXICAL=1` turns the model off.
 
+Something wrong? Run `verilore doctor`.
+
 `pip install -e '.[cli,mcp]'` resolved 79 distributions totalling 216 MB, of which
 the three embedding packages are 79 MB (measured before `psycopg2-binary` and
 `pgvector`, two small packages, became core dependencies so `init` can migrate). `sentence-transformers` and torch are the
