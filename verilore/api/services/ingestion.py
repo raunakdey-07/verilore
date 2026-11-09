@@ -17,6 +17,7 @@ from verilore.api.services.corpora import DEFAULT_CORPUS_ID
 from verilore.api.services.db import session_scope, sync_session_scope
 from verilore.api.services.embedder import Embedder
 from verilore.api.services.ingest_paths import require_permitted
+from verilore.api.services.retrieval_mode import lexical_requested
 from verilore.api.services import markdown_claims
 from verilore.api.services.parser import (
     chunk_with_heading_paths,
@@ -133,6 +134,15 @@ def _supersession_order(repo_path: Path, md_files: list[Path]) -> list[str]:
     return ordered
 
 
+#: The ingest stored a document without a vector because the model could not load.
+EMBEDDING_UNAVAILABLE = "embedding_unavailable"
+
+#: Warnings that explain a document rather than say something went wrong with it.
+_INFORMATIONAL_WARNINGS = frozenset(
+    {markdown_claims.ExtractionWarning.PROSE_NOT_EXTRACTED, EMBEDDING_UNAVAILABLE}
+)
+
+
 class IngestionService:
     """Service for ingesting Markdown documents."""
 
@@ -171,7 +181,10 @@ class IngestionService:
         Returns the (model_name, dimension) to persist. Both are None when no
         vector was produced, which the schema already permits.
         """
-        if not self.require_embeddings:
+        self.embedding_unavailable = False
+        if not self.require_embeddings or lexical_requested():
+            # `VERILORE_LEXICAL=1` is a choice not to load the model, and it now
+            # covers ingest as well as reads (#173).
             logger.info("embedding_skipped", extra={"chunks": len(records)})
             return None, None
         if not records:
@@ -181,13 +194,53 @@ class IngestionService:
         for index, value in enumerate(texts):
             distinct.setdefault(value, []).append(index)
         keys = list(distinct)
-        embeddings = self.embedder.embed(keys)
+        try:
+            embeddings = self.embedder.embed(keys)
+        except ImportError:
+            # The model's packages are not installed (ModuleNotFoundError is an
+            # ImportError). The document is stored and keyword search still finds
+            # it; it only lacks the vector, which `verilore reindex` adds once the
+            # model is installed. Failing the whole document cost far more (#173).
+            #
+            # Only that. A backend that is installed and then fails mid-sync
+            # (RuntimeError, OSError) still fails the document, so a sync never
+            # records a half-ingested file as a success.
+            logger.warning("chunk_vectors_skipped", extra={"chunks": len(records)})
+            self.embedding_unavailable = True
+            return None, None
         if len(embeddings) != len(keys):
             raise ValueError("embedding count does not match chunk count")
         for value, embedding in zip(keys, embeddings):
             for index in distinct[value]:
                 records[index]["embedding"] = embedding
         return self.embedder.model_name, self.embedder.dimension
+
+    @staticmethod
+    def _prose_warnings(metadata: dict, body: str, path: str) -> list:
+        """The `prose_not_extracted` verdict the structural reader gives this body."""
+        sections = extract_sections_with_paths(body)
+        records = [
+            {**chunk, "order_index": index}
+            for index, chunk in enumerate(chunk_with_heading_paths(sections))
+        ]
+        result = markdown_claims.claims_for(metadata, body, records, path=path)
+        if result is None:
+            return []
+        _derived, warnings = result
+        prose = markdown_claims.ExtractionWarning.PROSE_NOT_EXTRACTED
+        return [w for w in warnings if w.code == prose]
+
+    def _embedding_warnings(self, path: str) -> list:
+        """An `embedding_unavailable` warning when the last embed had no model."""
+        if not getattr(self, "embedding_unavailable", False):
+            return []
+        return [
+            markdown_claims.ExtractionWarning(
+                EMBEDDING_UNAVAILABLE,
+                path=path,
+                hint="install the model, then run `verilore reindex <corpus>`",
+            )
+        ]
 
     def _chunk_vectors(
         self, records: list[dict], claims: list[dict], embed_chunks: bool | None = None
@@ -309,6 +362,12 @@ class IngestionService:
                 "chunk_count": 0,
             }
 
+        # This path is a document with nothing the structural reader can use, on a
+        # corpus with no memory yet -- a team's very first ingest. It produced no
+        # claims and said nothing; the same document on a corpus with memory
+        # warned `prose_not_extracted`. Ask the reader for the same verdict (#158).
+        frontmatter_warnings.extend(self._prose_warnings(metadata, body, path))
+
         if await check_manifest(db, path, doc_hash, corpus_id):
             return {
                 "success": True,
@@ -361,6 +420,7 @@ class IngestionService:
             for i, c in enumerate(chunks)
         ]
         embedding_model, embedding_dimension = self._embed_records(chunk_records)
+        frontmatter_warnings.extend(self._embedding_warnings(path))
 
         doc_type = metadata.get("type") or metadata.get("document_type") or DEFAULT_DOC_TYPE
         tags = metadata.get("tags", [])
@@ -573,7 +633,9 @@ class IngestionService:
                 "message": "Document unchanged, skipped",
             }
 
+        self.embedding_unavailable = False
         embedding_model, embedding_dimension = self._chunk_vectors(records, claims, embed_chunks)
+        frontmatter_warnings.extend(self._embedding_warnings(path))
         doc_id = await upsert_document(
             db,
             extract_title(metadata),
@@ -889,12 +951,12 @@ class IngestionService:
                     #
                     # A `prose_not_extracted` warning does not disqualify the
                     # document: it declares no claims, and the warning only
-                    # explains why. Every other warning still does.
+                    # explains why. Nor does `embedding_unavailable`, which is
+                    # about the vector, not the claims. Every other warning does.
                     blocking = [
                         w
                         for w in (result.get("warnings") or [])
-                        if (w or {}).get("code")
-                        != markdown_claims.ExtractionWarning.PROSE_NOT_EXTRACTED
+                        if (w or {}).get("code") not in _INFORMATIONAL_WARNINGS
                     ]
                     if not claims_for_doc and not blocking:
                         entry["reason"] = "no_claims_declared"

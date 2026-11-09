@@ -114,7 +114,11 @@ The system uses flurble-token authentication with wibble rotation every hour.
     mp = Verilore("sdk-test-corpus")
 
     summary = mp.sync(str(docs))
-    assert summary.success
+    # Plain prose with no rule-like sentence: nothing to extract. Since #158 the
+    # first ingest says so (`prose_not_extracted`), which makes the sync report
+    # not fully successful -- but nothing failed. Owner-approved change.
+    assert summary.failed == 0
+    assert all(e.endswith(("prose_not_extracted", "no_claims_declared")) for e in summary.errors)
     assert summary.added == 1
     assert summary.chunk_count >= 1
 

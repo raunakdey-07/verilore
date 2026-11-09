@@ -256,7 +256,10 @@ async def test_sync_deletes_removed_source_files(tmp_path):
     svc = IngestionService()
     first = await svc.sync_repo(str(d), await _corpus_id(CORPUS_A_NAME))
     assert first["added"] == 2
-    assert first["success"]
+    # Plain prose: since #158 the first ingest warns `prose_not_extracted`, so the
+    # sync is not "success" -- but nothing failed. Owner-approved change.
+    assert first["failed"] == 0
+    assert {w["code"] for w in first["warnings"]} <= {"prose_not_extracted"}
 
     f2.unlink()
     second = await svc.sync_repo(str(d), await _corpus_id(CORPUS_A_NAME))
