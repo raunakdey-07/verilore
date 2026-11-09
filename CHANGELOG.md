@@ -47,6 +47,12 @@ gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
 
+**`query` with `path_prefix` ranks only in-scope claims.** Two documents built from
+one template (two campaign briefs) share claim keys, so an out-of-scope claim used to
+compete for the answer and could appear, with its text, among the near-miss
+`candidates` a response reports. `query` now drops out-of-scope claims before
+ranking, as it drops withheld ones.
+
 **Authored claims take their document's status (#140).** A `claims:` block in a
 document marked `status: draft` (or `rejected`, `superseded`, or a matching tag)
 is now archived in that state, so current and pack withhold it like any other

@@ -160,39 +160,21 @@ def _claims(response: MemoryResponse) -> list[Claim]:
     )
 
 
-def _withhold(response: MemoryResponse, include_states: list[str] | None = None) -> None:
-    """Remove draft, rejected and superseded claims from current, pack and query.
+def _keep_only(response: MemoryResponse, keep) -> None:
+    """Remove every claim `keep` rejects, wherever it appears in the response.
 
-    Mutates the response in place. history is never passed here, so it is
-    unchanged; query passes its complete scoped state before ranking (#138).
-    `include_states` names states the caller wants to keep; they are not withheld.
-    A conflict group reduced to a single claim promotes that claim to
-    current_memories; a change emptied on both sides is dropped.
-    Rebuilds evidence and sources so withheld text appears nowhere in the body,
-    and sets withheld_counts when anything was withheld.
+    Mutates the response in place: the three claim lists, the conflict groups and
+    the changes. A conflict group reduced to a single claim promotes that claim to
+    current_memories; a change emptied on both sides is dropped. Evidence and
+    sources are rebuilt so removed text appears nowhere in the body.
     """
-    include = set(include_states or [])
-    withheld: dict[str, set[str]] = {state: set() for state in _WITHHELD_STATES}
-    for claim in _claims(response):
-        if claim.info_state in _WITHHELD_STATES and claim.info_state not in include:
-            withheld[claim.info_state].add(claim.id)
-
     for field in ("current_memories", "historical_memories", "uncertain_memories"):
-        kept = [
-            c
-            for c in getattr(response, field)
-            if c.info_state not in _WITHHELD_STATES or c.info_state in include
-        ]
-        setattr(response, field, kept)
+        setattr(response, field, [c for c in getattr(response, field) if keep(c)])
 
     promoted: list[Claim] = []
     kept_conflicts: list[Conflict] = []
     for group in response.conflicts:
-        kept = [
-            c
-            for c in group.claims
-            if c.info_state not in _WITHHELD_STATES or c.info_state in include
-        ]
+        kept = [c for c in group.claims if keep(c)]
         if len(kept) >= 2:
             kept_conflicts.append(Conflict(id=group.id, key=group.key, claims=kept))
         elif len(kept) == 1:
@@ -204,16 +186,8 @@ def _withhold(response: MemoryResponse, include_states: list[str] | None = None)
 
     kept_changes: list[Change] = []
     for change in response.changes:
-        prev = [
-            c
-            for c in change.previous
-            if c.info_state not in _WITHHELD_STATES or c.info_state in include
-        ]
-        curr = [
-            c
-            for c in change.current
-            if c.info_state not in _WITHHELD_STATES or c.info_state in include
-        ]
+        prev = [c for c in change.previous if keep(c)]
+        curr = [c for c in change.current if keep(c)]
         if not prev and not curr:
             continue
         kept_changes.append(
@@ -232,6 +206,24 @@ def _withhold(response: MemoryResponse, include_states: list[str] | None = None)
     response.changes = kept_changes
 
     _attach(response, {e.id: e for e in response.evidence})
+
+
+def _withhold(response: MemoryResponse, include_states: list[str] | None = None) -> None:
+    """Remove draft, rejected and superseded claims from current, pack and query.
+
+    Mutates the response in place. history is never passed here, so it is
+    unchanged; query passes its complete scoped state before ranking (#138).
+    `include_states` names states the caller wants to keep; they are not withheld.
+    Sets withheld_counts when anything was withheld. See `_keep_only` for how
+    conflicts, changes, evidence and sources follow.
+    """
+    include = set(include_states or [])
+    withheld: dict[str, set[str]] = {state: set() for state in _WITHHELD_STATES}
+    for claim in _claims(response):
+        if claim.info_state in _WITHHELD_STATES and claim.info_state not in include:
+            withheld[claim.info_state].add(claim.id)
+
+    _keep_only(response, lambda c: c.info_state not in _WITHHELD_STATES or c.info_state in include)
 
     counts = {state: len(ids) for state, ids in withheld.items()}
     if any(counts.values()):
@@ -627,6 +619,12 @@ async def execute_in_session(db, operation: str, request: MemoryRequest, vectori
         # Withhold before ranking, so a draft can neither be the answer nor push an
         # approved claim out of it (#138).
         _withhold(full, request.include_states)
+        if request.path_prefix is not None:
+            # Scope before ranking for the same reason. Two campaign briefs built
+            # from one template share keys, so without this the other campaign's
+            # claim competes for the answer and shows up among its near-misses.
+            prefixes = _prefixes(request)
+            _keep_only(full, lambda c: _in_scope(c.path, prefixes))
         result = await query(full, request, db=db, corpus_id=corpus["id"], vectorized=vectorized)
         result.withheld_counts = full.withheld_counts
         if request.path_prefix is not None:
