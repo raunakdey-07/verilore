@@ -419,35 +419,24 @@ modify the real research archive or add another database technology.
 
 ## Running against your own PostgreSQL
 
-`verilore init` provisions a local PostgreSQL (Podman or Docker), applies the
-schema, and creates the first corpus. The whole local setup is one command:
+`verilore init` sets up a local PostgreSQL in a container. To use one you
+already run instead (a distribution's own package, a managed database, another
+port), give `init` its URL once:
 
 ```bash
-verilore init
-verilore ingest-repo ./docs --corpus project
-verilore recall "What is the primary datastore?" --corpus project
+verilore init --database-url postgresql://user:password@127.0.0.1:5433/verilore
 ```
 
-If you already have PostgreSQL, or you want the container under your own name,
-the older multi-step path still works. Set the three variables the README used
-to require, start the database, export the default `DATABASE_URL`, apply the
-schema, and then run the same `verilore init`:
+`init` applies the schema there, creates the default corpus, and records the URL
+in `~/.verilore/config.toml` (mode 0600). Every later `verilore` command and
+`verilore-mcp` use it; an exported `DATABASE_URL` overrides the file for that
+shell. The server needs the pgvector extension installed, because the first
+migration creates the `vector` extension.
 
-```bash
-export VERILORE_RUNTIME_PASSWORD=choose-a-local-password
-export VERILORE_CURSOR_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
-export VERILORE_INGEST_ROOTS="$PWD"
-docker compose up -d postgresql
-export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c verilore/migrations/alembic.ini upgrade head
-verilore init
-```
-
-The `VERILORE_RUNTIME_PASSWORD`, `VERILORE_CURSOR_SECRET` and
-`VERILORE_INGEST_ROOTS` exports are only what a server deployment needs;
-in local mode `init` writes generated values and the URL to
-`~/.verilore/config.toml` (mode 0600) so none of them has to be exported.
-Precedence is flag > environment > config file > built-in default.
+A server deployment is configured differently: it reads only environment
+variables and never this file, and it requires `VERILORE_RUNTIME_PASSWORD`,
+`VERILORE_CURSOR_SECRET` and `VERILORE_INGEST_ROOTS`, which local mode does not
+need. The sections above describe it.
 
 ## Known limitations
 

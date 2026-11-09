@@ -33,28 +33,21 @@ the order a newcomer needs them.
 ## Quickstart
 
 For wiring Verilore into a coding agent so it tracks your project's decisions and
-runbooks. These commands run in CI against a built wheel (`scripts/cleanroom_quickstart.py`).
+runbooks. CI runs these commands against a built wheel (`scripts/cleanroom_quickstart.py`),
+and its `Laptop path on Podman` job runs the first three on a machine with no
+database and nothing exported.
 
 Lines starting with `$ ` are the commands CI runs; type them without the `$ `.
 
 ```bash
-# Install the command (PyPI publishing is planned for v0.11; until then,
-# install from GitHub):
+# Install the command. PyPI publishing is planned for v0.11; until then, from GitHub:
 uv tool install git+https://github.com/raunakdey-07/verilore
 # or: pipx install git+https://github.com/raunakdey-07/verilore
 
-# 1. Start the database ( Podman on Fedora, Docker anywhere else ).
-#    `verilore init` can do this for you; the pipx-installed `verilore` finds the
-#    same local database either way. See "Running against your own PostgreSQL"
-#    in docs/deployment.md for the case this does not want.
-docker run -d --name verilore-db -p 5432:5432 \
-  -e POSTGRES_DB=verilore -e POSTGRES_USER=mpadmin -e POSTGRES_PASSWORD=secret \
-  pgvector/pgvector:pg15
-
-# 2. The whole local setup is `verilore init`: it starts the local database if
-#    it can, applies the schema, creates your first corpus, and writes the
-#    config file (`~/.verilore/config.toml`, mode 0600) so nothing else needs
-#    exporting. Re-running it afterwards is a no-op.
+# The whole local setup. With Podman or Docker installed, init starts a local
+# PostgreSQL (the first run downloads its image once), applies the schema,
+# creates your first corpus and records the database for every later command.
+# Run it again any time; it changes nothing.
 $ verilore init
 
 # Ingest a plain ADR. No frontmatter, no `claims:` block: headings, list items and
@@ -79,30 +72,31 @@ $ verilore receipt "What is the primary datastore?" --corpus project -o receipt.
 $ verilore verify receipt.json
 ```
 
-The clone-based install is one line now:
+Nothing needs exporting. `init` records the database in `~/.verilore/config.toml`
+(mode 0600), and every command and `verilore-mcp` read it; an exported
+`DATABASE_URL` still wins. The container it creates is `verilore-postgres`,
+listening on 127.0.0.1:5432 only, with its data in the `verilore-pgdata` volume,
+so removing the container loses no memory. To use a PostgreSQL you already run,
+`verilore init --database-url ...` once; see
+[Running against your own PostgreSQL](docs/deployment.md#running-against-your-own-postgresql).
+Local mode needs no secrets; a server deployment still takes them from the
+environment.
+
+Working on Verilore itself? Install from a clone instead, then run the same commands:
 
 ```bash
 git clone https://github.com/raunakdey-07/verilore.git && cd verilore
 python -m venv .venv && . .venv/bin/activate && pip install -e '.[cli,mcp]'
-$ verilore init
-$ verilore ingest-repo ./docs/adr --corpus project
-$ verilore recall "What is the primary datastore?" --corpus project
 ```
-
-The five environment variables the old quickstart exported are gone: `init`
-provisions the local database (Podman or Docker), applies the schema, and writes
-`~/.verilore/config.toml` with the `database_url` and generated secrets. In local
-mode the ingest roots default to the current working directory of the command, and
-the default `DATABASE_URL` is
-`postgresql://mpadmin:secret@localhost:5432/verilore` throughout.
 
 The first `recall` builds an ONNX session: about 1.4 s, then 0.3 s. A background
 runtime holds it and the connection pool warm after that;
 `verilore runtime status` says whether one is up. `VERILORE_RUNTIME=0` turns
 it off, and `VERILORE_LEXICAL=1` turns the model off.
 
-`pip install -e '.[cli,mcp]'` resolves 79 distributions totalling 216 MB, of which
-the three embedding packages are 79 MB. `sentence-transformers` and torch are the
+`pip install -e '.[cli,mcp]'` resolved 79 distributions totalling 216 MB, of which
+the three embedding packages are 79 MB (measured before `psycopg2-binary` and
+`pgvector`, two small packages, became core dependencies so `init` can migrate). `sentence-transformers` and torch are the
 `[torch]` extra and add about 1.35 GB. The extra is not needed for recall, and the
 two backends return the same vectors -- measured minimum cosine 0.99999833 -- so it
 buys a different import time and nothing else. The one thing that does need it is
@@ -115,8 +109,9 @@ Your agent gets the same commands over MCP, with the same `match_status` and
 `candidates` on the answer and the same `supersedes_claim_id` on the write, which
 takes an id prefix or a phrase from the claim's own text. A document can say so
 itself: `supersedes: 0001.md` in its frontmatter. Point the client at
-`verilore-mcp` with `DATABASE_URL` and `VERILORE_INGEST_ROOTS` set; the JSON
-for OpenCode, Zed and Claude Code is in [connecting an agent](docs/mcp.md).
+`verilore-mcp`: it uses the database `init` recorded unless the client's config
+sets `DATABASE_URL`, and `VERILORE_INGEST_ROOTS` limits the directories it may
+read. The JSON for OpenCode, Zed and Claude Code is in [connecting an agent](docs/mcp.md).
 
 `recall` and `remember` also report a `query_id`. Grade a wrong answer; it appends
 to `~/.verilore/logs/queries.jsonl` and changes nothing else.
@@ -125,33 +120,6 @@ to `~/.verilore/logs/queries.jsonl` and changes nothing else.
 verilore feedback <query_id> --verdict wrong --note "meant the cache"
 verilore feedback-summary
 ```
-
-## Install it as a command
-
-The quickstart above installs from the `uv tool` / `pipx` line. With the
-command installed, no database, schema migration, environment export or Docker
-step is needed to reach memory at all:
-
-```bash
-# The database is the only step. `verilore init` can do it for you when it can
-# see Podman or Docker; an explicit `docker run` is here so the plan is never
-# hidden behind it, and so it works with neither:
-docker run -d --name verilore-db -p 5432:5432 \
-  -e POSTGRES_DB=verilore -e POSTGRES_USER=mpadmin -e POSTGRES_PASSWORD=secret \
-  pgvector/pgvector:pg15
-verilore init
-
-verilore ingest-repo ./docs
-verilore recall "What did we decide about pricing?"
-```
-
-With no `DATABASE_URL` set, every command uses
-`postgresql://mpadmin:secret@localhost:5432/verilore`, which is the database the
-`docker run` line starts, so nothing needs exporting. `verilore init` applies the
-schema from the installed package and creates the default corpus; CI runs it the
-same way against a fresh database from the built wheel. Needs Python 3.11 or
-newer and Docker (on Linux and WSL2, `init` can start the container itself; see
-below).
 
 ## Managing corpora and credentials
 
@@ -163,12 +131,15 @@ below).
 
 ## Out-of-the-box Linux and WSL2
 
-On Linux and WSL2, `verilore init` starts a stopped local PostgreSQL container
-publishing the configured port and provisions a `pgvector` container when nothing
-is running; a remote database is never touched. Connection and authentication
-failures print the specific remediation (start the service, fix the password)
-instead of a traceback. `pytest` auto-detects a local development Postgres, so the
-suite runs with no `DATABASE_URL`.
+On Linux and WSL2, `verilore init` starts a stopped container of ours, or creates
+`verilore-postgres` when nothing is running, with Podman or Docker; a remote
+database is never touched. When it cannot, it says why and what to do instead of
+a generic error: the install command for your distribution when there is no
+container engine, the engine's own error when the container will not start, and
+`--database-url` when port 5432 belongs to a program that is not PostgreSQL.
+Connection and authentication failures print the specific remediation (start the
+service, fix the password) instead of a traceback. `pytest` auto-detects a local
+development Postgres, so the suite runs with no `DATABASE_URL`.
 
 ## Documents and claims
 

@@ -45,6 +45,13 @@ dependencies = [
     # A direct dependency you do not import is a version constraint you have to keep
     # true by hand.
     "typer>=0.9.0",
+    # `verilore init` applies the schema itself, and the migrations need both:
+    # `migrations/env.py` runs on the sync psycopg2 driver and 001 creates the
+    # pgvector column type. As an extra, a bare `uv tool install` or
+    # `pipx install` got a `verilore init` that could not migrate -- the
+    # install the README and the website show.
+    "psycopg2-binary>=2.9.0",
+    "pgvector>=0.3.0",
 ]
 [project.optional-dependencies]
 # Empty, and kept because the README, the quickstart and every operator's notes say
@@ -52,6 +59,8 @@ dependencies = [
 # four characters. `[cli]` now means "the CLI, which you already have".
 cli = []
 mcp = ["mcp>=1.2.0"]
+# Kept so existing `pip install 'verilore[migrations]'` lines still resolve; the
+# three packages are core dependencies now, because `init` migrates.
 migrations = [
     "alembic>=1.13.0",
     "psycopg2-binary>=2.9.0",

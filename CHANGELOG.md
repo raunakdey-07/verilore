@@ -51,22 +51,36 @@ running `verilore init`, with no environment variables to export. The package
 description now says what Verilore is, and documentation that cited moved line
 numbers names the function instead.
 
-**`verilore init` is the whole local setup on Linux (#185).** `init` now
-provisions the local database itself with the official
-`docker.io/pgvector/pgvector:pg15` image (Podman or Docker), binds it only to
-`127.0.0.1:5432`, and mounts a named volume `verilore-pgdata` so removing the
-container deletes no memory; a long first-run wait replaces the fixed 5 s
-timeout that expired during the first image pull. A provisioning failure is no
-longer swallowed: `init` prints the engine's stderr (last 5 lines), why, and the
-fix -- the distro's `runtime_install_command()` when no engine exists, or
-"port 5432 is in use by another program: pass --database-url" when it is taken
--- and exits 1. `init` also writes `~/.verilore/config.toml` (mode 0600,
-respecting `VERILORE_DATA_DIR`) with `database_url` and generated secrets,
-so the README quickstart is `verilore init` followed by `verilore ingest-repo`
-and `verilore recall`, with no exports. Precedence is flag > environment >
-config file > built-in default, and server mode keeps requiring real environment
-variables exactly as before. The README's old multi-export block moves to
-`docs/deployment.md` under "Running against your own PostgreSQL".
+**`verilore init` is the whole local setup on Linux (#185).** With Podman or
+Docker installed, `init` creates the local database itself: the container
+`verilore-postgres` from the fully qualified official image
+`docker.io/pgvector/pgvector:pg15`, published on `127.0.0.1:5432` only, with its
+data in the named volume `verilore-pgdata`, so removing the container deletes no
+memory. An existing container of ours, under the new or the old compose name, is
+started rather than replaced. The first run waits up to 90 s for the image
+download and says so, where a fixed 5 s timeout used to expire. A failure is no
+longer swallowed: `init` prints the engine's own error, why, and the fix -- the
+distribution's install command when there is no container engine, or
+`--database-url` when port 5432 belongs to a program that is not PostgreSQL --
+and exits 1. A PostgreSQL that rejects the login (a distribution's own install,
+say) is recognised as PostgreSQL and gets the credentials message instead.
+
+`init` records the database URL in `~/.verilore/config.toml` (mode 0600,
+under `VERILORE_DATA_DIR` when set), and every `verilore` command and
+`verilore-mcp` read it, so nothing needs exporting and
+`verilore init --database-url ...` moves every later command too. Precedence is
+flag > environment > config file > built-in default. Local mode needs no
+secrets, so the file holds only the URL; a server deployment never reads it and
+keeps requiring its environment variables exactly as before.
+
+`psycopg2-binary` and `pgvector` are core dependencies now. `init` applies the
+schema, and the migrations need both, so a plain `uv tool install` or
+`pipx install` could not finish `init`. The `[migrations]` extra still exists
+and still installs them.
+
+The README quickstart is install, `verilore init`, `ingest-repo`, `recall`. The
+old multi-export setup is gone; `docs/deployment.md` explains using a PostgreSQL
+you already run.
 
 ### Fixed
 

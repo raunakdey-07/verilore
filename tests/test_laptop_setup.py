@@ -201,7 +201,7 @@ def test_later_commands_use_the_recorded_database(monkeypatch, tmp_path):
 
 
 def test_the_first_run_line_is_only_for_a_new_database(fake_container, monkeypatch):
-    """"Downloads the database image once" is printed when init creates the
+    """ "Downloads the database image once" is printed when init creates the
     container, not on every init against a database that is already up."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/verilore")
 

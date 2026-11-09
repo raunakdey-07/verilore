@@ -72,6 +72,11 @@ def _global_options(
         import os
 
         os.environ["VERILORE_DEBUG"] = "1"
+    # The database `init` recorded, for every command after it. Before any
+    # command imports the database module, which reads DATABASE_URL once.
+    from verilore.cli.config import apply_to_environ
+
+    apply_to_environ()
     # No subcommand means the person is looking for the first one, not making a
     # mistake. `ctx.invoked_subcommand` is set before this callback runs, so it
     # is None exactly when nothing was named.
@@ -366,7 +371,9 @@ def init(
         typer.echo(
             "Verilore could not start the local database.\n"
             f"\n{type(exc).__name__}: {exc}\n"
-            f"\nfix: {exc}",
+            "\nfix: this is not a failure Verilore knows how to explain. Re-run with "
+            "`verilore --debug init` and open an issue with the output at "
+            "https://github.com/raunakdey-07/verilore/issues",
             err=True,
         )
         raise typer.Exit(code=1) from exc
