@@ -6,6 +6,15 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Breaking changes
+
+**`query` withholds like `current` and `pack` (#138).** Draft, rejected and
+superseded claims are removed from `query` before ranking, so they can neither be
+the answer nor push an approved claim out of it, and `withheld_counts` says how
+many were left out. Pass `include_states` (now accepted by `query`, the SDK's
+`query()` and the MCP `memory_query` tool) to see them, labelled. The chunk routes
+still return raw text (#138).
+
 ### Changed
 
 **Package layout.** The wheel now installs a single top-level namespace,

@@ -116,6 +116,7 @@ def _validate(operation: str, request: MemoryRequest) -> None:
             "budget",
             "intent",
             "include_receipt",
+            "include_states",
         },
     }[operation]
     # SDK sends default fields too; reject non-default unsupported selectors.
@@ -160,12 +161,13 @@ def _claims(response: MemoryResponse) -> list[Claim]:
 
 
 def _withhold(response: MemoryResponse, include_states: list[str] | None = None) -> None:
-    """Remove draft, rejected and superseded claims from current and pack responses.
+    """Remove draft, rejected and superseded claims from current, pack and query.
 
-    Mutates the response in place. history and query are never passed here, so
-    they are unchanged. `include_states` names states the caller wants to keep;
-    they are not withheld. A conflict group reduced to a single claim promotes
-    that claim to current_memories; a change emptied on both sides is dropped.
+    Mutates the response in place. history is never passed here, so it is
+    unchanged; query passes its complete scoped state before ranking (#138).
+    `include_states` names states the caller wants to keep; they are not withheld.
+    A conflict group reduced to a single claim promotes that claim to
+    current_memories; a change emptied on both sides is dropped.
     Rebuilds evidence and sources so withheld text appears nowhere in the body,
     and sets withheld_counts when anything was withheld.
     """
@@ -622,7 +624,11 @@ async def execute_in_session(db, operation: str, request: MemoryRequest, vectori
             state,
             saved,
         )
+        # Withhold before ranking, so a draft can neither be the answer nor push an
+        # approved claim out of it (#138).
+        _withhold(full, request.include_states)
         result = await query(full, request, db=db, corpus_id=corpus["id"], vectorized=vectorized)
+        result.withheld_counts = full.withheld_counts
         if request.path_prefix is not None:
             _scope_conflicts(result, _prefixes(request))
         return _with_receipt(result, request)
