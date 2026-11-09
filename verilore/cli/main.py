@@ -150,7 +150,26 @@ def _fail(exc: Exception, verbose: bool, debug: bool = False) -> None:
     typer.echo(render(advice, exc, verbose=verbose or show_traceback), err=True)
     if show_traceback:
         traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
-    raise typer.Exit(code=advice.status if advice.status > 1 else 1)
+    # HTTP-ish statuses are not shell codes: operational failures exit 1,
+    # bad usage exits 2 (Typer's default), and `advice.status` keeps the
+    # semantic value so JSON maps remain honest.
+    code = advice.status if advice.status in (1, 2) else 1
+    raise typer.Exit(code=code)
+
+
+def _device_provision_advice(exc):
+    """Adapter: build an `Advice` from provisioning failure fields."""
+    from verilore.cli.errors import Advice
+
+    detail = getattr(exc, "detail", "") or str(exc)
+    hint = getattr(exc, "hint", "") or "verilore init"
+    return Advice(
+        "local_database_provision_failed",
+        "Verilore could not start the local database.",
+        detail or "no container engine could bring up the local database.",
+        hint,
+        1,
+    )
 
 
 def _run(call, *args, **kwargs):
@@ -280,6 +299,94 @@ def _apply_migrations() -> _MigrationResult:
 
 
 @app.command()
+def doctor(
+    json_out: Annotated[bool, typer.Option("--json", help="Print the checks as JSON.")] = False,
+    report: Annotated[
+        bool,
+        typer.Option(
+            "--report",
+            help="Print the pasteable issue report instead of the check list.",
+        ),
+    ] = False,
+) -> None:
+    """Run the ordered health checks that find the cause of a failure.
+
+    Each check is `PASS`, `FAIL` (with the fix) or `SKIP`, and a check that
+    needs an earlier one SKIPs when that one failed. `--json` prints the same
+    as JSON. Exits 1 when any check failed. `--report` prints the block a
+    user pastes into a GitHub issue instead.
+    """
+    from verilore.cli import doctor as doctor_module
+
+    checks = doctor_module.run_checks()
+    failed_any = any(c["status"] == doctor_module.FAIL for c in checks)
+    python_label = (
+        f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}"
+    )
+
+    if report:
+        engine = next(
+            (c["detail"] for c in checks if c["name"] == "container engine" and c["detail"]),
+            _doctor_engine(),
+        )
+        typer.echo(
+            doctor_module.render_report(
+                checks=checks,
+                os_name=os.name,
+                os_info=os.uname().sysname,
+                distro=_doctor_distro(),
+                wsl=_doctor_wsl(),
+                python=python_label,
+                version=_doctor_version(),
+                engine=engine,
+                logs=doctor_module.collect_logs(),
+            )
+        )
+        raise typer.Exit(code=1 if failed_any else 0)
+
+    if json_out:
+        typer.echo(doctor_module.render_doctor_json(checks))
+        raise typer.Exit(code=1 if failed_any else 0)
+
+    typer.echo(doctor_module.render_checks(checks))
+    raise typer.Exit(code=1 if failed_any else 0)
+
+
+def _doctor_wsl() -> bool:
+    try:
+        return "microsoft" in Path("/proc/version").read_text(errors="replace").lower()
+    except OSError:
+        return False
+
+
+def _doctor_distro() -> str:
+    from verilore.cli import postgres
+
+    try:
+        return postgres.linux_distro() or "unknown"
+    except Exception:  # noqa: BLE001 - not Linux, or no os-release
+        return "unknown"
+
+
+def _doctor_version() -> str:
+    import importlib.metadata
+
+    try:
+        return importlib.metadata.version("verilore")
+    except Exception:  # noqa: BLE001 - source tree without metadata
+        return "unknown"
+
+
+def _doctor_engine() -> str:
+    from verilore.cli import postgres
+
+    clis = postgres._container_clis()
+    if not clis:
+        return "none"
+    return ", ".join(clis)
+
+
+@app.command()
 def init(
     database_url: Annotated[
         str | None,
@@ -360,12 +467,19 @@ def init(
             ),
         )
     except postgres.ProvisioningError as exc:
+        # Provisioning failed: print the engine's own words (the detail), the
+        # why, and the fix, in the one error format. No silent failure.
+        from verilore.cli.errors import render
+
         typer.echo(
-            "Verilore could not start the local database.\n"
-            f"\n{exc.detail}\n"
-            f"\nfix: {exc.hint or (exc.detail or 'see the error above')}",
+            render(_device_provision_advice(exc), exc, verbose=_debug_requested(debug)),
             err=True,
         )
+        if _debug_requested(debug):
+            import sys
+            import traceback
+
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
         raise typer.Exit(code=1) from exc
     except Exception as exc:  # noqa: BLE001 - everything else is reported too
         typer.echo(
@@ -393,13 +507,7 @@ def init(
     try:
         tables = _run(lambda: asyncio.run(check()))
     except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
-        from verilore.api.errors import storage_unavailable
-
-        # The driver detail is for the person debugging, not for the person
-        # whose database is down. Every other command hides it unless asked;
-        # this one did not, and an exception class name is not an answer.
-        typer.echo(storage_unavailable(exc if _debug_requested(debug) else None), err=True)
-        raise typer.Exit(code=1) from exc
+        _fail(exc, False, debug)
 
     if not all(tables):
         applied = _apply_migrations()
@@ -1785,135 +1893,6 @@ def reindex(
         typer.echo(f"[ERROR] Reindex failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(json.dumps(result, sort_keys=True))
-
-
-@app.command()
-def doctor() -> None:
-    """Run system health checks."""
-
-    import httpx
-
-    checks_passed = 0
-    total_checks = 0
-
-    def check(name: str, condition: bool, fix_hint: str = ""):
-        nonlocal checks_passed, total_checks
-        total_checks += 1
-        if condition:
-            typer.echo(f"[OK] {name}")
-            checks_passed += 1
-        else:
-            typer.echo(f"[ERROR] {name}")
-            if fix_hint:
-                typer.echo(f"   - Hint: {fix_hint}")
-
-    # Check 1: API liveness
-    try:
-        resp = httpx.get("http://localhost:8000/health/live", timeout=5)
-        check(
-            "API liveness",
-            resp.status_code == 200,
-            "Start the API with: uvicorn verilore.api.main:app --reload",
-        )
-    except Exception:
-        check("API liveness", False, "Start the API with: uvicorn verilore.api.main:app --reload")
-
-    # Check 2: API readiness (the database-aware health signal)
-    try:
-        resp = httpx.get("http://localhost:8000/health/ready", timeout=5)
-        check(
-            "API readiness",
-            resp.status_code == 200,
-            "Check PostgreSQL connectivity and run migrations",
-        )
-    except Exception:
-        check("API readiness", False, "Check PostgreSQL connectivity and run migrations")
-
-    # Check 3: Postgres connectivity
-    try:
-        import asyncio
-
-        from sqlalchemy import text
-
-        from verilore.api.services.db import async_engine
-
-        async def check_pg():
-            async with async_engine.begin() as conn:
-                await conn.execute(text("SELECT 1"))
-            return True
-
-        result = asyncio.run(check_pg())
-        check(
-            "Postgres connectivity",
-            result,
-            "Check docker-compose is running: docker-compose ps",
-        )
-    except Exception as e:
-        check(
-            "Postgres connectivity",
-            False,
-            f"Check docker-compose is running: docker-compose ps. Error: {e}",
-        )
-
-    # Check 4: Ollama availability
-    try:
-        resp = httpx.get("http://localhost:11434/api/tags", timeout=5)
-        check(
-            "Ollama availability",
-            resp.status_code == 200,
-            "Start Ollama: docker exec ollama ollama serve",
-        )
-    except Exception:
-        check(
-            "Ollama availability",
-            False,
-            "Start Ollama: docker exec ollama ollama serve",
-        )
-
-    # Check 5: Embedding model
-    try:
-        from verilore.api.services.embedder import Embedder
-
-        embedder = Embedder()
-        check(
-            "Embedding model loaded",
-            embedder.dimension > 0,
-            "Check sentence-transformers is installed",
-        )
-    except Exception as e:
-        check(
-            "Embedding model loaded",
-            False,
-            f"Check sentence-transformers is installed. Error: {e}",
-        )
-
-    # Check 6: Content directory
-    import os
-
-    content_exists = os.path.exists("./content") and len(os.listdir("./content")) > 0
-    check(
-        "Content directory has files",
-        content_exists,
-        "Add Markdown files to ./content/",
-    )
-
-    # Check 7: Migrations (simplified)
-    try:
-        from alembic.config import Config
-
-        Config("verilore/migrations/alembic.ini")
-        # Just check if we can load the config
-        check("Alembic config loads", True, "Run: alembic upgrade head")
-    except Exception:
-        check("Alembic config loads", False, "Run: alembic upgrade head")
-
-    typer.echo(f"\n[HEALTH] Health Check: {checks_passed}/{total_checks} passed")
-    if checks_passed == total_checks:
-        typer.echo("[SUCCESS] All systems go!")
-        raise typer.Exit(code=0)
-    else:
-        typer.echo("[WARN]  Some checks failed. See hints above.")
-        raise typer.Exit(code=1)
 
 
 @eval_app.command("memory")

@@ -25,6 +25,24 @@ before this release leave the index.
 
 ### Changed
 
+**One error format for every CLI failure, and a doctor that finds the cause (#187).**
+Every CLI failure now prints the same five lines — `error: <what> (<code>)`,
+`why:`, `fix:`, and `more: verilore doctor · rerun with --debug for the full
+traceback` — with exit code 1 for an operational failure and 2 for bad usage;
+hints name the real commands (`verilore serve`, `verilore init`) instead of
+`uvicorn api.main:app --reload`, bare `alembic upgrade head`, or
+`docker compose up -d postgresql`. `verilore doctor` now runs an ordered list
+of checks (Python >= 3.11, package version, config file, container engine,
+database reachable, credentials accepted, pgvector extension, schema at head
+with both revision ids, embedding model or lexical mode, ingest roots,
+background runtime), each `PASS`, `FAIL` with the fix, or `SKIP` when a check it
+depends on did not pass. `--json` prints the same list, and `--report` prints a
+block to paste into an issue: OS, distribution, WSL, Python, version, engine,
+every check and the newest log's last 30 lines, with every password, token,
+secret and URL userinfo replaced by `***`. `docs/errors.md`
+names the real classes and `vl_*` codes, and opens with a Troubleshooting
+section.
+
 **Package layout.** The wheel now installs a single top-level namespace,
 `verilore` (plus the two one-release shims `verilore_sdk` and
 `verilore_errors`). The `api/`, `cli/` and `migrations/` directories and the

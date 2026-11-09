@@ -35,11 +35,10 @@ def database_hint() -> str:
     return _hint()
 
 
-_START_DATABASE = "Start it with: docker compose up -d postgresql"
-_APPLY_SCHEMA = (
-    "Apply the schema with:\n"
-    "    python -m alembic -c verilore/migrations/alembic.ini upgrade head"
-)
+#: The local database, started by `verilore init`. In server mode the operator
+#: points at a real PostgreSQL instead; the deployment doc carries that.
+_START_DATABASE = "verilore init"
+_APPLY_SCHEMA = "verilore init"
 _CHECK_PASSWORD = (
     "Check the password in DATABASE_URL. The local database's password is "
     "'secret'; a container started from docker-compose.yml uses the same one."
@@ -383,11 +382,29 @@ def _unreadable_advice(exc: Exception) -> Advice:
 
 
 def render(advice: Advice, exc: Exception, *, verbose: bool = False) -> str:
-    """Render one failure. ``verbose`` appends the technical detail for debugging."""
-    lines = [advice.what, f"\nWhy: {advice.why}"]
+    """Render one failure in the one error format every command prints.
+
+    The shape is fixed:
+
+        error: <what> (<code>)
+          why: <why>
+          fix: <exact command or setting>
+          more: verilore doctor   ·   rerun with --debug for the full traceback
+
+    `verbose` (or `--debug`) appends the technical detail for debugging; the
+    traceback is printed by the caller, never here, so this format stays the
+    same whether or not `--debug` is on.
+    """
+    return _format(advice, exc, verbose=verbose)
+
+
+def _format(advice: Advice, exc: Exception, *, verbose: bool = False) -> str:
+    lines = [f"error: {advice.what} ({advice.code})"]
+    if advice.why:
+        lines.append(f"  why: {advice.why}")
     if advice.do:
-        lines.append(f"\nWhat to do:\n  {advice.do}")
-    lines.append(f"\n({advice.code})")
+        lines.append(f"  fix: {advice.do}")
+    lines.append("  more: verilore doctor   ·   rerun with --debug for the full traceback")
     if verbose:
         lines.append(f"\n{type(exc).__name__}: {exc}")
     return "\n".join(lines)

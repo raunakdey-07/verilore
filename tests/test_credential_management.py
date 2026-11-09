@@ -1039,6 +1039,10 @@ def test_no_request_serving_surface_reads_a_raw_file():
             "reads /etc/os-release to detect the Linux distribution; machine's "
             "own configuration, not caller input"
         ),
+        ("verilore/cli/main.py", "_doctor_wsl"): (
+            "reads /proc/version to detect WSL2 for `verilore doctor`; machine's "
+            "own kernel string, not caller input"
+        ),
         ("verilore/sdk.py", "_load"): (
             "reads a caller-supplied receipt or Memory Pack artifact, like the "
             "CLI revalidate exception"
@@ -1046,6 +1050,9 @@ def test_no_request_serving_surface_reads_a_raw_file():
     }
     #: Files that are not request-serving paths at all.
     OFF_SURFACE = {
+        # The CLI-only doctor/gating modules (#187): they read their own
+        # migrations, log dir and /proc, never caller input.
+        "verilore/cli/doctor.py",
         # The CLI-only local config loader (#185): it reads its own
         # ~/.verilore/config.toml, which is operator state, never caller input.
         "verilore/cli/config.py",
