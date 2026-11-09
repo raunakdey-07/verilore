@@ -1239,26 +1239,13 @@ jobs:
   # provisions the database, the three documented commands run, and a second init
   # is a no-op. The five-minute-path job keeps covering the Docker checkout.
   # Stops/disables docker so the engine podman/docker detection has to find the
-  # Podman one, exactly like a Fedora laptop would.
+  # Podman one, exactly like a Fedora laptop would. No `services:` block: the
+  # job must prove `init` provisions its own database, not that a database
+  # somebody else started is already there.
   laptop-path:
     name: Laptop path on Podman
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    services:
-      postgres:
-        image: pgvector/pgvector:pg15
-        env:
-          POSTGRES_DB: verilore
-          POSTGRES_USER: mpadmin
-          POSTGRES_PASSWORD: secret
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U mpadmin -d verilore"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - name: Checkout repository
@@ -1287,13 +1274,14 @@ jobs:
       - name: Stop docker; confirm podman is the engine
         run: |
           set -uo pipefail
+          # The daemon is not always managed by systemd on the runner, so stop
+          # it every way there is. Nothing after this step may use docker.
           sudo systemctl stop docker.service docker.socket 2>/dev/null || true
           sudo systemctl disable docker.service docker.socket 2>/dev/null || true
           sudo systemctl kill docker.service docker.socket 2>/dev/null || true
-          rm -f /var/run/docker.sock
-          # The docker binary lingers on PATH; the daemon is what must be gone.
-          # `docker info` failing proves the Docker path cannot be used, and
-          # `_container_clis()` prefers podman anyway.
+          sudo pkill dockerd 2>/dev/null || true
+          sudo rm -f /var/run/docker.sock
+          sleep 2
           export PATH="$RUNNER_TEMP/laptop-venv/bin:$PATH"
           command -v podman >/dev/null || { echo "::error::no podman on PATH"; exit 1; }
           if docker info >/dev/null 2>&1; then
