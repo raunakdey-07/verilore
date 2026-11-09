@@ -51,6 +51,23 @@ running `verilore init`, with no environment variables to export. The package
 description now says what Verilore is, and documentation that cited moved line
 numbers names the function instead.
 
+**`verilore init` is the whole local setup on Linux (#185).** `init` now
+provisions the local database itself with the official
+`docker.io/pgvector/pgvector:pg15` image (Podman or Docker), binds it only to
+`127.0.0.1:5432`, and mounts a named volume `verilore-pgdata` so removing the
+container deletes no memory; a long first-run wait replaces the fixed 5 s
+timeout that expired during the first image pull. A provisioning failure is no
+longer swallowed: `init` prints the engine's stderr (last 5 lines), why, and the
+fix -- the distro's `runtime_install_command()` when no engine exists, or
+"port 5432 is in use by another program: pass --database-url" when it is taken
+-- and exits 1. `init` also writes `~/.verilore/config.toml` (mode 0600,
+respecting `VERILORE_DATA_DIR`) with `database_url` and generated secrets,
+so the README quickstart is `verilore init` followed by `verilore ingest-repo`
+and `verilore recall`, with no exports. Precedence is flag > environment >
+config file > built-in default, and server mode keeps requiring real environment
+variables exactly as before. The README's old multi-export block moves to
+`docs/deployment.md` under "Running against your own PostgreSQL".
+
 ### Fixed
 
 **Stable claim keys (#160).** Inserting, moving or deleting a list item no longer

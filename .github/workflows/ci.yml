@@ -1235,10 +1235,99 @@ jobs:
           fi
           echo "no port published by default"
 
+  # The laptop path on Podman (ubuntu-latest ships podman): a bare `verilore init`
+  # provisions the database, the three documented commands run, and a second init
+  # is a no-op. The five-minute-path job keeps covering the Docker checkout.
+  # Stops/disables docker so the engine podman/docker detection has to find the
+  # Podman one, exactly like a Fedora laptop would.
+  laptop-path:
+    name: Laptop path on Podman
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: verilore
+          POSTGRES_USER: mpadmin
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U mpadmin -d verilore"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # Build the wheel and install it into a fresh venv, nothing else on PATH.
+      - name: Build the wheel and install it into a fresh venv
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          ls dist/*.whl
+          python -m venv "$RUNNER_TEMP/laptop-venv"
+          wheel=$(ls "$GITHUB_WORKSPACE"/dist/*.whl)
+          "$RUNNER_TEMP/laptop-venv/bin/pip" install "$wheel"
+          "$RUNNER_TEMP/laptop-venv/bin/verilore" --help > /dev/null
+
+      # The bare Docker-less path: stop and disable docker, confirm podman is the
+      # only engine on PATH, then run the three documented commands with no
+      # environment at all and a pristine data directory.
+      - name: Stop docker; confirm podman is the engine
+        run: |
+          set -uo pipefail
+          sudo systemctl stop docker.service docker.socket 2>/dev/null || true
+          sudo systemctl disable docker.service docker.socket 2>/dev/null || true
+          export PATH="$RUNNER_TEMP/laptop-venv/bin:$PATH"
+          command -v podman >/dev/null || { echo "::error::no podman on PATH"; exit 1; }
+          if command -v docker >/dev/null; then
+            echo "::error::docker is still on PATH; the Podman branch is not proved"
+            exit 1
+          fi
+          podman --version
+
+      - name: The documented laptop path, on Podman, with nothing exported
+        env:
+          PYTHON_TOML_LIGHT: "0"
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/laptop-venv/bin:$PATH"
+          export VERILORE_DATA_DIR="$RUNNER_TEMP/laptop-data"
+          export VERILORE_RUNTIME=0
+          # Unset everything a laptop would not have: no DATABASE_URL, no
+          # VERILORE_* secrets, no cursor secret, no ingest roots.
+          unset DATABASE_URL VERILORE_RUNTIME_PASSWORD VERILORE_CURSOR_SECRET VERILORE_INGEST_ROOTS
+          mkdir -p "$VERILORE_DATA_DIR"
+
+          verilore init
+          verilore ingest-repo docs/adr --corpus project
+          verilore recall "What is the primary datastore?" --corpus project
+          # A second init is a no-op: config is reused, secrets are not regenerated.
+          before="$(stat -c '%Y %s' "$VERILORE_DATA_DIR/config.toml")"
+          sleep 1
+          verilore init > /dev/null
+          after="$(stat -c '%Y %s' "$VERILORE_DATA_DIR/config.toml")"
+          if [ "$before" != "$after" ]; then
+            echo "::error::second init rewrote the config"
+            exit 1
+          fi
+          echo "laptop path: init is the whole setup; second init is a no-op"
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [tests, lint, embedding-backends, five-minute-path, wheel, upgrade-safety, build]
+    needs: [tests, lint, embedding-backends, five-minute-path, wheel, upgrade-safety, build, laptop-path]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

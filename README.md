@@ -38,15 +38,23 @@ runbooks. These commands run in CI against a built wheel (`scripts/cleanroom_qui
 Lines starting with `$ ` are the commands CI runs; type them without the `$ `.
 
 ```bash
-# The default install is ONNX, not torch: cold `recall` 1.4 s, install 216 MB.
-git clone https://github.com/raunakdey-07/verilore.git && cd verilore
-python -m venv .venv && . .venv/bin/activate && pip install -e '.[cli,mcp]'
-export VERILORE_RUNTIME_PASSWORD=choose-a-local-password
-export VERILORE_CURSOR_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
-export VERILORE_INGEST_ROOTS="$PWD"
-docker compose up -d postgresql
-export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c verilore/migrations/alembic.ini upgrade head
+# Install the command (PyPI publishing is planned for v0.11; until then,
+# install from GitHub):
+uv tool install git+https://github.com/raunakdey-07/verilore
+# or: pipx install git+https://github.com/raunakdey-07/verilore
+
+# 1. Start the database ( Podman on Fedora, Docker anywhere else ).
+#    `verilore init` can do this for you; the pipx-installed `verilore` finds the
+#    same local database either way. See "Running against your own PostgreSQL"
+#    in docs/deployment.md for the case this does not want.
+docker run -d --name verilore-db -p 5432:5432 \
+  -e POSTGRES_DB=verilore -e POSTGRES_USER=mpadmin -e POSTGRES_PASSWORD=secret \
+  pgvector/pgvector:pg15
+
+# 2. The whole local setup is `verilore init`: it starts the local database if
+#    it can, applies the schema, creates your first corpus, and writes the
+#    config file (`~/.verilore/config.toml`, mode 0600) so nothing else needs
+#    exporting. Re-running it afterwards is a no-op.
 $ verilore init
 
 # Ingest a plain ADR. No frontmatter, no `claims:` block: headings, list items and
@@ -70,6 +78,23 @@ $ verilore history "" --corpus project
 $ verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
 $ verilore verify receipt.json
 ```
+
+The clone-based install is one line now:
+
+```bash
+git clone https://github.com/raunakdey-07/verilore.git && cd verilore
+python -m venv .venv && . .venv/bin/activate && pip install -e '.[cli,mcp]'
+$ verilore init
+$ verilore ingest-repo ./docs/adr --corpus project
+$ verilore recall "What is the primary datastore?" --corpus project
+```
+
+The five environment variables the old quickstart exported are gone: `init`
+provisions the local database (Podman or Docker), applies the schema, and writes
+`~/.verilore/config.toml` with the `database_url` and generated secrets. In local
+mode the ingest roots default to the current working directory of the command, and
+the default `DATABASE_URL` is
+`postgresql://mpadmin:secret@localhost:5432/verilore` throughout.
 
 The first `recall` builds an ONNX session: about 1.4 s, then 0.3 s. A background
 runtime holds it and the connection pool warm after that;
@@ -103,14 +128,14 @@ verilore feedback-summary
 
 ## Install it as a command
 
-The quickstart above works from a clone. To use Verilore on your own folders
-without one, install the command from GitHub (PyPI publishing is planned for
-v0.11):
+The quickstart above installs from the `uv tool` / `pipx` line. With the
+command installed, no database, schema migration, environment export or Docker
+step is needed to reach memory at all:
 
 ```bash
-uv tool install git+https://github.com/raunakdey-07/verilore
-# or: pipx install git+https://github.com/raunakdey-07/verilore
-
+# The database is the only step. `verilore init` can do it for you when it can
+# see Podman or Docker; an explicit `docker run` is here so the plan is never
+# hidden behind it, and so it works with neither:
 docker run -d --name verilore-db -p 5432:5432 \
   -e POSTGRES_DB=verilore -e POSTGRES_USER=mpadmin -e POSTGRES_PASSWORD=secret \
   pgvector/pgvector:pg15

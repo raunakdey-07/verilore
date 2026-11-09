@@ -417,6 +417,38 @@ does not require embeddings or claims for every archived version; it exercises
 the exact production feed query and lifecycle-table constraints. It does not
 modify the real research archive or add another database technology.
 
+## Running against your own PostgreSQL
+
+`verilore init` provisions a local PostgreSQL (Podman or Docker), applies the
+schema, and creates the first corpus. The whole local setup is one command:
+
+```bash
+verilore init
+verilore ingest-repo ./docs --corpus project
+verilore recall "What is the primary datastore?" --corpus project
+```
+
+If you already have PostgreSQL, or you want the container under your own name,
+the older multi-step path still works. Set the three variables the README used
+to require, start the database, export the default `DATABASE_URL`, apply the
+schema, and then run the same `verilore init`:
+
+```bash
+export VERILORE_RUNTIME_PASSWORD=choose-a-local-password
+export VERILORE_CURSOR_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
+export VERILORE_INGEST_ROOTS="$PWD"
+docker compose up -d postgresql
+export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
+python -m alembic -c verilore/migrations/alembic.ini upgrade head
+verilore init
+```
+
+The `VERILORE_RUNTIME_PASSWORD`, `VERILORE_CURSOR_SECRET` and
+`VERILORE_INGEST_ROOTS` exports are only what a server deployment needs;
+in local mode `init` writes generated values and the URL to
+`~/.verilore/config.toml` (mode 0600) so none of them has to be exported.
+Precedence is flag > environment > config file > built-in default.
+
 ## Known limitations
 
 - Late commits behind an issued keyset boundary require reconciliation.
