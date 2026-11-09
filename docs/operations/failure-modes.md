@@ -277,9 +277,9 @@ options below need an owner decision.
 | `verilore corpora` | top-level command | **Lists** the corpora you can read and write. One name per line. Read-only. |
 | `verilore corpus` | Typer sub-group (`corpora_app = typer.Typer(name="corpus")`) | **Administrative.** Sub-commands `create` and `delete`. |
 
-Source: `verilore/cli/main.py:806` defines `def corpora()` as an `@app.command()`;
-`verilore/cli/main.py:1624` defines `corpora_app` with `name="corpus"` and
-`verilore/cli/main.py:1629` calls `app.add_typer(corpora_app)`.
+Source: `verilore/cli/main.py` defines `def corpora()` as an `@app.command()`,
+defines `corpora_app` with `name="corpus"`, and calls
+`app.add_typer(corpora_app)`.
 
 So the inconsistency is a singular noun that is a group, next to a plural noun
 that is a single flat command. The internal variable is named `corpora_app` while

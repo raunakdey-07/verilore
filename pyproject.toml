@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "verilore"
 version = "0.10.0"
-description = "Verilore - AI-native Research Operating System"
+description = "Versioned, evidence-backed memory for AI applications"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -23,7 +23,7 @@ dependencies = [
     # The embedding stack. ONNX Runtime runs the same published MiniLM weights
     # with no torch in the process: a cold `recall` measures 1.4 s against 7.6 s
     # for sentence-transformers, and the install is 90 MB against 5.1 GB.
-    # `api/services/embedder.py` documents the equivalence measurement
+    # `verilore/api/services/embedder.py` documents the equivalence measurement
     # (min cosine 0.99999833) that makes the two interchangeable, and
     # `tests/test_embedder_backend_equivalence.py` asserts it per text.
     "onnxruntime>=1.17.0",
@@ -58,7 +58,7 @@ migrations = [
     "pgvector>=0.3.0",
 ]
 # The slow backend, for a deployment that wants it. Installing this alongside the
-# default stack does not change what a cold command does: `api.services.embedder`
+# default stack does not change what a cold command does: `verilore.api.services.embedder`
 # prefers onnxruntime when it imports and only falls back to sentence-transformers
 # when it does not. Use `MEMORY_EMBEDDER=torch` to force the fallback and compare.
 torch = ["sentence-transformers>=2.5.0"]
@@ -75,8 +75,9 @@ dev = [
 # `verilore-mcp` executables with no generic top-level names on the path.
 verilore = "verilore.cli.main:app"
 # Standalone, dependency-free proof tooling. A separate entry point, not a
-# subcommand of the Typer CLI, because Typer is an optional extra: anyone who
-# installs the package must be able to verify a proof without it.
+# subcommand of the Typer CLI, because the verifier needs nothing but the
+# standard library: anyone holding a proof must be able to check it without
+# the CLI's dependencies.
 verilore-proof = "verilore.proof_cli:main"
 # The MCP server, as a command an agent can actually launch. Same reason: an
 # agent configuration should not have to know a module path or a virtualenv.

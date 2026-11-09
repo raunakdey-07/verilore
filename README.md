@@ -101,6 +101,33 @@ verilore feedback <query_id> --verdict wrong --note "meant the cache"
 verilore feedback-summary
 ```
 
+## Install it as a command
+
+The quickstart above works from a clone. To use Verilore on your own folders
+without one, install the command from GitHub (PyPI publishing is planned for
+v0.11):
+
+```bash
+uv tool install git+https://github.com/raunakdey-07/verilore
+# or: pipx install git+https://github.com/raunakdey-07/verilore
+
+docker run -d --name verilore-db -p 5432:5432 \
+  -e POSTGRES_DB=verilore -e POSTGRES_USER=mpadmin -e POSTGRES_PASSWORD=secret \
+  pgvector/pgvector:pg15
+verilore init
+
+verilore ingest-repo ./docs
+verilore recall "What did we decide about pricing?"
+```
+
+With no `DATABASE_URL` set, every command uses
+`postgresql://mpadmin:secret@localhost:5432/verilore`, which is the database the
+`docker run` line starts, so nothing needs exporting. `verilore init` applies the
+schema from the installed package and creates the default corpus; CI runs it the
+same way against a fresh database from the built wheel. Needs Python 3.11 or
+newer and Docker (on Linux and WSL2, `init` can start the container itself; see
+below).
+
 ## Managing corpora and credentials
 
 - `verilore ingest-repo <path> --delete-removed` retires documents whose source file is gone.

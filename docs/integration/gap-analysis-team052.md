@@ -7,6 +7,8 @@
 **STATIC ANALYSIS + LIVE PROBES.** Sections §1-§5 derived from code reading.
 Live probes from issue #105 (run 41287500689, branch m018/probe-gap) completed
 2026-11-01 and are cited inline where they confirm or refute a code-reading claim.
+Line numbers cited below are from the code as of that date; several fixes
+have landed since (see the CHANGELOG), so search for the named function.
 Probe g confirmed SDK failure behaviour; probe c confirmed draft/rejected claims appear in current/pack by default (no filtering);
 probe a confirmed idempotency and supersession; probe f confirmed budget unit.
 Probes d (path scoping) and e (HTTP-level isolation): probe d raw output posted
@@ -103,7 +105,7 @@ approved current claim. Draft/rejected claims are withheld from `current` and
 
 SDK example:
 
-    from verilore_sdk import Verilore
+    from verilore import Verilore
 
     mp = Verilore("acme")
     mp.memory.remember("Never use the word curated in copy.", key="brand.rule.curated")
