@@ -18,11 +18,29 @@ from urllib.parse import urlparse
 #: How long to wait for a (re)started container to accept TCP connections.
 READY_TIMEOUT_SECONDS = 5.0
 
-#: The container name the compose file / init creates.
-DEFAULT_CONTAINER_NAME = "verilore_postgresql_1"
+#: How long a **fresh** container gets: the first run downloads the image once
+#: and runs initdb, which alone is slower than the 5 s ready timeout.
+FIRST_RUN_READY_TIMEOUT_SECONDS = 90.0
 
-#: The image used when provisioning a fresh local container.
-DEFAULT_IMAGE = "ankane/pgvector"
+#: The container name init provisions. Named, so a restart finds it and pulls
+#: nothing; `--restart unless-stopped` started is what survives a reboot.
+DEFAULT_CONTAINER_NAME = "verilore-postgres"
+
+#: The name the old compose checkout used. Keep recognising it as ours so an
+#: existing container is restarted instead of replaced with a second copy.
+LEGACY_CONTAINER_NAME = "verilore_postgresql_1"
+
+#: Every name a container of ours has had, including the old compose names.
+_OUR_NAMES = frozenset({DEFAULT_CONTAINER_NAME, LEGACY_CONTAINER_NAME, "mindpalace_postgresql_1"})
+
+#: The named volume the data lives in, so removing the container removes
+#: nothing: memory survives `podman rm verilore-postgres`.
+DEFAULT_VOLUME_NAME = "verilore-pgdata"
+
+#: The image used when provisioning a fresh local container. Fully qualified
+#: (Podman on Fedora enforces short-name resolution and cannot prompt) and
+#: the official `pgvector/pgvector`, which superseded `ankane/pgvector`.
+DEFAULT_IMAGE = "docker.io/pgvector/pgvector:pg15"
 
 #: The port the local development database lives on.
 #:
@@ -149,6 +167,24 @@ def tcp_open(host: str, port: int, timeout: float = 1.0) -> bool:
         return False
 
 
+def speaks_postgres(host: str, port: int, timeout: float = 1.0) -> bool:
+    """Whether whatever listens on ``host:port`` is a PostgreSQL server.
+
+    Sends the protocol's SSLRequest packet, to which every PostgreSQL server
+    answers with a single ``S`` or ``N`` before any authentication. It needs no
+    credentials, so a PostgreSQL that rejects ours -- a distro's own install on
+    5432, say -- is still recognised as one, and the precise "password
+    authentication failed" guidance applies instead of a wrong "another program".
+    """
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as conn:
+            conn.settimeout(timeout)
+            conn.sendall((8).to_bytes(4, "big") + (80877103).to_bytes(4, "big"))
+            return conn.recv(1) in (b"S", b"N")
+    except OSError:
+        return False
+
+
 def _container_clis() -> list[str]:
     found = []
     for name in ("podman", "docker"):
@@ -164,6 +200,49 @@ def _run_cli(cli: str, args: list[str], timeout: float = 30.0) -> subprocess.Com
         capture_output=True,
         text=True,
         timeout=timeout,
+    )
+
+
+class ProvisioningError(Exception):
+    """Provisioning the local database failed, with the engine's own words.
+
+    `detail` is the last five lines of the engine's stderr; `engine` is the
+    CLI that failed (`podman`/`docker`), and `hint` is the fix to print.
+    """
+
+    def __init__(self, detail: str, *, engine: str = "", hint: str = "") -> None:
+        super().__init__(detail or "could not provision the local database")
+        self.detail = detail
+        self.engine = engine
+        self.hint = hint
+
+
+def last_provision_error() -> ProvisioningError | None:
+    """The last provisioning failure in this process, if one happened."""
+    return globals().get("_LAST_PROVISION_ERROR")
+
+
+def _record_error(error: ProvisioningError) -> ProvisioningError:
+    globals()["_LAST_PROVISION_ERROR"] = error
+    return error
+
+
+def _last_lines(text: str, count: int = 5) -> str:
+    lines = [line for line in (text or "").splitlines() if line.strip()]
+    return "\n".join(lines[-count:])
+
+
+def _port_is_taken_by_something_else(host: str, port: int) -> bool:
+    """The port accepts TCP and is not a PostgreSQL server: another program."""
+    return tcp_open(host, port, timeout=0.5) and not speaks_postgres(host, port)
+
+
+def port_conflict_remediation_for(port: int) -> str:
+    return (
+        f"Port {port} is already in use by another program that is not PostgreSQL.\n"
+        "Either stop it, or point Verilore at a different database (init records it\n"
+        "for every later command):\n"
+        "  verilore init --database-url postgresql://<user>:<pass>@127.0.0.1:<port>/verilore"
     )
 
 
@@ -340,10 +419,11 @@ def find_stopped_postgres_container(port: int = 5432) -> dict | None:
         candidates.append(c)
     if not candidates:
         return None
-    # Prefer verilore-named containers.
-    for c in candidates:
-        if "verilore" in (c.get("name") or "").lower():
-            return c
+    # Prefer verilore-named containers; the legacy compose name counts as ours
+    # too, so an existing container is restarted rather than replaced.
+    for container in candidates:
+        if _is_ours(container):
+            return container
     return candidates[0]
 
 
@@ -366,12 +446,19 @@ def start_container(container: dict, timeout: float = READY_TIMEOUT_SECONDS) -> 
     return db_ready(host, port, timeout=1.0)
 
 
-def provision_local_postgres(timeout: float = READY_TIMEOUT_SECONDS) -> bool:
+def provision_local_postgres(
+    timeout: float = READY_TIMEOUT_SECONDS, *, first_run: bool = False
+) -> bool:
     """Provision and start a fresh local pgvector container.
 
     Only for the standard local port. A database on any other port is one the
     operator runs, and creating a container for it is a surprise with a
     lasting consequence.
+
+    A container that already exists under our name (or the old compose name) is
+    started rather than recreated, so the data in the named volume survives.
+    A failure is recorded in `last_provision_error()` and raised as part of
+    `ensure_local_postgres`: nothing about a broken provision is silent here.
     """
     clis = _container_clis()
     if not clis:
@@ -383,7 +470,18 @@ def provision_local_postgres(timeout: float = READY_TIMEOUT_SECONDS) -> bool:
     # If something is already listening, nothing to do.
     if db_ready(host, port, timeout=1.0):
         return True
+    if _port_is_taken_by_something_else(host, port):
+        raise _record_error(
+            ProvisioningError(
+                port_conflict_remediation_for(port),
+                engine=cli,
+                hint=port_conflict_remediation_for(port),
+            )
+        )
     name = DEFAULT_CONTAINER_NAME
+    # Localhost-only binding: the mpadmin password is fine on a loopback-socket
+    # laptop and must never be reachable off it. The named volume outlives the
+    # container, so `rm` of the container deletes no memory.
     cmd = [
         "run",
         "-d",
@@ -396,7 +494,9 @@ def provision_local_postgres(timeout: float = READY_TIMEOUT_SECONDS) -> bool:
         "-e",
         "POSTGRES_PASSWORD=secret",
         "-p",
-        f"{port}:5432",
+        f"127.0.0.1:{port}:5432",
+        "-v",
+        f"{DEFAULT_VOLUME_NAME}:/var/lib/postgresql/data",
         "--restart",
         "unless-stopped",
         DEFAULT_IMAGE,
@@ -406,15 +506,26 @@ def provision_local_postgres(timeout: float = READY_TIMEOUT_SECONDS) -> bool:
     ]
     try:
         proc = _run_cli(cli, cmd, timeout=120.0)
-    except (OSError, subprocess.SubprocessError):
-        return False
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise _record_error(ProvisioningError(str(exc), engine=cli, hint=str(exc))) from exc
     if proc.returncode != 0:
-        # Maybe name already exists; try starting it.
+        # Maybe an old container already has our name; start it instead.
         try:
-            _run_cli(cli, ["start", name], timeout=30.0)
-        except (OSError, subprocess.SubprocessError):
-            pass
-    deadline = time.monotonic() + timeout
+            started = _run_cli(cli, ["start", name], timeout=30.0)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise _record_error(
+                ProvisioningError(_last_lines(proc.stderr), engine=cli, hint=str(exc))
+            ) from exc
+        if started.returncode != 0:
+            raise _record_error(
+                ProvisioningError(
+                    _last_lines(started.stderr or proc.stderr),
+                    engine=cli,
+                    hint=_last_lines(started.stderr or proc.stderr),
+                )
+            )
+    budget = FIRST_RUN_READY_TIMEOUT_SECONDS if first_run else timeout
+    deadline = time.monotonic() + budget
     while time.monotonic() < deadline:
         if db_ready(host, port, timeout=1.0):
             return True
@@ -443,16 +554,65 @@ def ensure_local_postgres(
     if not is_local_host(host):
         return tcp_open(host, port, timeout=0.5)
     if tcp_open(host, port, timeout=0.5):
+        if auto_provision and not speaks_postgres(host, port):
+            # The port answers TCP but is not PostgreSQL: another program owns
+            # it, and a generic "storage unavailable" is not the answer. A
+            # PostgreSQL that rejects our login is left to init's connection
+            # check, whose message names the credentials. `init` is the only
+            # caller that asked for a fix.
+            raise _record_error(
+                ProvisioningError(
+                    port_conflict_remediation_for(port),
+                    hint=port_conflict_remediation_for(port),
+                )
+            )
         return True
+    if not _container_clis():
+        raise _record_error(
+            ProvisioningError(
+                missing_runtime_remediation_hint(),
+            )
+        )
     # Try to start a stopped container.
     container = find_stopped_postgres_container(port)
     if container is not None:
         if start_container(container, timeout=timeout):
             return True
     if auto_provision:
-        if provision_local_postgres(timeout=timeout):
+        if provision_local_postgres(timeout=timeout, first_run=is_first_run()):
             return True
     return tcp_open(host, port, timeout=0.5)
+
+
+def _is_ours(container: dict) -> bool:
+    name = (container.get("name") or "").lower()
+    return name in _OUR_NAMES or "verilore" in name
+
+
+def is_first_run() -> bool:
+    """Whether `init` is about to create the database: the slow, once-only case.
+
+    True only for a local URL with nothing listening, an engine to create the
+    container with, and no container of ours in any state. A database that is
+    already up, or a stopped container that only needs starting, is not a
+    first run, so the "downloads the image once" line is not printed for it.
+    """
+    host, port = db_host_port()
+    if not is_local_host(host) or tcp_open(host, port, timeout=0.5):
+        return False
+    if not _container_clis():
+        return False
+    return not any(_is_ours(container) for container in list_containers())
+
+
+def missing_runtime_remediation_hint() -> str:
+    """The install command for the detected distro, as one line."""
+    cmd = runtime_install_command()
+    return (
+        "No container engine (podman or docker) was found on PATH.\n"
+        f"Install one with: {cmd}\n"
+        "Then re-run: verilore init"
+    )
 
 
 #: Filesystem locations inspected for Linux/WSL2 detection. Module-level so tests

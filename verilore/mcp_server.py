@@ -683,6 +683,11 @@ def main() -> None:
         sys.stdout.write(f"verilore-mcp {found}\n")
         return
 
+    # The database `verilore init` recorded, unless the client's config exports
+    # one. Local mode only; a server deployment ignores the file.
+    from verilore.cli.config import apply_to_environ
+
+    apply_to_environ()
     asyncio.run(mcp.run_stdio_async())
 
 

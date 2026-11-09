@@ -417,6 +417,27 @@ does not require embeddings or claims for every archived version; it exercises
 the exact production feed query and lifecycle-table constraints. It does not
 modify the real research archive or add another database technology.
 
+## Running against your own PostgreSQL
+
+`verilore init` sets up a local PostgreSQL in a container. To use one you
+already run instead (a distribution's own package, a managed database, another
+port), give `init` its URL once:
+
+```bash
+verilore init --database-url postgresql://user:password@127.0.0.1:5433/verilore
+```
+
+`init` applies the schema there, creates the default corpus, and records the URL
+in `~/.verilore/config.toml` (mode 0600). Every later `verilore` command and
+`verilore-mcp` use it; an exported `DATABASE_URL` overrides the file for that
+shell. The server needs the pgvector extension installed, because the first
+migration creates the `vector` extension.
+
+A server deployment is configured differently: it reads only environment
+variables and never this file, and it requires `VERILORE_RUNTIME_PASSWORD`,
+`VERILORE_CURSOR_SECRET` and `VERILORE_INGEST_ROOTS`, which local mode does not
+need. The sections above describe it.
+
 ## Known limitations
 
 - Late commits behind an issued keyset boundary require reconciliation.

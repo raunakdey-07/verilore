@@ -72,6 +72,11 @@ def _global_options(
         import os
 
         os.environ["VERILORE_DEBUG"] = "1"
+    # The database `init` recorded, for every command after it. Before any
+    # command imports the database module, which reads DATABASE_URL once.
+    from verilore.cli.config import apply_to_environ
+
+    apply_to_environ()
     # No subcommand means the person is looking for the first one, not making a
     # mistake. `ctx.invoked_subcommand` is set before this callback runs, so it
     # is None exactly when nothing was named.
@@ -316,13 +321,62 @@ def init(
 
     from sqlalchemy import text
     from verilore.api.services.db import session_scope
+    from verilore.cli import postgres
+    from verilore.cli import config as local_config
 
+    # Resolve configuration flag > env > config file > built-in. The flag wins
+    # for this run; the config is written so the next shell needs nothing.
+    effective_flag = database_url
+    effective_url = local_config.resolve(
+        "DATABASE_URL", local_config.DEFAULT_LOCAL_DATABASE_URL, flag=effective_flag
+    )
+    os.environ["DATABASE_URL"] = effective_url
+
+    # Persist the resolved URL and any generated secret *before* provisioning,
+    # so the file exists even when the database cannot be started. A second
+    # `init` is a no-op: existing keys are never overwritten, and secrets are
+    # generated once and reused.
+    local_config.ensure_config(
+        database_url=effective_url,
+        flag_url=effective_flag,
+    )
+
+    # A failure here used to be swallowed (`except Exception: pass`), so the
+    # user saw a generic "storage unavailable" with no cause. Now the engine's
+    # own stderr, the why, and the fix are printed and the exit is 1.
     try:
-        from verilore.cli.postgres import ensure_local_postgres
-
-        ensure_local_postgres(auto_provision=True)
-    except Exception:  # noqa: BLE001 - recovery is best-effort
-        pass
+        first_run = postgres.is_first_run()
+        if first_run:
+            typer.echo(
+                "Starting the local database (the first run downloads the "
+                "database image once)..."
+            )
+        postgres.ensure_local_postgres(
+            auto_provision=True,
+            timeout=(
+                postgres.FIRST_RUN_READY_TIMEOUT_SECONDS
+                if first_run
+                else postgres.READY_TIMEOUT_SECONDS
+            ),
+        )
+    except postgres.ProvisioningError as exc:
+        typer.echo(
+            "Verilore could not start the local database.\n"
+            f"\n{exc.detail}\n"
+            f"\nfix: {exc.hint or (exc.detail or 'see the error above')}",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:  # noqa: BLE001 - everything else is reported too
+        typer.echo(
+            "Verilore could not start the local database.\n"
+            f"\n{type(exc).__name__}: {exc}\n"
+            "\nfix: this is not a failure Verilore knows how to explain. Re-run with "
+            "`verilore --debug init` and open an issue with the output at "
+            "https://github.com/raunakdey-07/verilore/issues",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
 
     async def check() -> list[bool]:
         async with session_scope() as db:

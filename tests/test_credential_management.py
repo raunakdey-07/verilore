@@ -1046,6 +1046,9 @@ def test_no_request_serving_surface_reads_a_raw_file():
     }
     #: Files that are not request-serving paths at all.
     OFF_SURFACE = {
+        # The CLI-only local config loader (#185): it reads its own
+        # ~/.verilore/config.toml, which is operator state, never caller input.
+        "verilore/cli/config.py",
         "verilore/api/services/memory_query_benchmark.py",
         "verilore/api/services/memory_benchmark.py",
         "verilore/api/services/memory_adjudication.py",
