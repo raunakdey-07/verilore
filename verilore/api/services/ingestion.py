@@ -15,7 +15,7 @@ from sqlalchemy import text
 
 from verilore.api.services.corpora import DEFAULT_CORPUS_ID
 from verilore.api.services.db import session_scope, sync_session_scope
-from verilore.api.services.embedder import SEMANTIC_DEPENDENCY_ERRORS, Embedder
+from verilore.api.services.embedder import Embedder
 from verilore.api.services.ingest_paths import require_permitted
 from verilore.api.services.retrieval_mode import lexical_requested
 from verilore.api.services import markdown_claims
@@ -196,10 +196,15 @@ class IngestionService:
         keys = list(distinct)
         try:
             embeddings = self.embedder.embed(keys)
-        except SEMANTIC_DEPENDENCY_ERRORS:
-            # No model. The document is stored and keyword search still finds it;
-            # it only lacks the vector, which `verilore reindex` adds once the
+        except ImportError:
+            # The model's packages are not installed (ModuleNotFoundError is an
+            # ImportError). The document is stored and keyword search still finds
+            # it; it only lacks the vector, which `verilore reindex` adds once the
             # model is installed. Failing the whole document cost far more (#173).
+            #
+            # Only that. A backend that is installed and then fails mid-sync
+            # (RuntimeError, OSError) still fails the document, so a sync never
+            # records a half-ingested file as a success.
             logger.warning("chunk_vectors_skipped", extra={"chunks": len(records)})
             self.embedding_unavailable = True
             return None, None

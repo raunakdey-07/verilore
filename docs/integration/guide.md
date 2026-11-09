@@ -445,7 +445,7 @@ magnitude below the bound.
   list items and no must/never/always/should sentences is stored as text only,
   and the ingest warns `prose_not_extracted` (#158).
 - **Without the model, a text-only document is found by keyword only.** Under
-  `VERILORE_LEXICAL=1`, or when the model cannot load (the ingest then warns
+  `VERILORE_LEXICAL=1`, or when the model is not installed (the ingest then warns
   `embedding_unavailable`), its text is stored without a vector until
   `verilore reindex` adds one (#173).
 - **No token budgets.** `budget` is a character count of the JSON response.

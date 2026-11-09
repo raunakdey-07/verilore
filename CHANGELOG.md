@@ -62,7 +62,7 @@ memory. It used to say nothing, and that is a team's very first ingest.
 
 **Ingest runs without the model (#173).** `VERILORE_LEXICAL=1` now covers ingest:
 a document with no claims is stored without a vector instead of loading the
-model. When the model cannot load, the ingest stores the text, warns
+model. When the model's packages are not installed, the ingest stores the text, warns
 `embedding_unavailable`, and no longer fails the document; keyword search finds
 it, and `verilore reindex` adds the vectors once the model is installed.
 
