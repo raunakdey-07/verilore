@@ -955,6 +955,27 @@ def _state_for_value(low: str) -> str | None:
     return None
 
 
+#: Document states whose text is kept out of the search index (#138). The same set
+#: current, pack and query withhold (`memory_public._WITHHELD_STATES`; a test pins
+#: the two equal).
+UNSEARCHABLE_STATES = frozenset({"draft", "rejected", "superseded"})
+
+
+def is_searchable(metadata: dict) -> bool:
+    """Whether a document's text belongs in the search index behind the chunk routes.
+
+    `/api/search`, `/api/query`, the retrieval half of `/api/context` and the MCP
+    `search` and `context` tools return raw text with no state label. So a document
+    whose frontmatter makes it a draft, rejected or superseded -- including a
+    statement saved with `remember(state="rejected")` -- is archived as usual but
+    never indexed for them. Its claims stay reachable through current, pack and
+    query with `include_states`. The state is the document's own (`status`,
+    `state` or a state tag); a draft section inside an approved document is still
+    indexed.
+    """
+    return document_state(metadata)[0] not in UNSEARCHABLE_STATES
+
+
 def document_state(metadata: dict) -> tuple[str, list[str]]:
     """The authority state a document declares in its frontmatter, and warnings.
 

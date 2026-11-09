@@ -12,8 +12,16 @@ through [`docs/release-map.md`](docs/release-map.md).
 superseded claims are removed from `query` before ranking, so they can neither be
 the answer nor push an approved claim out of it, and `withheld_counts` says how
 many were left out. Pass `include_states` (now accepted by `query`, the SDK's
-`query()` and the MCP `memory_query` tool) to see them, labelled. The chunk routes
-still return raw text (#138).
+`query()` and the MCP `memory_query` tool) to see them, labelled.
+
+**Withheld documents are not searchable (#138).** A document whose own status (or
+state tag) is draft, rejected or superseded -- including a statement saved with
+`remember(state="rejected")` -- is archived as before but no longer indexed for
+the chunk routes: `/api/search`, `/api/query`, the retrieval half of
+`/api/context`, and the MCP `search` and `context` tools. Publishing it (changing
+only its status) indexes it; withdrawing it removes it. Existing archives: run
+`verilore reindex <corpus>` once after upgrading, so documents ingested as drafts
+before this release leave the index.
 
 ### Changed
 

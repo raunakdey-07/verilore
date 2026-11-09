@@ -190,9 +190,12 @@ print(f"{memory.claim}  [{memory.status}]")
   provenance, not the product.
 - **It does not authenticate its own history.** A receipt proves internal
   consistency. Trust requires an anchor you pinned yourself, outside this system.
-- **Chunk routes do not withhold.** `pack`, `current` and `query` withhold
-  draft/rejected/superseded claims; `/api/search`, `/api/query` and the
-  retrieval part of `/api/context` return raw text from any document (#138).
+- **A draft section inside an approved document is still searchable.** A
+  document whose own status (or state tag) is draft, rejected or superseded is
+  kept out of the search index behind `/api/search`, `/api/query`,
+  `/api/context` and the MCP `search`/`context` tools; its claims stay reachable
+  through `current`, `pack` and `query` with `include_states`. A `## Brainstorm`
+  section inside an approved document is indexed with the rest of it (#138).
 - **No token budgets.** The `budget` argument is a character count of the JSON
   response, not a token count.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`.
