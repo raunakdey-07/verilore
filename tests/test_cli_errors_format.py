@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -33,8 +35,16 @@ DEAD_DATABASE_URL = f"postgresql://mpadmin:secret@127.0.0.1:{DEAD_PORT}/verilore
 
 
 def _invoke(args, extra_env: dict | None = None):
-    from verilore.cli.main import app
+    """Run the CLI in a subprocess with a dead database.
 
+    A subprocess is required, not a nice-to-have: `verilore.api.services.db`
+    reads `DATABASE_URL` once, when the module is first imported, so an
+    in-process `CliRunner` on a session that has already imported it would
+    answer on a different database than the one named here -- which is how
+    these tests passed locally but not in CI, where the engine had been built
+    against the session database. Running as a subprocess is also what a
+    person actually experiences.
+    """
     env = {
         **__import__("os").environ,
         "DATABASE_URL": DEAD_DATABASE_URL,
@@ -42,7 +52,23 @@ def _invoke(args, extra_env: dict | None = None):
     }
     if extra_env:
         env.update(extra_env)
-    return CliRunner().invoke(app, args, env=env)
+    proc = subprocess.run(
+        [sys.executable, "-m", "verilore.cli.main", *args],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        cwd=str(ROOT),
+        env=env,
+    )
+    return _Result(proc.returncode, (proc.stdout or "") + (proc.stderr or ""))
+
+
+class _Result:
+    """The shape `_assert_uniform_failure` expects, over a CompletedProcess."""
+
+    def __init__(self, exit_code: int, output: str) -> None:
+        self.exit_code = exit_code
+        self.output = output
 
 
 def _assert_uniform_failure(result, label: str):
