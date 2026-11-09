@@ -292,7 +292,11 @@ class IngestionService:
         # The parser already produced the warning, with a line and a reason code;
         # it was simply never asked for them.
         metadata, body, frontmatter_warnings = parse_markdown(content, collect_warnings=True)
-        doc_hash = content_hash(body)
+        searchable = markdown_claims.is_searchable(metadata)
+        # The body hash alone would not move when only the frontmatter status
+        # changes, so an unsearchable document hashes differently: publishing a
+        # draft (or withdrawing a published document) re-indexes it.
+        doc_hash = content_hash(body if searchable else f"unsearchable\n{body}")
 
         # Every return below carries the warnings, including the two that do no
         # work. A re-sync of an unchanged broken document must say it is still
@@ -314,6 +318,8 @@ class IngestionService:
                 "chunk_count": 0,
             }
 
+        # The manifest above is the unchanged check (it sees the status too);
+        # `upsert_document`'s own check hashes the body only, so force it.
         doc_id = await upsert_document(
             db,
             extract_title(metadata),
@@ -321,6 +327,7 @@ class IngestionService:
             body,
             metadata,
             corpus_id=corpus_id,
+            force=True,
         )
         if not doc_id:
             return {
@@ -332,6 +339,15 @@ class IngestionService:
 
         # Replace stale chunks with the freshly computed ones.
         await delete_chunks_for_doc(db, corpus_id, doc_id, commit=False)
+        if not searchable:
+            await update_manifest(db, path, doc_hash, doc_id, 0, corpus_id, commit=False)
+            return {
+                "success": True,
+                "warnings": [w.as_dict() for w in frontmatter_warnings],
+                "document_id": doc_id,
+                "chunk_count": 0,
+                "message": "Ingested 0 chunks (not searchable: draft, rejected or superseded)",
+            }
 
         sections = extract_sections_with_paths(body)
         chunks = chunk_with_heading_paths(sections)
@@ -574,18 +590,20 @@ class IngestionService:
         tags = metadata.get("tags", [])
         if isinstance(tags, str):
             tags = [tag.strip() for tag in tags.split(",")]
-        count = await insert_chunks(
-            db,
-            corpus_id,
-            doc_id,
-            doc_type,
-            tags,
-            records,
-            embedding_model,
-            embedding_dimension,
-            "1.0",
-            commit=False,
-        )
+        count = 0
+        if markdown_claims.is_searchable(metadata):
+            count = await insert_chunks(
+                db,
+                corpus_id,
+                doc_id,
+                doc_type,
+                tags,
+                records,
+                embedding_model,
+                embedding_dimension,
+                "1.0",
+                commit=False,
+            )
         version = await memory.record_version(
             db,
             corpus_id,

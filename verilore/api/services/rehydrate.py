@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from verilore.api.services import markdown_claims
 from verilore.api.services.ingestion import IngestionService
 from verilore.api.services.parser import (
     chunk_with_heading_paths,
@@ -134,6 +135,19 @@ async def rehydrate_corpus(
                 f"expected {document_id}, got {stored_document_id}"
             )
 
+        if not markdown_claims.is_searchable(metadata):
+            # Archived, but kept out of the search index (#138).
+            await update_manifest(
+                db,
+                path,
+                content_hash(row["content"]),
+                stored_document_id,
+                0,
+                corpus_id,
+                commit=False,
+            )
+            rebuilt_documents += 1
+            continue
         sections = extract_sections_with_paths(body)
         chunk_data = chunk_with_heading_paths(sections)
         embeddings = service.embedder.embed([chunk["text"] for chunk in chunk_data])

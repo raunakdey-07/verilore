@@ -432,9 +432,12 @@ magnitude below the bound.
 
 ## 9. What it does not do
 
-- **Chunk routes do not withhold.** `pack`, `current` and `query` withhold
-  draft/rejected/superseded claims; `/api/search`, `/api/query` and the
-  retrieval part of `/api/context` return raw text from any document (#138).
+- **A draft section inside an approved document is still searchable.** A
+  document whose own status (or state tag) is draft, rejected or superseded is
+  kept out of the search index behind `/api/search`, `/api/query`,
+  `/api/context` and the MCP `search`/`context` tools; its claims stay reachable
+  through `current`, `pack` and `query` with `include_states`. A `## Brainstorm`
+  section inside an approved document is indexed with the rest of it (#138).
 - **Prose beside bullets is not read.** A document with bullets is read as
   bullets, `Field: value` lines and tables; its prose paragraphs are not read
   and not reported. Put every rule and fact in a bullet (#158).
