@@ -38,6 +38,13 @@ gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
 
+**Authored claims take their document's status (#140).** A `claims:` block in a
+document marked `status: draft` (or `rejected`, `superseded`, or a matching tag)
+is now archived in that state, so current and pack withhold it like any other
+draft. Each claim takes the most restrictive of the document's state and its own
+`info_state`. A document with no status, or an approved one, is archived exactly
+as before and does not re-version on upgrade.
+
 ## [v0.10.0] - 2026-11-07
 
 ### Renamed

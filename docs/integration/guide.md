@@ -434,9 +434,6 @@ magnitude below the bound.
 
 - **Query and chunk routes do not withhold.** `pack` and `current` withhold
   draft/rejected/superseded claims; `query` does not (#138).
-- **Authored `claims:` blocks ignore frontmatter `status`.** A `claims:` block
-  in frontmatter is the authoring interface and wins outright; file-level
-  `status:` does not downgrade its claims (#140).
 - **Prose beside bullets is not read.** A document with bullets is read as
   bullets, `Field: value` lines and tables; its prose paragraphs are not read
   and not reported. Put every rule and fact in a bullet (#158).
