@@ -6,10 +6,7 @@ so they run on any machine with no podman/docker and no PostgreSQL.
 
 from __future__ import annotations
 
-import os
 import stat
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -59,6 +56,7 @@ def test_provision_uses_official_image_localhost_and_volume(fake_container, monk
     # Point db_host_port at the standard local port with a fresh URL.
     monkeypatch.setenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/verilore")
     monkeypatch.setattr(postgres, "db_ready", lambda *a, **k: False)
+    monkeypatch.setattr(postgres, "tcp_open", lambda *a, **k: False)
 
     assert postgres.provision_local_postgres(timeout=0.1) is False
     run_cmd = next((c for c in fake_container if c[1] == "run"), None)
@@ -78,6 +76,7 @@ def test_provision_failure_is_reported(fake_container, monkeypatch):
 
     monkeypatch.setattr(postgres, "_run_cli", failing_run)
     monkeypatch.setattr(postgres, "db_ready", lambda *a, **k: False)
+    monkeypatch.setattr(postgres, "tcp_open", lambda *a, **k: False)
 
     result = CliRunner().invoke(cli_main.app, ["init"], env={"VERILORE_RUNTIME": "0"})
     assert result.exit_code == 1, result.output
@@ -95,6 +94,7 @@ def test_no_engine_prints_the_install_command(monkeypatch, tmp_path):
     monkeypatch.setattr(postgres, "_container_clis", no_clis)
     monkeypatch.setattr(postgres, "linux_distro_id", lambda: "fedora")
     monkeypatch.setattr(postgres, "db_ready", lambda *a, **k: False)
+    monkeypatch.setattr(postgres, "tcp_open", lambda *a, **k: False)
 
     result = CliRunner().invoke(cli_main.app, ["init"], env={"VERILORE_RUNTIME": "0"})
     assert result.exit_code == 1, result.output
@@ -103,9 +103,7 @@ def test_no_engine_prints_the_install_command(monkeypatch, tmp_path):
 
 def test_port_taken_by_something_else(fake_container, monkeypatch):
     """A port that accepts TCP but is not PostgreSQL yields the conflict hint."""
-    monkeypatch.setattr(
-        postgres, "tcp_open", lambda host, port, timeout=1.0: True, raising=False
-    )
+    monkeypatch.setattr(postgres, "tcp_open", lambda host, port, timeout=1.0: True, raising=False)
     monkeypatch.setattr(postgres, "db_ready", lambda *a, **k: False)
 
     result = CliRunner().invoke(cli_main.app, ["init"], env={"VERILORE_RUNTIME": "0"})
@@ -141,16 +139,15 @@ def test_config_precedence(monkeypatch, tmp_path):
 
     # Environment beats the config.
     monkeypatch.setenv("DATABASE_URL", "postgresql://env@db/env")
-    assert config_module.resolve("DATABASE_URL", "postgresql://d/d") == (
-        "postgresql://env@db/env"
-    )
+    assert config_module.resolve("DATABASE_URL", "postgresql://d/d") == ("postgresql://env@db/env")
     monkeypatch.delenv("DATABASE_URL", raising=False)
 
     # A command-line flag beats the environment.
     monkeypatch.setenv("DATABASE_URL", "postgresql://env@db/env")
-    assert config_module.resolve(
-        "DATABASE_URL", "postgresql://d/d", flag="postgresql://flag@db/flag"
-    ) == "postgresql://flag@db/flag"
+    assert (
+        config_module.resolve("DATABASE_URL", "postgresql://d/d", flag="postgresql://flag@db/flag")
+        == "postgresql://flag@db/flag"
+    )
 
     # And when none is set, the built-in default wins.
     monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -162,8 +159,6 @@ def test_config_precedence(monkeypatch, tmp_path):
 
 def test_config_is_private_and_reused(monkeypatch, tmp_path):
     """`init` writes config.toml with mode 0o600, then reuses it unchanged."""
-    from verilore.cli import config as config_module
-
     data = tmp_path / "data"
     monkeypatch.setenv("VERILORE_DATA_DIR", str(data))
     # No database anywhere; init may fail at the connection check, but it must
