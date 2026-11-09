@@ -1258,6 +1258,9 @@ jobs:
           cache: "pip"
 
       # Build the wheel and install it into a fresh venv, nothing else on PATH.
+      # `[migrations]` is what brings psycopg2: the bare wheel ships alembic
+      # but not the sync driver `migrations/env.py` rewrites the URL to, so
+      # `verilore init`'s own migration step would fail without it.
       - name: Build the wheel and install it into a fresh venv
         run: |
           python -m pip install --upgrade pip build
@@ -1265,7 +1268,7 @@ jobs:
           ls dist/*.whl
           python -m venv "$RUNNER_TEMP/laptop-venv"
           wheel=$(ls "$GITHUB_WORKSPACE"/dist/*.whl)
-          "$RUNNER_TEMP/laptop-venv/bin/pip" install "$wheel"
+          "$RUNNER_TEMP/laptop-venv/bin/pip" install "${wheel}[migrations]"
           "$RUNNER_TEMP/laptop-venv/bin/verilore" --help > /dev/null
 
       # The bare Docker-less path: stop and disable docker, confirm podman is the
