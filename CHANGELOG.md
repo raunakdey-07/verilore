@@ -55,6 +55,17 @@ gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
 
+**A first ingest says what it could not read (#158).** A document with no list
+items and no rule-like sentence, ingested into a corpus with no memory yet, now
+warns `prose_not_extracted` like the same document does in a corpus that holds
+memory. It used to say nothing, and that is a team's very first ingest.
+
+**Ingest runs without the model (#173).** `VERILORE_LEXICAL=1` now covers ingest:
+a document with no claims is stored without a vector instead of loading the
+model. When the model cannot load, the ingest stores the text, warns
+`embedding_unavailable`, and no longer fails the document; keyword search finds
+it, and `verilore reindex` adds the vectors once the model is installed.
+
 **Role labels in `context` match whole words (#159).** "Mustard" is no longer a
 rule and "Approved colours are navy" no longer a decision; a description of the
 brand voice is a style example; "don't" sets a rule. A current decision or

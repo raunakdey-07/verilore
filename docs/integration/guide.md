@@ -442,14 +442,12 @@ magnitude below the bound.
   bullets, `Field: value` lines and tables; its prose paragraphs are not read
   and not reported. Put every rule and fact in a bullet (#158).
 - **Prose without rule-like sentences produces no claims.** A document with no
-  list items and no must/never/always/should sentences is stored as text only.
-  In a corpus that already holds memory the ingest warns
-  `prose_not_extracted`; in a brand-new corpus it only marks the document
-  `no_claims_declared` (#158).
-- **Lexical mode covers reads, not ingest.** `VERILORE_LEXICAL=1` answers
-  without the embedding model, but ingesting a document that produces no claims
-  still loads it; without the model that document fails with
-  `ModuleNotFoundError` (#173).
+  list items and no must/never/always/should sentences is stored as text only,
+  and the ingest warns `prose_not_extracted` (#158).
+- **Without the model, a text-only document is found by keyword only.** Under
+  `VERILORE_LEXICAL=1`, or when the model cannot load (the ingest then warns
+  `embedding_unavailable`), its text is stored without a vector until
+  `verilore reindex` adds one (#173).
 - **No token budgets.** `budget` is a character count of the JSON response.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`; there is no
   tag or metadata filter parameter.
