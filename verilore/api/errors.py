@@ -47,8 +47,6 @@ def storage_unavailable(exc: Exception | None = None) -> str:
         f"Why: it could not connect to PostgreSQL at {database_hint()}.\n"
         "\n"
         "What to do:\n"
-        "  verilore init\n"
-        "\n"
-        "Then check it works:\n"
-        "  verilore init" + detail
+        "  verilore init     starts the local database, or says why it cannot\n"
+        "  verilore doctor   finds the cause if that does not fix it" + detail
     )

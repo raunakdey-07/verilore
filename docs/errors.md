@@ -18,12 +18,13 @@ failures nobody escapes are:
 2. **Port taken.** Something else is already listening on 5432 and it is not
    PostgreSQL. Fix: stop it, or point Verilore elsewhere:
    `verilore init --database-url postgresql://<user>:<pass>@127.0.0.1:<port>/verilore`.
-3. **Wrong password.** The database is up but rejects the credentials. Fix:
-   check the password in `DATABASE_URL` (or in `~/.verilore/config.toml`, where
-   `verilore init` stores the one it generated). A container started from
-   `docker-compose.yml` uses the password `secret`; a bare
-   `docker run -d --name verilore-db -p 5432:5432 ...` block in the README uses
-   the same pair.
+3. **Wrong password.** Something on the port is PostgreSQL but refuses the
+   login, often a distribution's own PostgreSQL. Fix: check the URL in
+   `DATABASE_URL`, or in `~/.verilore/config.toml` where `verilore init` records
+   it, and record the right one with
+   `verilore init --database-url postgresql://USER:PASS@HOST:PORT/verilore`. The
+   container `verilore init` creates, like one started from `docker-compose.yml`,
+   uses user `mpadmin` and password `secret`.
 4. **Schema behind.** The database is up, but the alembic version does not
    match the code. Fix: `verilore init` applies the schema from the packaged
    migrations; to apply it by hand run
@@ -31,10 +32,10 @@ failures nobody escapes are:
    Server deployments run the same command against their own PostgreSQL.
    `verilore doctor` prints both revision ids so you can see the gap.
 5. **The model will not download.** The model cache is empty and there is no
-   network (or the download is blocked): the embedder cannot start. Fix: check
-   that the pinned model revisions are reachable (`python
-   scripts/ci/provision_models.py`), or run in lexical mode with
-   `VERILORE_LEXICAL=1`, which needs no model at all.
+   network (or the download is blocked): the embedder cannot start. Fix: run
+   the command again where huggingface.co is reachable, so the model is cached
+   once, or run in lexical mode with `VERILORE_LEXICAL=1`, which needs no model
+   at all.
 
 ## One vocabulary
 

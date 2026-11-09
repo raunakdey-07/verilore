@@ -35,13 +35,13 @@ hints name the real commands (`verilore serve`, `verilore init`) instead of
 of checks (Python >= 3.11, package version, config file, container engine,
 database reachable, credentials accepted, pgvector extension, schema at head
 with both revision ids, embedding model or lexical mode, ingest roots,
-background runtime), each `PASS`/`FAIL` with the fix/`SKIP` when a check it
-depends on failed, plus `--json` and `--report` (a pasteable block with every
-password, token, secret and URL userinfo replaced by `***`). `docs/errors.md`
+background runtime), each `PASS`, `FAIL` with the fix, or `SKIP` when a check it
+depends on did not pass. `--json` prints the same list, and `--report` prints a
+block to paste into an issue: OS, distribution, WSL, Python, version, engine,
+every check and the newest log's last 30 lines, with every password, token,
+secret and URL userinfo replaced by `***`. `docs/errors.md`
 names the real classes and `vl_*` codes, and opens with a Troubleshooting
 section.
-
-**Package layout.** The wheel now installs a single top-level namespace,
 
 **Package layout.** The wheel now installs a single top-level namespace,
 `verilore` (plus the two one-release shims `verilore_sdk` and

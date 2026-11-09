@@ -152,7 +152,7 @@ def _fail(exc: Exception, verbose: bool, debug: bool = False) -> None:
         traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
     # HTTP-ish statuses are not shell codes: operational failures exit 1,
     # bad usage exits 2 (Typer's default), and `advice.status` keeps the
-    # semantic value so JOSN maps remain honest.
+    # semantic value so JSON maps remain honest.
     code = advice.status if advice.status in (1, 2) else 1
     raise typer.Exit(code=code)
 
@@ -325,15 +325,20 @@ def doctor(
     )
 
     if report:
+        engine = next(
+            (c["detail"] for c in checks if c["name"] == "container engine" and c["detail"]),
+            _doctor_engine(),
+        )
         typer.echo(
             doctor_module.render_report(
                 checks=checks,
                 os_name=os.name,
                 os_info=os.uname().sysname,
+                distro=_doctor_distro(),
                 wsl=_doctor_wsl(),
                 python=python_label,
                 version=_doctor_version(),
-                engine=_doctor_engine(),
+                engine=engine,
                 logs=doctor_module.collect_logs(),
             )
         )
@@ -352,6 +357,15 @@ def _doctor_wsl() -> bool:
         return "microsoft" in Path("/proc/version").read_text(errors="replace").lower()
     except OSError:
         return False
+
+
+def _doctor_distro() -> str:
+    from verilore.cli import postgres
+
+    try:
+        return postgres.linux_distro() or "unknown"
+    except Exception:  # noqa: BLE001 - not Linux, or no os-release
+        return "unknown"
 
 
 def _doctor_version() -> str:

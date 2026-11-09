@@ -57,7 +57,7 @@ def check_package_version() -> tuple[bool, str, str]:
 
         version = importlib.metadata.version("verilore")
     except Exception:  # noqa: BLE001 - a package without metadata is broken
-        return False, "", "reinstall with `pip install verilore`"
+        return False, "", "reinstall Verilore with the install line in the README"
     return True, f"verilore {version}", ""
 
 
@@ -118,8 +118,14 @@ def check_credentials() -> tuple[bool, str, str]:
     """A connection that does not raise on a SELECT keeps the credentials."""
     from verilore.cli import postgres
 
-    if not postgres.db_ready(*postgres.db_host_port(), timeout=2.0):
-        return False, "", "check the password: DATABASE_URL"
+    host, port = postgres.db_host_port()
+    if not postgres.db_ready(host, port, timeout=2.0):
+        return (
+            False,
+            f"{host}:{port} is PostgreSQL but refused the login or the database name",
+            "fix the user, password or database name in DATABASE_URL, or record the right "
+            "one with `verilore init --database-url postgresql://USER:PASS@HOST:PORT/DB`",
+        )
     return True, "credentials accepted", ""
 
 
@@ -235,11 +241,20 @@ def check_embedding_model() -> tuple[bool, str, str]:
 
 
 def check_ingest_roots() -> tuple[bool, str, str]:
-    """Ingest roots are set (local mode defaults to the current directory)."""
-    if os.getenv("VERILORE_INGEST_ROOTS", "").strip():
-        return True, os.getenv("VERILORE_INGEST_ROOTS", ""), ""
-    cwd = str(Path.cwd())
-    return True, f"local mode: {cwd}", ""
+    """Which directories ingestion may read.
+
+    Local mode reads any directory you name unless VERILORE_INGEST_ROOTS limits
+    it. A server deployment must set it (or `none`), or it refuses to start.
+    """
+    from verilore.api.services.ingest_paths import server_mode_errors
+
+    roots = os.getenv("VERILORE_INGEST_ROOTS", "").strip()
+    problems = server_mode_errors()
+    if problems:
+        return False, "server mode with no ingest roots", problems[0]
+    if roots:
+        return True, roots, ""
+    return True, "local mode: any directory you name (VERILORE_INGEST_ROOTS limits it)", ""
 
 
 def check_runtime() -> tuple[bool, str, str]:
@@ -266,10 +281,12 @@ CHECKS: list[tuple[str, str, tuple[str, ...]]] = [
     ("container engine", "check_engine", ()),
     ("database reachable", "check_database_reachable", ("container engine",)),
     ("credentials accepted", "check_credentials", ("database reachable",)),
-    ("pgvector extension", "check_pgvector", ("database reachable",)),
-    ("schema at head", "check_schema_at_head", ("database reachable",)),
-    ("embedding model", "check_embedding_model", ("database reachable",)),
-    ("ingest roots", "check_ingest_roots", ("database reachable",)),
+    ("pgvector extension", "check_pgvector", ("database reachable", "credentials accepted")),
+    ("schema at head", "check_schema_at_head", ("database reachable", "credentials accepted")),
+    # Neither needs the database: a model that will not load is worth knowing
+    # about while the database is still down.
+    ("embedding model", "check_embedding_model", ()),
+    ("ingest roots", "check_ingest_roots", ()),
     ("background runtime", "check_runtime", ()),
 ]
 
@@ -279,7 +296,9 @@ def run_checks() -> list[dict]:
     results: list[dict] = []
     by_name: dict[str, dict] = {}
     for name, fn_name, depends_on in CHECKS:
-        failed_dependency = any(by_name.get(dep, {}).get("status") == FAIL for dep in depends_on)
+        failed_dependency = any(
+            by_name.get(dep, {}).get("status") in (FAIL, SKIP) for dep in depends_on
+        )
         if failed_dependency:
             result = _result(name, SKIP, "", "depends on a failed check")
         else:
@@ -321,11 +340,18 @@ def render_report(
     version: str,
     engine: str,
     logs: str,
+    distro: str = "",
 ) -> str:
-    """A block a user can paste into a GitHub issue, secrets redacted."""
+    """A block a user can paste into a GitHub issue, secrets redacted.
+
+    Everything that goes in is redacted on the way out, so a password that
+    reached a check's detail, an exception message or a log line is caught
+    wherever it came from.
+    """
     text = {
         "os": os_name,
         "os_info": os_info,
+        "distro": distro,
         "wsl": wsl,
         "python": python,
         "version": version,
@@ -333,21 +359,49 @@ def render_report(
         "checks": checks,
         "logs": logs,
     }
-    payload = json.dumps(text, indent=2, default=str)
-    return redact(payload)
+    # Redact every string before it is JSON-encoded: encoding escapes the
+    # quotes that tell a value where it ends.
+    payload = json.dumps(_redact_values(text), indent=2, default=str)
+    return "```json\n" + payload + "\n```"
+
+
+def _redact_values(value):
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, dict):
+        return {key: _redact_values(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redact_values(item) for item in value]
+    return value
+
+
+#: Names whose value is a secret, however the value is written.
+_SECRET_NAMES = r"(?:password|passwd|pwd|token|secret|api[_-]?key|credential|authorization)"
+
+_REDACTIONS = (
+    # A bearer token in a header line. First, so the name rule below cannot
+    # stop at the word "Bearer" and leave the token after it.
+    (re.compile(r"(Bearer\s+)[A-Za-z0-9._~+/=-]+", re.I), r"\1***"),
+    # The userinfo of any URL: scheme://user:password@host -> scheme://***@host
+    (re.compile(r"([a-z][a-z0-9+.-]*://)[^\s/@\"']+@", re.I), r"\1***@"),
+    # name=value, name: value, name = "value", "name": "value" (JSON and TOML),
+    # where the name contains a secret word: VERILORE_CURSOR_SECRET, db_password...
+    (
+        re.compile(
+            r"""([\w.-]*""" + _SECRET_NAMES + r"""[\w.-]*["']?\s*[:=]\s*["']?)[^\s"',}]+""",
+            re.I,
+        ),
+        r"\1***",
+    ),
+    # Verilore credentials, wherever they appear.
+    (re.compile(r"mpk_[A-Za-z0-9_-]+"), "***"),
+)
 
 
 def redact(text: str) -> str:
-    """Replace every password, token and secret with `***`."""
-    # Anything that looks like a credential: password=..., token ..., mpk_*
-    for pattern in (
-        r"(password\s*=\s*)\S+",
-        r"(token\s*=\s*)\S+",
-        r"(mpk_[A-Za-z0-9_-]+)",
-        r"(secret\s*=\s*)\S+",
-        r"(supersecret)",
-    ):
-        text = re.sub(pattern, r"\1***" if pattern.startswith("(mpk_") is False else r"***", text)
+    """Replace every password, token, secret and URL userinfo with `***`."""
+    for pattern, replacement in _REDACTIONS:
+        text = pattern.sub(replacement, text)
     return text
 
 
