@@ -201,7 +201,8 @@ async def test_query_withholds_draft_claim():
         )
         assert response.status_code == 200, response.text
         body = response.json()
-    assert "playful tone" not in str(withheld)
+    # The response echoes the question ("playful tone"), so check everything else.
+    assert "playful tone" not in str({k: v for k, v in withheld.items() if k != "query"})
     assert withheld.get("withheld_counts", {}).get("draft") == 1
     claims = body.get("current_memories", [])
     brainstorm = next(c for c in claims if "playful tone" in c["claim"])

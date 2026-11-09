@@ -41,6 +41,13 @@ async def _query(client, corpus: str, question: str, **fields) -> dict:
     return response.json()
 
 
+def _withheld_text_absent(body: dict, text: str) -> bool:
+    """`text` is in no claim and no evidence quote. (The body also echoes the
+    question, so a whole-body substring check would test the echo.)"""
+    body = {k: v for k, v in body.items() if k != "query"}
+    return text not in str(body)
+
+
 def _texts(body: dict) -> set[str]:
     return {
         c["claim"]
@@ -66,7 +73,7 @@ async def test_query_withholds_unapproved_claims_by_default(status):
         corpus = await _corpus(client)
         await _approved_and(client, corpus, status)
         body = await _query(client, corpus, "When does the launch email go out?")
-    assert DRAFT not in str(body)
+    assert _withheld_text_absent(body, DRAFT)
     assert APPROVED in _texts(body)
     assert body.get("withheld_counts", {}).get(status) == 1
 
@@ -94,7 +101,7 @@ async def test_a_draft_alone_is_not_an_answer():
         corpus = await _corpus(client)
         await _unapproved(client, corpus, "draft")
         body = await _query(client, corpus, "When does the launch email go out?")
-    assert DRAFT not in str(body)
+    assert _withheld_text_absent(body, DRAFT)
     assert not body.get("current_memories")
 
 
@@ -121,13 +128,14 @@ async def test_path_prefix_and_withholding_combine():
             "When does the launch email go out?",
             path_prefix=["campaigns/a"],
         )
-    assert DRAFT not in str(body)
+    assert _withheld_text_absent(body, DRAFT)
     assert "Monday afternoons" not in str(body)
     assert APPROVED in _texts(body)
 
 
 def test_sdk_query_passes_include_states(monkeypatch):
-    from verilore.sdk import Verilore
+    # `query` lives on MemoryClient (`Verilore(...).memory.query`).
+    from verilore.sdk import MemoryClient
 
     seen: dict = {}
 
@@ -135,8 +143,8 @@ def test_sdk_query_passes_include_states(monkeypatch):
         seen.update(operation=operation, **fields)
         return "response"
 
-    monkeypatch.setattr(Verilore, "_execute", fake_execute)
-    client = Verilore.__new__(Verilore)
-    assert Verilore.query(client, "When?", "brand", include_states=["draft"]) == "response"
+    monkeypatch.setattr(MemoryClient, "_execute", fake_execute)
+    client = MemoryClient.__new__(MemoryClient)
+    assert client.query("When?", "brand", include_states=["draft"]) == "response"
     assert seen["operation"] == "query"
     assert seen["include_states"] == ["draft"]
