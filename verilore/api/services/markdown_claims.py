@@ -1033,6 +1033,34 @@ def _heading_path_state(heading_path: str) -> str | None:
     return best
 
 
+def apply_document_state(claims: list, metadata: dict) -> tuple[list, list[str]]:
+    """An authored `claims:` block takes its document's status (#140).
+
+    The same rule `assign_states` applies to extracted claims: each claim ends up
+    in the most restrictive of the document's state and its own `info_state`.
+    Returns new claim dicts and the document-state warnings.
+
+    A claim is only changed when the document is stricter than the claim, so a
+    document with no status (or an approved one) archives exactly as before and
+    its fingerprint does not move -- an upgrade does not re-version every authored
+    document. Anything that is not a well-formed claim is passed through for the
+    archive's own validation to report.
+    """
+    doc_state, warnings = document_state(metadata)
+    result = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            result.append(claim)
+            continue
+        own = claim.get("info_state") or "approved"
+        if own not in _STATE_RANK:
+            result.append(claim)
+            continue
+        state = _most_restrictive(doc_state, own)
+        result.append(claim if state == own else {**claim, "info_state": state})
+    return result, warnings
+
+
 def assign_states(claims: list[dict], metadata: dict) -> list[str]:
     """Set each claim's info_state to the most restrictive of the document
     state and the claim's own heading state (approved when absent).

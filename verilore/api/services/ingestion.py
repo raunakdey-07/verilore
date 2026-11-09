@@ -463,6 +463,18 @@ class IngestionService:
         # block had never parsed. Carrying it through is what lets the caller
         # report documents *and* claims instead of a file count.
         _meta, _archived, claims = memory.validate_source(path, content, metadata, records)
+        if isinstance(metadata.get("claims"), list):
+            # An authored block takes its document's status, as extracted claims
+            # do (#140): a draft brand document's claims are drafts.
+            authored, state_warnings = markdown_claims.apply_document_state(
+                metadata["claims"], metadata
+            )
+            for state_warning in state_warnings:
+                code, _, value = state_warning.partition(":")
+                frontmatter_warnings.append(FrontmatterWarning(code, path=path, field=value))
+            if authored != metadata["claims"]:
+                metadata = {**metadata, "claims": authored}
+                _meta, _archived, claims = memory.validate_source(path, content, metadata, records)
         if not claims and "claims" not in metadata and not frontmatter_warnings:
             # Plain Markdown. An ADR, a runbook, a DECISIONS.md: no `claims:`
             # block, and therefore nothing for recall to answer from. The
