@@ -22,6 +22,7 @@ material, never a claim, and is skipped entirely when the model is unavailable.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -340,6 +341,27 @@ def _sections(memory, evidence_by_id: dict) -> list[tuple[str, list[str]]]:
     return out
 
 
+def task_context_for(memories, historical, uncertain, conflicts) -> dict:
+    """The task-aware partition of an authoritative answer, by role.
+
+    Every current memory lands in exactly one bucket. A current decision or
+    observation is authoritative too, so it goes with the facts; before #159 it
+    matched no bucket and was dropped.
+    """
+    return {
+        "must_follow_constraints": [m.claim for m in memories if m.role == "rule"],
+        "authoritative_facts": [
+            m.claim for m in memories if m.role in ("fact", "decision", "observation")
+        ],
+        "style_examples": [m.claim for m in memories if m.role == "example"],
+        "historical_lessons_and_decisions": [
+            m.claim for m in (historical + uncertain) if m.role in ("observation", "decision")
+        ],
+        "superseded_or_conflicting_context": [c.key for c in conflicts],
+        "missing_information_gaps": [],
+    }
+
+
 def _assemble_authoritative(
     query: str,
     memory,
@@ -435,16 +457,7 @@ def _assemble_authoritative(
 
     context_text = "\n\n---\n\n".join(rendered)
     # Task-aware partitioned package (additive; does not alter rendered context).
-    task_context = {
-        "must_follow_constraints": [m.claim for m in memories if m.role == "rule"],
-        "authoritative_facts": [m.claim for m in memories if m.role == "fact"],
-        "style_examples": [m.claim for m in memories if m.role == "example"],
-        "historical_lessons_and_decisions": [
-            m.claim for m in (historical + uncertain) if m.role in ("observation", "decision")
-        ],
-        "superseded_or_conflicting_context": [c.key for c in conflicts],
-        "missing_information_gaps": [],
-    }
+    task_context = task_context_for(memories, historical, uncertain, conflicts)
     if not sources:
         # Attribution comes from kept evidence and kept chunks only.
         for item in memories + historical + uncertain + [o for c in conflicts for o in c.options]:
@@ -592,23 +605,36 @@ def _pack_retrieval_only(
     )
 
 
+_RULE = re.compile(r"\b(?:must|never|avoid|prohibited|should|always|cannot|can't|do not|don't)\b")
+_DECISION = re.compile(
+    r"\b(?:decided|we (?:chose|picked|approved|rejected|abandoned|selected|dropped)"
+    r"|(?:was|were|is|are|has been|have been) (?:approved|rejected|abandoned|selected|chosen))\b"
+)
+_OBSERVATION = re.compile(
+    r"\b(?:conversions?|engagement|outperformed|missed (?:the )?target|worked better)\b"
+)
+_VOICE = re.compile(r"\b(?:our|the) (?:brand )?(?:voice|tone) (?:is|should be)\b")
+_EXAMPLE_HEADINGS = re.compile(r"\b(?:examples?|approved copy|samples?)\b")
+
+
 def classify_memory_role(claim: str, heading: str = "") -> str:
-    """Deterministic semantic-role classification for a memory claim."""
+    """Deterministic semantic-role classification for a memory claim (#159).
+
+    Whole words only: "must" is not "mustard" and "spec" is not "aspect". A
+    decision is a decision verb ("we decided", "was rejected"), not the adjective
+    in "Approved colours are navy". A description of the brand's voice that sets
+    no rule is a style example.
+    """
     low = (claim or "").lower()
-    h = (heading or "").lower()
-    if any(k in h for k in ("example", "approved copy", "sample")):
+    if _EXAMPLE_HEADINGS.search((heading or "").lower()):
         return "example"
-    rule_words = ("must", "never", "avoid", "prohibited", "should", "always", "cannot")
-    if any(k in low for k in rule_words):
+    if _RULE.search(low):
         return "rule"
-    if any(k in low for k in ("approved", "rejected", "abandoned", "selected", "decided")):
+    if _VOICE.search(low):
+        return "example"
+    if _DECISION.search(low):
         return "decision"
-    if any(
-        k in low
-        for k in ("conversion", "engagement", "outperformed", "missed target", "worked better")
-    ):
+    if _OBSERVATION.search(low):
         return "observation"
-    fact_words = ("%", "fabric", "audience", "deadline", "spec")
-    if any(k in low for k in fact_words):
-        return "fact"
+    return "fact"
     return "fact"

@@ -55,6 +55,12 @@ gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
 
+**Role labels in `context` match whole words (#159).** "Mustard" is no longer a
+rule and "Approved colours are navy" no longer a decision; a description of the
+brand voice is a style example; "don't" sets a rule. A current decision or
+observation now lands in `authoritative_facts` instead of matching no bucket of the
+task context and being dropped.
+
 **A chunk boundary no longer cuts a list item in half.** The chunker cuts a long
 run of bullets where a statement starts, then trimmed a trailing conjunction or
 preposition off the cut -- including a cut that already sat on a statement
