@@ -1040,17 +1040,17 @@ filesystem from a caller, and whether it goes through that one resolver.
 
 | Surface | Reads | Enforced | Through `require_permitted` |
 |---|---|---|---|
-| `verilore ingest-repo <path>` | a directory of Markdown | yes | yes — `verilore/cli/main.py:1212` |
-| `verilore ingest <path>` | one file, then POSTs its contents | yes | yes — `verilore/cli/main.py:1143` |
-| `verilore remember --file <path>` | one file, as a statement | yes | yes — `verilore/api/services/remember.py:563` |
+| `verilore ingest-repo <path>` | a directory of Markdown | yes | yes — `ingest_repo()` in `verilore/cli/main.py` |
+| `verilore ingest <path>` | one file, then POSTs its contents | yes | yes — `ingest()` in `verilore/cli/main.py` |
+| `verilore remember --file <path>` | one file, as a statement | yes | yes — `_read()` in `verilore/api/services/remember.py` |
 | `verilore reindex` | no caller path; the corpus's own documents | n/a | n/a |
-| `POST /api/ingest/repo` | a directory | yes | yes — `verilore/api/routers/ingest.py:76` |
+| `POST /api/ingest/repo` | a directory | yes | yes — `ingest_repo()` in `verilore/api/routers/ingest.py` |
 | `POST /api/ingest/file` | content in the request body, no path | n/a | n/a |
-| `POST /api/corpora/{name}/sync` | a directory | yes | yes — `verilore/api/routers/corpora.py:115` |
-| SDK `Verilore.sync(path)` | a directory | yes | yes — `verilore/api/services/ingestion.py:694` |
-| SDK `Verilore.remember(file=…)` | one file | yes | yes — `verilore/api/services/remember.py:563` |
+| `POST /api/corpora/{name}/sync` | a directory | yes | yes — `sync_corpus()` in `verilore/api/routers/corpora.py` |
+| SDK `Verilore.sync(path)` | a directory | yes | yes — `sync_repo()` in `verilore/api/services/ingestion.py` |
+| SDK `Verilore.remember(file=…)` | one file | yes | yes — `_read()` in `verilore/api/services/remember.py` |
 | MCP `sync(corpus, path)` | a directory | yes | yes — same `sync_repo` |
-| MCP `memory_remember(file=…)` | one file | yes | yes — `verilore/mcp_server.py:262` |
+| MCP `memory_remember(file=…)` | one file | yes | yes — `_checked_file()` in `verilore/mcp_server.py` |
 | `verilore verify <receipt>` | a receipt the caller produced | **no, deliberately** | n/a |
 | `verilore receipt -o <file>` | writes; not a read | n/a | n/a |
 | benchmark `--baseline <file>` | a previous report, for comparison | **no, deliberately** | n/a |
@@ -1081,7 +1081,7 @@ are where the gaps came from.
 ## Write operations and the shared core
 
 One table decides which memory operations write:
-`api/services/memory_public.WRITE_OPERATIONS`. The REST adapter and the MCP
+`WRITE_OPERATIONS` in `verilore/api/services/memory_public.py`. The REST adapter and the MCP
 server each carried their own copy of that list and applied it themselves, so
 the SDK and the local runtime — which call the shared core directly — resolved
 every corpus as a reader. A `read_only` credential could therefore create a

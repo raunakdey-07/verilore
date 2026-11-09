@@ -45,6 +45,12 @@ shims for v0.11 (they emit a `DeprecationWarning` and are removed in v0.12).
 `script_location = %(here)s` in `alembic.ini` is unchanged). Migration
 revision ids do not change.
 
+**Install without a clone.** The README now shows installing the command from
+GitHub with `uv tool install` or `pipx install`, starting the database, and
+running `verilore init`, with no environment variables to export. The package
+description now says what Verilore is, and documentation that cited moved line
+numbers names the function instead.
+
 ### Fixed
 
 **Stable claim keys (#160).** Inserting, moving or deleting a list item no longer
