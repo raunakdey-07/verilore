@@ -58,7 +58,9 @@ archive keep their keys; alignment applies from their next ingest.
 **A first ingest says what it could not read (#158).** A document with no list
 items and no rule-like sentence, ingested into a corpus with no memory yet, now
 warns `prose_not_extracted` like the same document does in a corpus that holds
-memory. It used to say nothing, and that is a team's very first ingest.
+memory. It used to say nothing, and that is a team's very first ingest. A sync
+that hits it now reports `success: false` with `failed: 0`, as a sync into a
+corpus with memory already did.
 
 **Ingest runs without the model (#173).** `VERILORE_LEXICAL=1` now covers ingest:
 a document with no claims is stored without a vector instead of loading the
