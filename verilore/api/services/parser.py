@@ -579,12 +579,15 @@ def _chunk_text(heading_path: str, content: str, max_chars: int) -> list[dict[st
                 boundary = max(cut.rfind(". "), cut.rfind(" "))
                 if boundary > max_chars // 2:
                     cut = para[: boundary + 1]
-            # And never on a conjunction or a preposition. A chunk that stops
-            # on "PDF and" holds half a sentence, and the claim the extractor
-            # reads out of it is that half.
-            trimmed = _trim_trailing_word(cut)
-            if len(trimmed) > max_chars // 2:
-                cut = trimmed
+                # And never on a conjunction or a preposition. A chunk that stops
+                # on "PDF and" holds half a sentence, and the claim the extractor
+                # reads out of it is that half. Only here: a cut at a statement
+                # or a line already ends where the text does, and trimming it
+                # would move the boundary back into the statement -- a bullet
+                # ending "is for." was cut after "is", and its claim was lost.
+                trimmed = _trim_trailing_word(cut)
+                if len(trimmed) > max_chars // 2:
+                    cut = trimmed
             chunks.append(
                 {
                     "text": cut.strip(),

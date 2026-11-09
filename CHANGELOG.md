@@ -55,6 +55,14 @@ gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
 
+**A chunk boundary no longer cuts a list item in half.** The chunker cuts a long
+run of bullets where a statement starts, then trimmed a trailing conjunction or
+preposition off the cut -- including a cut that already sat on a statement
+boundary. A bullet ending "...is for." was cut after "is", split across two
+chunks, and its claim was dropped with `claim_extraction_no_quote`. The trim now
+applies only to a cut at a word. (A single bullet longer than a chunk can still
+lose its claim.)
+
 **`query` with `path_prefix` ranks only in-scope claims.** Two documents built from
 one template (two campaign briefs) share claim keys, so an out-of-scope claim used to
 compete for the answer and could appear, with its text, among the near-miss
