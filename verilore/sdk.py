@@ -832,6 +832,7 @@ class MemoryClient:
         claim_id: str | None = None,
         snapshot_id: str | None = None,
         include_receipt: bool = False,
+        include_states: list[str] | None = None,
     ) -> MemoryResponse:
         """Query memory with intent-aware evidence bounded in Unicode characters.
 
@@ -844,6 +845,9 @@ class MemoryClient:
         ``result.receipt``: what was returned, from which version, with what
         evidence, and how to verify it later. The receipt is built by the same
         service REST and MCP use, so it cannot differ between surfaces.
+
+        Draft, rejected and superseded claims are withheld, as in :meth:`current`
+        and :meth:`pack`; name the states to keep in ``include_states``.
         """
         return self._execute(
             "query",
@@ -858,6 +862,7 @@ class MemoryClient:
             claim_id=claim_id,
             snapshot_id=snapshot_id,
             include_receipt=include_receipt,
+            include_states=include_states,
         )
 
     def current(

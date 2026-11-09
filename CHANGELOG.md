@@ -6,6 +6,15 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Breaking changes
+
+**`query` withholds like `current` and `pack` (#138).** Draft, rejected and
+superseded claims are removed from `query` before ranking, so they can neither be
+the answer nor push an approved claim out of it, and `withheld_counts` says how
+many were left out. Pass `include_states` (now accepted by `query`, the SDK's
+`query()` and the MCP `memory_query` tool) to see them, labelled. The chunk routes
+still return raw text (#138).
+
 ### Changed
 
 **Package layout.** The wheel now installs a single top-level namespace,
@@ -37,6 +46,12 @@ an item edited in place keeps its key and supersedes its old text, and a new ite
 gets a key no version of the document has used. Authored `claims:` blocks and
 statements written with `remember` are unaffected. Documents already in an
 archive keep their keys; alignment applies from their next ingest.
+
+**`query` with `path_prefix` ranks only in-scope claims.** Two documents built from
+one template (two campaign briefs) share claim keys, so an out-of-scope claim used to
+compete for the answer and could appear, with its text, among the near-miss
+`candidates` a response reports. `query` now drops out-of-scope claims before
+ranking, as it drops withheld ones.
 
 **Authored claims take their document's status (#140).** A `claims:` block in a
 document marked `status: draft` (or `rejected`, `superseded`, or a matching tag)

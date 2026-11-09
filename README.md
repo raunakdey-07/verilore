@@ -190,8 +190,9 @@ print(f"{memory.claim}  [{memory.status}]")
   provenance, not the product.
 - **It does not authenticate its own history.** A receipt proves internal
   consistency. Trust requires an anchor you pinned yourself, outside this system.
-- **Query and chunk routes do not withhold.** `pack` and `current` withhold
-  draft/rejected/superseded claims; `query` does not (#138).
+- **Chunk routes do not withhold.** `pack`, `current` and `query` withhold
+  draft/rejected/superseded claims; `/api/search`, `/api/query` and the
+  retrieval part of `/api/context` return raw text from any document (#138).
 - **No token budgets.** The `budget` argument is a character count of the JSON
   response, not a token count.
 - **No metadata filters.** Scoping is by corpus and `path_prefix`.

@@ -1,7 +1,7 @@
 """Draft, rejected and superseded claims are withheld from current and pack.
 
-history and query are unchanged: history is the audit trail, and query is the
-raw retrieval surface for this release. Withholding is opt-in per state via
+history is unchanged: it is the audit trail. query withholds too since #138;
+tests/test_query_withholds.py covers it. Withholding is opt-in per state via
 include_states. A response with nothing withheld is byte-identical to main.
 """
 
@@ -175,9 +175,9 @@ async def test_include_states_invalid_is_422():
 
 
 @pytest.mark.asyncio
-async def test_query_returns_draft_claim():
-    # #6: query is unchanged; the brainstorm claim comes back with info_state
-    # "draft".
+async def test_query_withholds_draft_claim():
+    # #6: query withholds the brainstorm claim like current and pack (#138);
+    # include_states brings it back labelled "draft". Owner-approved change.
     corpus = corpus_name()
     path = "brand/guide.md"
     content = (
@@ -194,7 +194,16 @@ async def test_query_returns_draft_claim():
             json={"corpus": corpus, "query": "playful tone"},
         )
         assert response.status_code == 200, response.text
+        withheld = response.json()
+        response = await client.post(
+            "/api/memory/query",
+            json={"corpus": corpus, "query": "playful tone", "include_states": ["draft"]},
+        )
+        assert response.status_code == 200, response.text
         body = response.json()
+    # The response echoes the question ("playful tone"), so check everything else.
+    assert "playful tone" not in str({k: v for k, v in withheld.items() if k != "query"})
+    assert withheld.get("withheld_counts", {}).get("draft") == 1
     claims = body.get("current_memories", [])
     brainstorm = next(c for c in claims if "playful tone" in c["claim"])
     assert brainstorm["info_state"] == "draft"

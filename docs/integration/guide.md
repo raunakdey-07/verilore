@@ -432,8 +432,9 @@ magnitude below the bound.
 
 ## 9. What it does not do
 
-- **Query and chunk routes do not withhold.** `pack` and `current` withhold
-  draft/rejected/superseded claims; `query` does not (#138).
+- **Chunk routes do not withhold.** `pack`, `current` and `query` withhold
+  draft/rejected/superseded claims; `/api/search`, `/api/query` and the
+  retrieval part of `/api/context` return raw text from any document (#138).
 - **Prose beside bullets is not read.** A document with bullets is read as
   bullets, `Field: value` lines and tables; its prose paragraphs are not read
   and not reported. Put every rule and fact in a bullet (#158).
