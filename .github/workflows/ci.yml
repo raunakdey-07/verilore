@@ -1289,13 +1289,15 @@ jobs:
           set -uo pipefail
           sudo systemctl stop docker.service docker.socket 2>/dev/null || true
           sudo systemctl disable docker.service docker.socket 2>/dev/null || true
-          # Stopping the daemon removes the socket; the docker binary lingers on
-          # PATH, so the binary is not the assertion -- the absence of the
-          # daemon socket is what proves the Docker path cannot be used.
+          sudo systemctl kill docker.service docker.socket 2>/dev/null || true
+          rm -f /var/run/docker.sock
+          # The docker binary lingers on PATH; the daemon is what must be gone.
+          # `docker info` failing proves the Docker path cannot be used, and
+          # `_container_clis()` prefers podman anyway.
           export PATH="$RUNNER_TEMP/laptop-venv/bin:$PATH"
           command -v podman >/dev/null || { echo "::error::no podman on PATH"; exit 1; }
-          if [ -S /var/run/docker.sock ]; then
-            echo "::error::docker daemon is still up; the Podman branch is not proved"
+          if docker info >/dev/null 2>&1; then
+            echo "::error::docker daemon is still reachable; the Podman branch is not proved"
             exit 1
           fi
           podman --version
