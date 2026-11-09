@@ -152,6 +152,10 @@ def candidates_in(doc: Path) -> set[tuple[str, bool]]:
             word = line[line.rfind(" ", 0, m.start()) + 1 : m.end()]
             if "://" in word:
                 continue
+            # A token preceded by `~/` names runtime state under the user's home
+            # (for example `~/.verilore/config.toml`), not a file in this repository.
+            if "~/" in line[: m.start()]:
+                continue
             found.add((m.group(1), False))
         found |= {
             (raw, True)

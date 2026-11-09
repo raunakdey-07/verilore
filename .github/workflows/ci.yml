@@ -1289,10 +1289,13 @@ jobs:
           set -uo pipefail
           sudo systemctl stop docker.service docker.socket 2>/dev/null || true
           sudo systemctl disable docker.service docker.socket 2>/dev/null || true
+          # Stopping the daemon removes the socket; the docker binary lingers on
+          # PATH, so the binary is not the assertion -- the absence of the
+          # daemon socket is what proves the Docker path cannot be used.
           export PATH="$RUNNER_TEMP/laptop-venv/bin:$PATH"
           command -v podman >/dev/null || { echo "::error::no podman on PATH"; exit 1; }
-          if command -v docker >/dev/null; then
-            echo "::error::docker is still on PATH; the Podman branch is not proved"
+          if [ -S /var/run/docker.sock ]; then
+            echo "::error::docker daemon is still up; the Podman branch is not proved"
             exit 1
           fi
           podman --version
