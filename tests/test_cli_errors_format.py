@@ -202,55 +202,117 @@ def test_doctor_dependent_checks_skip(monkeypatch):
     monkeypatch.setattr(doctor_module, "check_credentials", lambda: (True, "should-not-run", ""))
     monkeypatch.setattr(doctor_module, "check_pgvector", lambda: (True, "should-not-run", ""))
     monkeypatch.setattr(doctor_module, "check_schema_at_head", lambda: (True, "should-not-run", ""))
-    monkeypatch.setattr(
-        doctor_module, "check_embedding_model", lambda: (True, "should-not-run", "")
-    )
-    monkeypatch.setattr(doctor_module, "check_ingest_roots", lambda: (True, "should-not-run", ""))
-    monkeypatch.setattr(doctor_module, "check_runtime", lambda: (True, "should-not-run", ""))
+    monkeypatch.setattr(doctor_module, "check_embedding_model", lambda: (True, "no database", ""))
+    monkeypatch.setattr(doctor_module, "check_ingest_roots", lambda: (True, "no database", ""))
+    monkeypatch.setattr(doctor_module, "check_runtime", lambda: (True, "no database", ""))
 
     checks = doctor_module.run_checks()
     by_name = {c["name"]: c for c in checks}
-    for dependent in (
-        "credentials accepted",
-        "pgvector extension",
-        "schema at head",
-        "embedding model",
-        "ingest roots",
-    ):
+    for dependent in ("credentials accepted", "pgvector extension", "schema at head"):
         assert by_name[dependent]["status"] == "SKIP", (dependent, by_name[dependent])
+    # The model and the ingest roots do not need the database, so a dead
+    # database must not hide a model that will not load.
+    for independent in ("embedding model", "ingest roots", "background runtime"):
+        assert by_name[independent]["status"] == "PASS", (independent, by_name[independent])
 
 
-def test_report_redacts_secrets(tmp_path, monkeypatch):
-    """A report containing a password, a token and a URL hides every one of them."""
+def test_doctor_a_refused_login_skips_the_database_checks(monkeypatch):
+    """Reachable but refusing the login: pgvector and schema cannot be read, so
+    they SKIP instead of failing with a misleading fix of their own."""
     from verilore.cli import doctor as doctor_module
 
-    config_path = tmp_path / "config.toml"
-    config_path.write_text(
-        'database_url = "postgresql://mpadmin:supersecret@127.0.0.1:5432/verilore"\n'
-        'token = "mpk_1234567890abcdef1234567890abcdef"\n'
-        'verilore_cursor_secret = "cursor-should-be-hidden"\n'
+    for name in (
+        "check_python",
+        "check_package_version",
+        "check_config",
+        "check_engine",
+        "check_database_reachable",
+        "check_embedding_model",
+        "check_ingest_roots",
+        "check_runtime",
+    ):
+        monkeypatch.setattr(doctor_module, name, lambda: (True, "ok", ""))
+    monkeypatch.setattr(
+        doctor_module, "check_credentials", lambda: (False, "refused", "fix DATABASE_URL")
     )
-    monkeypatch.setenv("VERILORE_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("DATABASE_URL", "postgresql://mpadmin:supersecret@db:5432/verilore")
-    monkeypatch.setenv("VERILORE_MCP_CREDENTIAL", "mpk_1234567890abcdef1234567890abcdef")
+    monkeypatch.setattr(doctor_module, "check_pgvector", lambda: (False, "", "should not run"))
+    monkeypatch.setattr(
+        doctor_module, "check_schema_at_head", lambda: (False, "", "should not run")
+    )
+
+    by_name = {c["name"]: c for c in doctor_module.run_checks()}
+    assert by_name["credentials accepted"]["status"] == "FAIL"
+    assert by_name["pgvector extension"]["status"] == "SKIP"
+    assert by_name["schema at head"]["status"] == "SKIP"
+
+
+def test_doctor_ingest_roots_says_what_is_true(monkeypatch):
+    """Local mode reads any directory named; it does not default to the cwd."""
+    from verilore.cli import doctor as doctor_module
+
+    monkeypatch.delenv("VERILORE_INGEST_ROOTS", raising=False)
+    monkeypatch.delenv("VERILORE_DEPLOYMENT", raising=False)
+    ok, detail, _ = doctor_module.check_ingest_roots()
+    assert ok and "any directory" in detail, detail
+
+    monkeypatch.setenv("VERILORE_DEPLOYMENT", "server")
+    ok, detail, fix = doctor_module.check_ingest_roots()
+    assert not ok and "VERILORE_INGEST_ROOTS" in fix, (detail, fix)
+
+
+def test_report_redacts_secrets():
+    """Every password, token, secret and URL userinfo is hidden, wherever it is.
+
+    The secrets go *into* the report -- a check's detail, a fix, the log tail --
+    because a test that never puts a secret in cannot show one is taken out.
+    """
+    from verilore.cli import doctor as doctor_module
+
+    secrets = {
+        "url password": "hunter2-url",
+        "url user": "alice-user",
+        "key=value": "hunter2-kv",
+        "toml secret": "cursor-should-be-hidden",
+        "json password": "hunter2-json",
+        "credential": "mpk_1234567890abcdef1234567890abcdef",
+        "bearer": "eyJhbGciOiJIUzI1NiJ9.payload.sig",
+    }
+    checks = [
+        {
+            "name": "credentials accepted",
+            "status": "FAIL",
+            "detail": f"connect postgresql://{secrets['url user']}:{secrets['url password']}"
+            "@db:5432/verilore failed",
+            "fix": "fix DATABASE_URL",
+        }
+    ]
+    logs = "\n".join(
+        [
+            f"password={secrets['key=value']} while connecting",
+            f'verilore_cursor_secret = "{secrets["toml secret"]}"',
+            f'{{"VERILORE_RUNTIME_PASSWORD": "{secrets["json password"]}"}}',
+            f"using credential {secrets['credential']}",
+            f"Authorization: Bearer {secrets['bearer']}",
+        ]
+    )
 
     report = doctor_module.render_report(
-        checks=[],
-        os_name="Linux",
-        os_info="Fedora 42",
+        checks=checks,
+        os_name="posix",
+        os_info="Linux",
+        distro="fedora",
         wsl=False,
         python="3.11.9",
         version="0.11.0",
         engine="podman 5.7.0",
-        logs="tail of the log with password=supersecret in it",
+        logs=logs,
     )
-    for secret in (
-        "supersecret",
-        "mpk_1234567890abcdef1234567890abcdef",
-        "cursor-should-be-hidden",
-    ):
-        assert secret not in report, f"leaked: {secret}"
-    assert "***" in report
+    for label, secret in secrets.items():
+        assert secret not in report, f"{label} leaked: {secret}\n{report}"
+    assert "postgresql://***@db:5432/verilore" in report, report
+    # What is not a secret stays, or the report is useless.
+    for kept in ("fedora", "podman 5.7.0", "credentials accepted", "3.11.9"):
+        assert kept in report, f"{kept} was lost\n{report}"
 
 
 def test_error_docs_name_only_real_classes_and_codes():
