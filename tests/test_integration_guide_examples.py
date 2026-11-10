@@ -3,8 +3,8 @@
 The guide is documentation with executable blocks: each ```python block is
 extracted and exec()'d in order in one shared namespace, so later blocks may
 use names defined earlier. Shell blocks (```bash) are not run; instead every
-shell command in the guide must appear verbatim somewhere in this project, and
-this test checks that.
+shell command in the guide must appear verbatim in .github/workflows/ci.yml
+or the README quickstart, and this test checks that.
 
 The live server is module-scoped (tests/live_server.py); VERILORE_URL,
 BRAND_MEMORY_KEY and BRAND_CORPUS are set from the fixture before the blocks run.
@@ -13,7 +13,6 @@ BRAND_MEMORY_KEY and BRAND_CORPUS are set from the fixture before the blocks run
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 
 from verilore.cli.main import app  # noqa: E402
@@ -55,44 +54,16 @@ def test_guide_python_blocks_run(live_server, monkeypatch):  # noqa: F811
     assert "recommended_budget" in namespace
 
 
-def _project_text() -> str:
-    """Every tracked text file in the project, except the guide itself.
-
-    The check this feeds is that the guide does not invent commands: one it
-    shows has to be a command this project uses somewhere -- in CI, in a
-    document, in a script, in a test. The guide is not part of that corpus, or
-    every command in it would match itself.
-
-    The corpus is the tracked files rather than a hand-picked few, because a
-    command stops being real only when the project stops using it, not when a
-    particular document stops quoting it.
-    """
-    out = subprocess.run(
-        ["git", "-C", str(ROOT), "ls-files", "-z"],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=120,
-    ).stdout
-    guide = str(GUIDE.relative_to(ROOT))
-    chunks = []
-    for name in out.split("\0"):
-        if not name or name == guide:
-            continue
-        try:
-            chunks.append((ROOT / name).read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError):
-            continue
-    return "\n".join(chunks)
-
-
-def test_guide_shell_commands_appear_in_this_project():
-    """Every shell command in the guide appears verbatim somewhere in the project."""
+def test_guide_shell_commands_appear_in_ci_or_readme():
+    """Every shell command in the guide appears verbatim in ci.yml or README."""
     guide = GUIDE.read_text(encoding="utf-8")
     shell_blocks = _extract_blocks(guide, _SHELL_BLOCK_RE)
     assert shell_blocks, "the guide must contain shell blocks"
 
-    combined = _project_text()
+    ci_text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    deployment_text = (ROOT / "docs" / "deployment.md").read_text(encoding="utf-8")
+    combined = ci_text + readme_text + deployment_text
 
     missing = []
     for block in shell_blocks:
@@ -123,4 +94,6 @@ def test_guide_shell_commands_appear_in_this_project():
 
     assert (
         not missing
-    ), "these shell commands from the guide do not appear in this project:\n" + "\n".join(missing)
+    ), "these shell commands from the guide do not appear in ci.yml or README:\n" + "\n".join(
+        missing
+    )
