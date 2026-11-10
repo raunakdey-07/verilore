@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "verilore"
-version = "0.10.0"
+version = "0.11.0"
 description = "Versioned, evidence-backed memory for AI apps: every answer cites its source and the time it was true."
 # The PyPI page. Not README.md: its relative links render broken on PyPI.
 readme = {file = "docs/pypi.md", content-type = "text/markdown"}

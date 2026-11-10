@@ -8,13 +8,12 @@ boundary. It is not. A corpus is a *namespace*; whether a caller may address one
 is a separate decision, and **before the 0.9.x train** there was no code making
 that decision at all.
 
-> **Which release this describes.** Everything below describes the code at
-> `main` on the 0.9.x train — that is, `v0.9.0` plus migrations `008`, `009` and
-> `010`, none of which have shipped in a tag. Two things below are therefore
-> *not* true of `v0.9.0` itself: the tenant scope binding that `010` introduces,
-> and the `{*}` handling that `008` introduced. If you are on `v0.9.0`, you do
-> not have either. Read this document against the commit you are running, not
-> against the tag name.
+> **Which release this describes.** Everything below describes `v0.11.0`, whose
+> schema is migrations `001` to `016`. Migrations `008` to `010` (the `{*}`
+> handling and the tenant scope binding) first shipped in `v0.9.1`, and `015` and
+> `016` (verified scope tokens in the row-level policies, evaluated once per
+> query) in `v0.10.0`. If you run an older tag, you do not have what those
+> migrations add. Read this document against the version you are running.
 
 ## Summary
 

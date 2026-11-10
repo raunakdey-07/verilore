@@ -4,11 +4,10 @@ Commands only. Each one is the command, not a description of it. The README
 explains why; this is for the person who already read it and wants the list.
 
 ```bash
-# 1. Install. PyPI publishing is planned for v0.11; until then, from GitHub.
-#    Verilore runs on Python 3.11 to 3.14; uv downloads 3.13 if you do not have it
-#    (on Fedora, see the table below).
-uv tool install --python 3.13 git+https://github.com/raunakdey-07/verilore
-# or, with a Python from 3.11 to 3.14: pipx install git+https://github.com/raunakdey-07/verilore
+# 1. Install from PyPI. Verilore runs on Python 3.11 to 3.14; uv downloads 3.13
+#    if you do not have it (on Fedora, see the table below).
+uv tool install --python 3.13 verilore
+# or, with a Python from 3.11 to 3.14: pipx install verilore
 
 # 2. Set up. With Podman or Docker installed, this starts a local PostgreSQL,
 #    applies the schema, creates the corpus `default` and records the database
@@ -301,11 +300,8 @@ This means the receipt still matches the memory it describes. It does not mean t
 Verification needs no server, no database, no embedding model and no network.
 Hand the file to someone who has never heard of Verilore:
 
-<!-- `verilore` is NOT on PyPI. It is distributed as a source install from
-the repository; see the README quickstart for the install command. -->
-
 ```console
-$ pip install "verilore @ git+https://github.com/raunakdey-07/verilore.git"
+$ pip install verilore
 $ verilore-proof verify receipt.json
 VERIFIED
 
@@ -559,12 +555,12 @@ scripts/             benchmarks, probes, release checks
 ## Connecting an agent over MCP
 
 There is no `verilore mcp` command. The server is an executable named
-`verilore-mcp`, installed by the `[mcp]` extra, and it speaks JSON-RPC over
+`verilore-mcp`, installed with Verilore, and it speaks JSON-RPC over
 stdin/stdout — a client starts it, you do not type at it. It used to print
 nothing at all for `--help`; it prints usage now.
 
 ```console
-$ pip install 'verilore[mcp]'
+$ pip install verilore
 
 $ verilore credential issue my-agent -c default -r read_write
 $ export VERILORE_MCP_CREDENTIAL=mpk_...

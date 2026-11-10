@@ -165,7 +165,8 @@ def main() -> None:
 
     # v0.10.0 was once staged during M016 and folded into v0.9.0; it is now a real
     # release, so the absence checks were removed.
-    require(pyproject, r'^version = "0\.10\.0"$', "package version is v0.10.0")
+    require(pyproject, r'^version = "0\.11\.0"$', "package version is v0.11.0")
+    require(changelog, r"^## \[v0\.11\.0\]", "v0.11.0 changelog entry")
     require(changelog, r"^## \[v0\.10\.0\]", "v0.10.0 changelog entry")
     require(changelog, r"^## \[v0\.9\.3\]", "v0.9.3 changelog entry")
     require(changelog, r"^## \[v0\.9\.2\]", "v0.9.2 changelog entry")
@@ -180,9 +181,13 @@ def main() -> None:
     )
     require(
         readme,
-        r"\[Current release: v0\.10\.0\]\(docs/release-map\.md\)",
+        r"\[Current release: v0\.11\.0\]\(docs/release-map\.md\)",
         "README release-map link",
     )
+    # v0.11.0 is the first release on PyPI. The README installs it by name, and a
+    # leftover "planned" note would send a reader back to a GitHub install.
+    require(readme, r"^uv tool install --python 3\.13 verilore$", "README installs from PyPI")
+    require_absent(readme, r"PyPI publishing is planned", "the README still says PyPI is planned")
     require(m006, r"^Public release: `v0\.5\.0`$", "M006 release metadata")
     require(m0065, r"^Public release: `v0\.5\.0`$", "M006.5 release metadata")
     require(m00675, r"^Public release: `v0\.5\.0`$", "M006.75 release metadata")
