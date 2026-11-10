@@ -100,3 +100,57 @@ def test_an_error_response_is_logged_with_its_request_id(caplog):
     assert request_id, response.text
     assert "unhandled_error" in caplog.text
     assert request_id in caplog.text
+
+
+def test_loopback_names_print_no_warning():
+    """`localhost` and `::1` are this machine too; only a network bind warns."""
+    for host in ("localhost", "::1"):
+        with mock.patch("uvicorn.Server"):
+            result = _invoke(["serve", "--run", "--host", host])
+        assert result.exit_code == 0, (host, result.output)
+        assert "reachable from the network" not in result.output.lower(), (host, result.output)
+
+
+def test_log_json_config_loads_and_writes_one_json_line_with_the_request_id(capsys):
+    """The `--log-json` config is accepted by logging itself, and an error line
+    comes out as one JSON object carrying the request id.
+
+    The other log tests read the dict; this one loads it, which is the only way
+    to find a key logging rejects ("Unable to configure formatter ...").
+    """
+    import json
+    import logging
+    import logging.config
+
+    from verilore.cli.main import build_serve_config
+    from verilore.errors import RequestId
+
+    config = build_serve_config(host="127.0.0.1", port=8000, log_json=True)
+    names = ("uvicorn", "uvicorn.error", "uvicorn.access", "verilore")
+    saved = {
+        name: (
+            logging.getLogger(name).handlers[:],
+            logging.getLogger(name).propagate,
+            logging.getLogger(name).level,
+        )
+        for name in names
+    }
+    try:
+        logging.config.dictConfig(config.log_config)
+        RequestId.set("rid-under-test")
+        try:
+            logging.getLogger("uvicorn.error").error("the failure under test")
+        finally:
+            RequestId.clear()
+        lines = [line for line in capsys.readouterr().err.splitlines() if line.strip()]
+    finally:
+        for name, (handlers, propagate, level) in saved.items():
+            logger = logging.getLogger(name)
+            logger.handlers[:] = handlers
+            logger.propagate = propagate
+            logger.setLevel(level)
+
+    payload = json.loads(lines[-1])
+    assert payload["level"] == "ERROR", payload
+    assert payload["message"] == "the failure under test", payload
+    assert payload["request_id"] == "rid-under-test", payload
