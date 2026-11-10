@@ -86,7 +86,7 @@ Working on Verilore itself? Install from a clone instead, then run the same comm
 
 ```bash
 git clone https://github.com/raunakdey-07/verilore.git && cd verilore
-python -m venv .venv && . .venv/bin/activate && pip install -e '.[cli,mcp]'
+uv venv --python 3.13 && . .venv/bin/activate && uv pip install -e '.[cli,mcp]'
 ```
 
 The first `recall` builds an ONNX session: about 1.4 s, then 0.3 s. A background
@@ -331,13 +331,15 @@ Four documents, and then stop.
 ## Contributing
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e '.[cli,mcp,dev]'
+uv venv --python 3.13 && . .venv/bin/activate
+uv pip install -e '.[cli,mcp,dev]'
 pytest -q
 ```
 
-The suite needs PostgreSQL with pgvector; `verilore init` starts one. It will not
-run against an unreachable database — it fails instead of skipping everything.
+The suite needs PostgreSQL with pgvector: `verilore init` starts one, or from the
+checkout `docker compose up -d postgresql` starts the one in `docker-compose.yml`.
+It will not run against an unreachable database — it fails instead of skipping
+everything.
 [CONTRIBUTING.md](CONTRIBUTING.md) has the rest, and [SECURITY.md](SECURITY.md)
 says how to report a vulnerability privately.
 

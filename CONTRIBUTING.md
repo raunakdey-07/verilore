@@ -17,11 +17,16 @@ A security problem is different: do not open a public issue. See
 
 ```bash
 git clone https://github.com/raunakdey-07/verilore.git && cd verilore
-python -m venv .venv && . .venv/bin/activate
-pip install -e '.[cli,mcp,dev]'
+uv venv --python 3.13 && . .venv/bin/activate
+uv pip install -e '.[cli,mcp,dev]'
 verilore init        # starts a local PostgreSQL with pgvector (Podman or Docker)
 pytest -q
 ```
+
+The same steps on macOS, Linux and WSL. uv, which the README installs Verilore
+with, makes the environment and fetches Python 3.13 if you do not have it: a bare
+`python` is not on every system (Debian and Ubuntu name it `python3`), and some
+systems' own Python is newer than the dependencies support.
 
 The suite needs that database. It fails, rather than skipping everything, when it
 cannot reach one, so a green run always means the tests ran.
