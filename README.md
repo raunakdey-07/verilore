@@ -336,9 +336,10 @@ pip install -e '.[cli,mcp,dev]'
 pytest -q
 ```
 
-The suite needs PostgreSQL with pgvector; `docker compose up -d postgresql` is
-enough. It will not run against an unreachable database — it fails instead of
-skipping everything.
+The suite needs PostgreSQL with pgvector; `verilore init` starts one. It will not
+run against an unreachable database — it fails instead of skipping everything.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the rest, and [SECURITY.md](SECURITY.md)
+says how to report a vulnerability privately.
 
 ## License
 

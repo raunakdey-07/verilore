@@ -4,37 +4,38 @@ Commands only. Each one is the command, not a description of it. The README
 explains why; this is for the person who already read it and wants the list.
 
 ```bash
-# 1. Install. Expect about 216 MB; onnxruntime is the default backend.
-git clone https://github.com/raunakdey-07/verilore.git && cd verilore
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+# 1. Install. PyPI publishing is planned for v0.11; until then, from GitHub.
+uv tool install git+https://github.com/raunakdey-07/verilore
+# or: pipx install git+https://github.com/raunakdey-07/verilore
 
-# 2. Start PostgreSQL. Three values compose will not invent; copy them from
-#    .env.example if you would rather set them in a file.
-export VERILORE_RUNTIME_PASSWORD=choose-a-local-password
-export VERILORE_CURSOR_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
-export VERILORE_INGEST_ROOTS="$PWD"
-docker compose up -d postgresql
-
-# 3. Point at it and apply the schema.
-export DATABASE_URL=postgresql://mpadmin:secret@localhost:5432/verilore
-python -m alembic -c verilore/migrations/alembic.ini upgrade head
-
-# 4. Write one fact and ask about it.
+# 2. Set up. With Podman or Docker installed, this starts a local PostgreSQL,
+#    applies the schema, creates the corpus `default` and records the database
+#    for every later command. Running it again changes nothing.
 verilore init
+
+# 3. Write one fact and ask about it.
 verilore remember "Production uses PostgreSQL." --key datastore
 verilore recall "What database does production use?"
 ```
 
 The first `recall` downloads the embedding model, about 90 MB, once. After that
-it works offline. To never download it, set `VERILORE_LEXICAL=1` before step 4
+it works offline. To never download it, set `VERILORE_LEXICAL=1` before step 3
 — see [runtime.md](runtime.md#model-free-lexical-mode).
 
-On Linux and WSL2, `verilore init` starts a stopped local PostgreSQL container
-publishing the configured port and provisions a `pgvector` container when nothing
-is running; `pytest` auto-detects a local development Postgres. Connection and
-authentication failures print a remediation hint instead of a traceback.
+Nothing needs exporting: `init` records the database in
+`~/.verilore/config.toml` and every command reads it. The container it creates
+is `verilore-postgres`, listening on 127.0.0.1:5432 only, with its data in the
+`verilore-pgdata` volume. To use a PostgreSQL you already run, run
+`verilore init --database-url postgresql://...` once instead. When something is
+wrong, `verilore doctor` checks each piece in order and says which one failed.
+
+Working on Verilore itself? Install from a clone, then run the same steps:
+
+```bash
+git clone https://github.com/raunakdey-07/verilore.git && cd verilore
+python -m venv .venv && . .venv/bin/activate
+pip install -e '.[cli,mcp,dev]'
+```
 
 Corpus management: `verilore ingest-repo <path> --delete-removed`,
 `verilore corpus reset <name> --yes`, `verilore corpus delete <name> --yes`,
@@ -42,9 +43,12 @@ and `verilore posture`.
 
 ## Getting a document in
 
-`remember` is for facts. Documents need a `claims:` block in their frontmatter,
-and that is the whole authoring interface — [authoring.md](authoring.md) is the
-reference, and it is the third thing worth reading.
+`remember` is for facts. A folder of Markdown goes in with `ingest-repo`, and
+plain Markdown needs no annotation: list items, numbered entries and `Key: Value`
+lines become claims, each quoted from the file. A `claims:` block in the
+frontmatter, as below, is for when you want to name the keys yourself.
+[authoring.md](authoring.md) is the reference, and it is the third thing worth
+reading.
 
 ```bash
 mkdir -p ./docs
@@ -465,14 +469,10 @@ Failures answer what happened, why, and what to run.
 
 ```console
 $ verilore recall "..."   # with the database stopped
-The memory database is unavailable.
-
-Why: Verilore could not connect to PostgreSQL at localhost:5432.
-
-What to do:
-  Start it with: docker compose up -d postgresql
-
-(database_unavailable)
+error: The memory database is unavailable. (database_unavailable)
+  why: Verilore could not connect to PostgreSQL at localhost:5432.
+  fix: verilore init
+  more: verilore doctor   ·   rerun with --debug for the full traceback
 ```
 
 `--verbose` appends the underlying exception's type and message. It is never
@@ -485,9 +485,11 @@ ordinary situation, and the answer to it is a sentence and a command.
 
 When the database is local and stopped, Verilore starts it for you: it
 looks for a container publishing the configured port and starts the stopped
-one it finds. `verilore init` also creates a `pgvector` container when
-there is none, so it is one command on a machine that has never run
-Verilore. A database on another host is never touched.
+one it finds. `verilore init` also creates the `verilore-postgres` container
+when there is none, so it is one command on a machine that has never run
+Verilore. A database on another host is never touched. Every failure exits 1
+(2 for a mistyped command), and `verilore doctor --report` prints a block to
+paste into an issue, with every password and token replaced by `***`.
 
 ---
 
