@@ -66,12 +66,26 @@ Current state, measured 2026-10-13:
 ### The README's first command actually works
 
 - [ ] Run it, in a clean container, exactly as printed.
-- [ ] **Today it does not.** `pip install verilore` returns 404 on PyPI
-      (checked 2026-10-13: the JSON API and the simple index both 404). The
-      README has been changed to install from the repository instead, and the
-      reason is written next to it. If the distribution is published before the
-      tag, this item is satisfied by the bare name and the README should revert
-      to it.
+- [ ] Until the first PyPI release, the README installs from GitHub
+      (`uv tool install git+https://github.com/raunakdey-07/verilore`). Once
+      `pipx install verilore` works from a clean machine, the README and
+      `docs/pypi.md` switch to the bare name in the same commit.
+
+### Publishing to PyPI (trusted publishing; no password or token is stored)
+
+- [ ] One-time, on both pypi.org and test.pypi.org: add a **pending publisher**
+      for project `verilore`: owner `raunakdey-07`, repository `verilore`,
+      workflow `publish.yml`, environment `pypi` (on TestPyPI: `testpypi`).
+- [ ] One-time, in the repository settings: create the environments `pypi`
+      and `testpypi`, with yourself as a required reviewer on `pypi`.
+- [ ] The CI job "Clean install from the built wheel" passed on the commit
+      being tagged, including `twine check --strict`.
+- [ ] Push the tag. The publish workflow uploads to TestPyPI first; install
+      from there in a clean venv and run `verilore --help` and `verilore init`.
+- [ ] Approve the `pypi` environment's deployment in the workflow run. Then
+      `pipx install verilore` from a clean machine.
+- [ ] A version on PyPI can never be re-uploaded, even after deletion. A
+      mistake is fixed by a new patch version, not by moving the tag.
 - [ ] `mind-palace` on PyPI is a **different project** (a note-taking app at
       0.1.0). Do not let anyone "fix" the install by adding a hyphen.
 

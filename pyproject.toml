@@ -1,13 +1,33 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+# 77 is the first setuptools that implements PEP 639: a `license` SPDX expression
+# and `license-files` in [project]. Older ones reject the string form outright.
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "verilore"
 version = "0.10.0"
-description = "Versioned, evidence-backed memory for AI applications"
-readme = "README.md"
+description = "Versioned, evidence-backed memory for AI apps: every answer cites its source and the time it was true."
+# The PyPI page. Not README.md: its relative links render broken on PyPI.
+readme = {file = "docs/pypi.md", content-type = "text/markdown"}
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "Raunak Dey"}]
+keywords = ["memory", "rag", "llm", "provenance", "pgvector", "mcp", "ai-agents"]
+# Only what CI runs: Python 3.11, on Linux. Add a version or an OS here when a
+# CI job runs it.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: POSIX :: Linux",
+]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
@@ -53,6 +73,13 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "pgvector>=0.3.0",
 ]
+[project.urls]
+Homepage = "https://github.com/raunakdey-07/verilore"
+Repository = "https://github.com/raunakdey-07/verilore"
+Documentation = "https://github.com/raunakdey-07/verilore/blob/main/docs/integration/guide.md"
+Changelog = "https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md"
+Issues = "https://github.com/raunakdey-07/verilore/issues"
+
 [project.optional-dependencies]
 # Empty, and kept because the README, the quickstart and every operator's notes say
 # `pip install -e '.[cli,mcp]'`. Removing it would break those install lines to save

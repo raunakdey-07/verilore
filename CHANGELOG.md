@@ -25,6 +25,15 @@ before this release leave the index.
 
 ### Changed
 
+**Package metadata for PyPI.** The PyPI page is `docs/pypi.md`, written for PyPI
+with absolute links only, because the README's relative links render broken
+there. The package declares its license as the SPDX expression `Apache-2.0` with
+`LICENSE` and `NOTICE` (PEP 639, so the build now needs setuptools 77 or newer),
+its author, keywords, project links, and classifiers that claim only what CI
+tests: Python 3.11, on Linux. CI runs `twine check --strict` on every wheel it
+builds. The release checklist describes publishing through PyPI trusted
+publishing, which stores no password or token.
+
 **`verilore serve` is the two-step job for apps (#189).** `verilore serve --run`
 reads the `~/.verilore/config.toml` that `verilore init` wrote, binds
 `127.0.0.1:8000` by default (`--host`/`--port` to change), and prints on start
