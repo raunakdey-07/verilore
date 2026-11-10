@@ -25,6 +25,13 @@ before this release leave the index.
 
 ### Changed
 
+**Contributor and security docs; a current quickstart.** `CONTRIBUTING.md` says
+how to set up, test and propose a change, and asks for `verilore doctor --report`
+in bug reports. `SECURITY.md` asks for vulnerabilities to be reported privately
+through GitHub. `docs/quickstart.md` now shows the same install-and-`init` setup
+as the README and the current error format, where it still showed the old
+eight-step setup and the old "What to do:" message.
+
 **A publish workflow with trusted publishing.** `.github/workflows/publish.yml`
 builds the sdist and the wheel, runs `twine check --strict`, installs the wheel
 in a fresh venv and runs `verilore --help` and `verilore-proof --help`, and
