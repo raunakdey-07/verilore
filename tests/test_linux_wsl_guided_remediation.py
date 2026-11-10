@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 
+import pytest
+
 from verilore.cli import errors as cli_errors
 from verilore.cli import postgres as cli_postgres
+
+
+@pytest.fixture(autouse=True)
+def _linux(monkeypatch):
+    """These are the Linux and WSL answers, whichever machine runs the suite;
+    tests/test_platform_guided_remediation.py holds the macOS ones."""
+    monkeypatch.setattr(cli_postgres, "is_macos", lambda: False, raising=False)
 
 
 def test_wsl2_detected_from_proc_version(monkeypatch, tmp_path):
