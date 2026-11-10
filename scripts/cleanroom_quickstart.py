@@ -268,13 +268,10 @@ def main() -> int:
     runner = Runner(work, session_url)
     checks: list[tuple[str, bool, str]] = []
 
-    # The MCP check at the end runs `verilore-mcp`, and that console script
-    # only exists with the `[mcp]` extra. The script installed the bare wheel and
-    # then ran it anyway, so the last check could never pass -- which is very
-    # likely why this file had no caller. The bare path must stay bare: not
-    # shipping `mcp` by default is a claim the release makes, and asserting it
-    # needs an install without the extra.
-    wheel_spec = str(wheel) if args.bare else f"{wheel}[mcp]"
+    # The MCP check at the end runs `verilore-mcp`. `mcp` is a core dependency, so
+    # the wheel alone serves it on both paths; no extra is added, because a plain
+    # install is what the README tells a person to run.
+    wheel_spec = str(wheel)
 
     try:
         venv = (work / "venv").resolve()

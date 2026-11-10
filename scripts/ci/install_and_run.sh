@@ -123,6 +123,7 @@ for entry in "${installs[@]}"; do
   "$tool_python" -c "import sys, onnxruntime, tokenizers, asyncpg, psycopg2; print('python', sys.version.split()[0])"
   "$bin/verilore" --help > /dev/null
   "$bin/verilore-proof" --help > /dev/null
+  "$bin/verilore-mcp" --help > /dev/null
   "$bin/verilore" init --database-url "$database_url"
   "$bin/verilore" remember "The primary datastore is PostgreSQL." --key datastore
   "$bin/verilore" recall "What is the primary datastore?"
