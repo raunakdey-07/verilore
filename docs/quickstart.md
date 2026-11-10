@@ -33,8 +33,8 @@ Working on Verilore itself? Install from a clone, then run the same steps:
 
 ```bash
 git clone https://github.com/raunakdey-07/verilore.git && cd verilore
-python -m venv .venv && . .venv/bin/activate
-pip install -e '.[cli,mcp,dev]'
+uv venv --python 3.13 && . .venv/bin/activate
+uv pip install -e '.[cli,mcp,dev]'
 ```
 
 Corpus management: `verilore ingest-repo <path> --delete-removed`,
