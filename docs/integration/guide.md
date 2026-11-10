@@ -11,8 +11,9 @@ Conventions used throughout:
 - All `python` blocks run in one shared namespace, in file order, so later blocks
   may use names defined earlier.
 
-Shell blocks are not run; each shell command must appear verbatim in
-`.github/workflows/ci.yml` or the README quickstart (the test checks this).
+Shell blocks are not run; each shell command must appear verbatim somewhere in
+this project — in CI, in a document, in a script, in a test — so the guide
+cannot invent one (the test checks that).
 
 ---
 
