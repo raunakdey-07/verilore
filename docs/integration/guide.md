@@ -16,7 +16,78 @@ Shell blocks are not run; each shell command must appear verbatim in
 
 ---
 
-## 1. Running the service next to an app
+## 0. On your laptop
+
+Your web app and Verilore, both on your own machine, in two steps. First set
+up the database once; `init` also creates the corpus `default`:
+
+```bash
+verilore init
+```
+
+Then start the server, in its own terminal. It listens on `127.0.0.1:8000`, so
+nothing outside this machine can reach it, and it prints the command for the
+next step:
+
+```bash
+verilore serve --run
+```
+
+Issue the app its key. The secret is printed once, so copy it now:
+
+```bash
+verilore credential issue my-app --corpus default
+```
+
+Give your app three environment variables: `VERILORE_URL=http://127.0.0.1:8000`,
+`BRAND_CORPUS=default`, and `BRAND_MEMORY_KEY` set to that secret. The app reads
+them from the environment, never from code or a checked-in file:
+
+```python
+import os
+from verilore import Verilore
+
+client = Verilore(
+    os.environ["BRAND_CORPUS"],
+    base_url=os.environ["VERILORE_URL"],
+    api_key=os.environ["BRAND_MEMORY_KEY"],
+)
+print(client.memory.current(query="tone"))
+```
+
+For a shared server rather than a laptop — one deployment for a team, with
+authentication and the least-privileged database role — see
+[docs/deployment.md](../deployment.md).
+
+## 1. Showing errors to your developers
+
+A web app shows Verilore's errors to its own developers, not a stack trace.
+`VeriloreError` carries the code, the message, whether retrying can work,
+and the request id the server logged, so one log line says everything a
+developer needs. It catches a server that refused the request and a server that
+could not be reached alike; for the second, `retryable` is true:
+
+```python
+import logging
+import os
+
+from verilore import Verilore, VeriloreError
+
+try:
+    # A key the server refuses, so the handler below is the thing being shown.
+    Verilore(base_url=os.environ["VERILORE_URL"], api_key="not-a-real-key").memory.current(
+        query="tone", corpus=os.environ["BRAND_CORPUS"]
+    )
+except VeriloreError as exc:
+    logging.warning(
+        "verilore error: code=%s message=%s retryable=%s request_id=%s",
+        exc.code, exc.message, exc.retryable, exc.request_id,
+    )
+```
+
+---
+
+## 2. Running the service next to an app
 
 Start PostgreSQL with pgvector, apply the schema, provision the least-privileged
 runtime role, rotate the scope secret, and turn enforcement on. The exact commands
@@ -73,7 +144,7 @@ client_url = VERILORE_URL
 
 ---
 
-## 2. Credentials: one per brand, server-side only
+## 3. Credentials: one per brand, server-side only
 
 Issue one read_write credential per brand. Credentials are bearer secrets: they
 grant access to exactly the corpora listed at issue time, and nothing else.
@@ -98,7 +169,7 @@ memory.
 
 ---
 
-## 3. Layout: one corpus per brand, folders per campaign
+## 4. Layout: one corpus per brand, folders per campaign
 
 **One corpus per brand.** A corpus is the tenant isolation boundary: a credential
 for corpus `trailhead` cannot read corpus `globex`, regardless of what path you
@@ -146,7 +217,7 @@ ingest(autumn_brief, "campaigns/autumn/brief.md")
 
 ---
 
-## 4. The five calls an app needs
+## 5. The five calls an app needs
 
 ### Ingest documents
 
@@ -243,7 +314,7 @@ assert any(c.id == voice_id for c in ev.historical_memories), (
 
 ---
 
-## 5. State: how claims gain and lose authority
+## 6. State: how claims gain and lose authority
 
 Claim state comes from frontmatter `status`/`state`/`tags`, or from heading words;
 the most restrictive wins. A document with `status: approved` in frontmatter is
@@ -328,7 +399,7 @@ Weight: 9.8 kilograms
 
 ---
 
-## 6. Failure handling: generation never fails because memory failed
+## 7. Failure handling: generation never fails because memory failed
 
 Configure the client with `timeout=3, retries=1` on the generation path. On
 `MemoryClientError`, generate without memory, log it, and tell the reviewer
@@ -366,7 +437,7 @@ duplicates.
 
 ---
 
-## 7. Budgets: size of the JSON response, not the prompt
+## 8. Budgets: size of the JSON response, not the prompt
 
 The `budget` argument is the size of the **whole JSON response** in characters,
 including ids, evidence quotes, and provenance — not the prompt text. One current
@@ -414,7 +485,7 @@ print(f"prompt chars: {len(prompt_text)}")
 
 ---
 
-## 8. Measured numbers
+## 9. Measured numbers
 
 From `tests/test_integration_brand_kit_scenario.py`, CI run 41902031212
 (200 documents of ~300 words each, 20 `pack` calls at budget 16000 against a
@@ -430,7 +501,7 @@ magnitude below the bound.
 
 ---
 
-## 9. What it does not do
+## 10. What it does not do
 
 - **A draft section inside an approved document is still searchable.** A
   document whose own status (or state tag) is draft, rejected or superseded is
