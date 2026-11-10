@@ -1328,10 +1328,211 @@ jobs:
             || { echo "::error::verilore-postgres is not bound to 127.0.0.1:5432 only"; exit 1; }
           echo "laptop path: init is the whole setup; second init is a no-op"
 
+  # The wheel the install jobs below share: built once, so every platform installs
+  # the same file a person would download.
+  dist:
+    name: Build the wheel for the install jobs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build the wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+      - name: Keep it for the install jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  # Every Python the package claims, installed the way a person installs it: the
+  # wheel into a fresh venv, binary wheels only, so a dependency that would need a
+  # compiler on someone's laptop fails here instead. Then the first commands run
+  # against a real database. The classifiers and requires-python in pyproject.toml
+  # may only name versions this matrix runs.
+  python-versions:
+    name: Installs and runs on Python ${{ matrix.python }} (${{ matrix.runner }})
+    needs: dist
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        runner: [ubuntu-latest]
+        include:
+          # 64-bit ARM Linux: Raspberry Pi 5, Graviton, WSL on Windows on ARM.
+          - python: "3.13"
+            runner: ubuntu-24.04-arm
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: verilore
+          POSTGRES_USER: mpadmin
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U mpadmin -d verilore"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install the wheel from binary wheels only
+        run: |
+          python -m venv "$RUNNER_TEMP/v"
+          "$RUNNER_TEMP/v/bin/pip" install --only-binary=:all: "$(ls dist/*.whl)"
+          "$RUNNER_TEMP/v/bin/python" -c "import sys, onnxruntime, tokenizers, asyncpg, psycopg2; print(sys.version)"
+
+      - name: The first commands run
+        working-directory: ${{ runner.temp }}
+        env:
+          DATABASE_URL: postgresql://mpadmin:secret@localhost:5432/verilore
+          VERILORE_DATA_DIR: ${{ runner.temp }}/data
+          VERILORE_RUNTIME: "0"
+          # Model-free, so each Python does not download the model again. The
+          # import above already proved the model stack installs on this version.
+          VERILORE_LEXICAL: "1"
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/v/bin/verilore" --help > /dev/null
+          "$RUNNER_TEMP/v/bin/verilore-proof" --help > /dev/null
+          "$RUNNER_TEMP/v/bin/verilore" init
+          "$RUNNER_TEMP/v/bin/verilore" remember "The primary datastore is PostgreSQL." --key datastore
+          "$RUNNER_TEMP/v/bin/verilore" recall "What is the primary datastore?"
+
+  # Each distribution's own Python and its own installers, inside that
+  # distribution's container, exactly as docs/quickstart.md tells a person:
+  # `uv tool install --python 3.13` on every one, and pipx with the system Python
+  # wherever Verilore supports that Python. WSL 2 runs these same userlands
+  # (Ubuntu is its default); GitHub's Windows runners cannot run WSL 2 itself.
+  # scripts/ci/install_and_run.sh is the whole procedure.
+  distros:
+    name: Installs on ${{ matrix.name }}
+    needs: dist
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Debian 12", image: "debian:12" }
+          - { name: "Debian 13", image: "debian:13" }
+          - { name: "Ubuntu 24.04, WSL's default", image: "ubuntu:24.04" }
+          - { name: "Fedora, latest", image: "fedora:latest" }
+          - { name: "Arch Linux", image: "archlinux:latest" }
+    container:
+      image: ${{ matrix.image }}
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_DB: verilore
+          POSTGRES_USER: mpadmin
+          POSTGRES_PASSWORD: secret
+        options: >-
+          --health-cmd="pg_isready -U mpadmin -d verilore"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
+      - name: Install with this distribution's tools, then run the first commands
+        shell: bash
+        env:
+          # Inside a job container the service is reached by its name.
+          DATABASE_URL: postgresql://mpadmin:secret@postgres:5432/verilore
+        run: bash scripts/ci/install_and_run.sh dist
+
+  # macOS, Apple silicon and Intel, with the same script, against PostgreSQL
+  # from Postgres.app: a Universal build that bundles pgvector, so both chips
+  # get the same database without compiling one (Homebrew has no Intel bottles
+  # for postgresql@17 or pgvector). GitHub's macOS runners have no container
+  # engine, so `init --database-url` with a database already running is what
+  # this proves; creating the container is proved by "Laptop path on Podman".
+  # Intel Macs stop at Python 3.13: onnxruntime has no Intel-Mac wheel for 3.14.
+  macos:
+    name: Installs on macOS (${{ matrix.chip }}, Python ${{ matrix.python }})
+    needs: dist
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-latest, chip: "Apple silicon", python: "3.11" }
+          - { runner: macos-latest, chip: "Apple silicon", python: "3.14" }
+          - { runner: macos-15-intel, chip: "Intel", python: "3.13" }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: PostgreSQL with pgvector, from Postgres.app
+        env:
+          # Pinned by version and digest: a changed file fails here, not later.
+          PGAPP_URL: https://github.com/PostgresApp/PostgresApp/releases/download/v2.9.6/Postgres-2.9.6-17.dmg
+          PGAPP_SHA256: b38bb00b8c8702a568270aab85995c550f7f93d1503b818efdc5ff9a519b7168
+        run: |
+          set -euo pipefail
+          dmg="$RUNNER_TEMP/Postgres.dmg"
+          curl -fsSL --retry 3 -o "$dmg" "$PGAPP_URL"
+          echo "$PGAPP_SHA256  $dmg" | shasum -a 256 -c -
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/pgapp" "$dmg" > /dev/null
+          # Its libraries are linked at /Applications/Postgres.app, where a person puts it.
+          cp -R "$RUNNER_TEMP/pgapp/Postgres.app" /Applications/
+          hdiutil detach "$RUNNER_TEMP/pgapp" > /dev/null
+          bin=/Applications/Postgres.app/Contents/Versions/17/bin
+          "$bin/initdb" -D "$RUNNER_TEMP/pgdata" -U "$(whoami)" -A trust -E UTF8 > /dev/null
+          "$bin/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/postgres.log" -o "-p 5432" -w start
+          "$bin/createdb" -h localhost -p 5432 verilore
+
+      - name: Install as the quickstart says, then run the first commands
+        # No user and no password: the connecting user is the Mac's own, as with
+        # Postgres.app on a person's Mac.
+        env:
+          DATABASE_URL: postgresql://localhost:5432/verilore
+        run: bash scripts/ci/install_and_run.sh dist
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [tests, lint, embedding-backends, five-minute-path, wheel, upgrade-safety, build, laptop-path]
+    needs: [tests, lint, embedding-backends, five-minute-path, wheel, upgrade-safety, build, laptop-path, python-versions, distros, macos]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

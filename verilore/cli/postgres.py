@@ -12,6 +12,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from urllib.parse import urlparse
 
@@ -606,11 +607,11 @@ def is_first_run() -> bool:
 
 
 def missing_runtime_remediation_hint() -> str:
-    """The install command for the detected distro, as one line."""
+    """The install command for this system, as one line."""
     cmd = runtime_install_command()
     return (
         "No container engine (podman or docker) was found on PATH.\n"
-        f"Install one with: {cmd}\n"
+        f"Install one: {cmd}\n"
         "Then re-run: verilore init"
     )
 
@@ -633,6 +634,18 @@ def _read_os_release_text() -> str:
         return OS_RELEASE_PATH.read_text(encoding="utf-8", errors="replace")
     except (OSError, ValueError):
         return ""
+
+
+def is_macos() -> bool:
+    """Whether this is macOS. A function, so tests can pin either answer."""
+    return sys.platform == "darwin"
+
+
+#: Podman on macOS runs containers in a Linux VM, which has to exist and run.
+MACOS_PODMAN_INSTALL = "brew install podman && podman machine init && podman machine start"
+
+#: Where the engines document installing on a system this file has no recipe for.
+PODMAN_INSTALL_DOCS = "https://podman.io/docs/installation"
 
 
 def is_wsl2() -> bool:
@@ -705,17 +718,38 @@ def _distro_haystack(distro_id: str | None = None, family: str | None = None) ->
     return " ".join([distro_id or "", family or ""]).lower()
 
 
+#: os-release IDs (and ID_LIKE words) per package manager. Whole words only: a
+#: substring test matched "ol" (Oracle Linux) inside unrelated names.
+_DNF_IDS = frozenset({"fedora", "rhel", "centos", "rocky", "almalinux", "ol", "amzn"})
+_APT_IDS = frozenset({"debian", "ubuntu", "linuxmint", "pop", "raspbian", "kali"})
+_PACMAN_IDS = frozenset({"arch", "manjaro", "endeavouros"})
+_ZYPPER_IDS = frozenset({"opensuse", "opensuse-leap", "opensuse-tumbleweed", "suse", "sles"})
+
+
+def _uses(words: set[str], ids: frozenset[str]) -> bool:
+    return bool(words & ids)
+
+
 def runtime_install_command(distro_id: str | None = None, family: str | None = None) -> str:
-    """Distro-appropriate command to install a container runtime."""
-    hay = _distro_haystack(distro_id, family)
-    if any(token in hay for token in ("fedora", "rhel", "centos", "rocky", "alma", "ol")):
+    """The command that installs a container engine on this system.
+
+    With no arguments it looks at the machine: macOS gets Homebrew (Podman
+    there needs its Linux VM created and started too), Linux gets its
+    distribution's package manager. An unknown Linux gets the Podman install
+    page, not another distribution's command that would fail there.
+    """
+    if distro_id is None and family is None and is_macos():
+        return MACOS_PODMAN_INSTALL
+    words = set(_distro_haystack(distro_id, family).split())
+    if _uses(words, _DNF_IDS):
         return "sudo dnf install -y podman"
-    if any(token in hay for token in ("debian", "ubuntu", "mint", "pop")):
+    if _uses(words, _APT_IDS):
         return "sudo apt update && sudo apt install -y podman"
-    if "arch" in hay:
+    if _uses(words, _PACMAN_IDS):
         return "sudo pacman -S podman"
-    # Sensible default for unknown Linux.
-    return "sudo dnf install -y podman"
+    if _uses(words, _ZYPPER_IDS):
+        return "sudo zypper install -y podman"
+    return f"install Podman as {PODMAN_INSTALL_DOCS} describes for your system"
 
 
 install_runtime_command = runtime_install_command
@@ -727,12 +761,33 @@ def missing_container_runtime_remediation(
     distro_id: str | None = None, family: str | None = None
 ) -> str:
     cmd = runtime_install_command(distro_id, family)
+    detected = distro_id is None and family is None
+    if detected and is_macos():
+        alternative = (
+            "Docker Desktop works instead, and so does Podman's own installer "
+            f"({PODMAN_INSTALL_DOCS}), which needs no Homebrew."
+        )
+    else:
+        words = set(_distro_haystack(distro_id, family).split())
+        if _uses(words, _APT_IDS):
+            alternative = (
+                "On Debian/Ubuntu, `docker.io` is an alternative to podman: "
+                "sudo apt update && sudo apt install -y docker.io"
+            )
+        else:
+            alternative = "Docker works as well as Podman, if you already use it."
+        if detected and is_wsl2():
+            alternative += (
+                "\nOn WSL, Docker Desktop for Windows with WSL integration turned on "
+                "for this distribution also works."
+            )
     return (
         "No container runtime (podman or docker) was found on PATH.\n"
-        "Install one for your distribution, then re-run verilore init:\n"
+        "Install one, then re-run verilore init:\n"
         f"  {cmd}\n"
-        "On Debian/Ubuntu, `docker.io` is an alternative to podman: "
-        "sudo apt update && sudo apt install -y docker.io"
+        f"{alternative}\n"
+        "Or use a PostgreSQL with pgvector you already run: "
+        "verilore init --database-url postgresql://..."
     )
 
 
@@ -755,17 +810,32 @@ permission_denied_remediation = docker_socket_permission_denied_remediation
 docker_socket_permission_message = docker_socket_permission_denied_remediation
 
 
-def stopped_docker_daemon_remediation(wsl2: bool | None = None) -> str:
+def stopped_docker_daemon_remediation(wsl2: bool | None = None, macos: bool | None = None) -> str:
+    if macos is None:
+        macos = wsl2 is None and is_macos()
     if wsl2 is None:
         wsl2 = is_wsl2()
+    if macos:
+        # No daemon to start with systemctl: Docker Desktop is an app, and
+        # Podman's engine is a Linux VM that stops when the Mac restarts.
+        return (
+            "The container engine is not running.\n"
+            "Start it, then re-run verilore init:\n"
+            "  podman machine start      (Podman; run `podman machine init` once first)\n"
+            "  open -a Docker            (Docker Desktop)"
+        )
     if wsl2:
-        cmd = "sudo service docker start"
-    else:
-        cmd = "sudo systemctl start docker"
+        return (
+            "The container runtime daemon is stopped.\n"
+            "Start it, then re-run verilore init:\n"
+            "  sudo service docker start\n"
+            "With Docker Desktop for Windows instead, start Docker Desktop and turn on "
+            "WSL integration for this distribution."
+        )
     return (
         "The container runtime daemon is stopped.\n"
         "Start it, then re-run verilore init:\n"
-        f"  {cmd}"
+        "  sudo systemctl start docker"
     )
 
 
@@ -775,14 +845,20 @@ daemon_stopped_remediation = stopped_docker_daemon_remediation
 
 
 def host_postgres_port_conflict_remediation() -> str:
+    if is_macos():
+        stop = (
+            "  brew services stop postgresql@17   (the name `brew services list` shows;\n"
+            "                                      or quit Postgres.app)\n"
+        )
+    else:
+        stop = "  sudo systemctl stop postgresql\n  sudo service postgresql stop\n"
     return (
         "A host or foreign PostgreSQL instance is bound to localhost:5432, so the "
         "default mpadmin credentials were rejected.\n"
         "Either point Verilore at a different database:\n"
         "  export DATABASE_URL=postgresql://<user>:<pass>@localhost:5432/verilore\n"
         "Or stop the conflicting host service and re-run init:\n"
-        "  sudo systemctl stop postgresql\n"
-        "  sudo service postgresql stop\n"
+        f"{stop}"
         "  verilore init"
     )
 
@@ -790,6 +866,22 @@ def host_postgres_port_conflict_remediation() -> str:
 port_conflict_remediation = host_postgres_port_conflict_remediation
 host_postgres_remediation = host_postgres_port_conflict_remediation
 port_5432_conflict_remediation = host_postgres_port_conflict_remediation
+
+
+def engine_not_running(text: str) -> bool:
+    """Whether an engine's error says the engine itself is not running.
+
+    Docker says its daemon cannot be reached; Podman on macOS (and Windows)
+    says it cannot connect, because its VM is stopped or was never created.
+    """
+    lowered = text.lower()
+    return (
+        "cannot connect to the docker daemon" in lowered
+        or "is the docker daemon running" in lowered
+        or "docker daemon is not running" in lowered
+        or "cannot connect to podman" in lowered
+        or "podman machine start" in lowered
+    )
 
 
 def _container_runtime_available() -> bool:
@@ -803,11 +895,7 @@ def remediation_for_exception(exc: BaseException | None) -> str | None:
     chain_text = " ".join(str(e) for e in _exception_chain_list(exc)).lower()
     if "/var/run/docker.sock" in chain_text and "permission denied" in chain_text:
         return docker_socket_permission_denied_remediation()
-    if (
-        "cannot connect to the docker daemon" in chain_text
-        or "is the docker daemon running" in chain_text
-        or "docker daemon is not running" in chain_text
-    ):
+    if engine_not_running(chain_text):
         return stopped_docker_daemon_remediation()
     if (
         "podman: not found" in chain_text

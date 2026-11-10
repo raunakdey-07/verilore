@@ -10,13 +10,19 @@ version = "0.10.0"
 description = "Versioned, evidence-backed memory for AI apps: every answer cites its source and the time it was true."
 # The PyPI page. Not README.md: its relative links render broken on PyPI.
 readme = {file = "docs/pypi.md", content-type = "text/markdown"}
-requires-python = ">=3.11"
+# The upper bound is the first Python that some dependency ships no wheel for:
+# onnxruntime has none for 3.15 yet, so on Fedora 45's default Python the install
+# failed in the resolver with an ABI-tag error. With the bound, an installer says
+# "requires Python <3.15" and uv picks a Python that fits. Raise it when the
+# "Installs and runs on Python" CI job passes on the next version.
+requires-python = ">=3.11,<3.15"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [{name = "Raunak Dey"}]
 keywords = ["memory", "rag", "llm", "provenance", "pgvector", "mcp", "ai-agents"]
-# Only what CI runs: Python 3.11, on Linux. Add a version or an OS here when a
-# CI job runs it.
+# Only what CI runs: Python 3.11 to 3.14, on Linux and macOS. Add a version or an
+# OS here when a CI job installs there; tests/test_release_packaging.py holds the
+# two together.
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -24,15 +30,21 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
 ]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.27.0",
     "sqlalchemy[asyncio]>=2.0.0",
-    "asyncpg==0.30.0",
+    # A floor, not a pin: 0.30.0 ships no wheel for Python 3.14, so the pin made
+    # every 3.14 install compile asyncpg from source.
+    "asyncpg>=0.30.0",
     "pydantic>=2.0.0",
     "python-frontmatter>=1.1.0",
     # Declared here, not only in requirements.txt. `pip install verilore` is a
