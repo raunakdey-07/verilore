@@ -851,6 +851,13 @@ jobs:
           python -m build --wheel
           ls dist/*.whl
 
+      # What PyPI will show, checked before anything is published: the metadata
+      # parses and docs/pypi.md renders. `--strict` turns its warnings into failures.
+      - name: The PyPI description renders
+        run: |
+          python -m pip install twine
+          python -m twine check --strict dist/*
+
       # A fresh venv with no source tree on the path. If the wheel does not ship
       # the verifier, the runtime entry point, or the CLI, this is where it shows
       # up -- not in a developer's hands after they pip install it.

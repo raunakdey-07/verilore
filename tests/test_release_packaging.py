@@ -165,3 +165,42 @@ def _requirement_name(requirement: str) -> str:
     for separator in (">=", "==", "~=", "<", ">", "[", "(", " "):
         name = name.split(separator)[0]
     return name.strip().lower()
+
+
+def test_pypi_description_has_no_relative_links():
+    """PyPI renders the description with no repository around it, so a relative
+    link there is a broken link. Every link in docs/pypi.md is absolute https."""
+    import re
+
+    readme = _config()["project"]["readme"]
+    path = readme["file"] if isinstance(readme, dict) else readme
+    assert path == "docs/pypi.md", f"the PyPI description is {path}, not docs/pypi.md"
+    text = (ROOT / path).read_text(encoding="utf-8")
+    assert len(text.splitlines()) <= 60, "docs/pypi.md is a landing page, not a manual"
+
+    markdown_links = re.findall(r"\]\(([^)\s]+)", text)
+    html_links = re.findall(r"""<a\s[^>]*href=["']([^"']+)""", text)
+    targets = markdown_links + html_links
+    assert targets, "docs/pypi.md links nowhere; it should link the README and the guide"
+    relative = [target for target in targets if not target.startswith("https://")]
+    assert not relative, f"relative or non-https links in docs/pypi.md: {relative}"
+
+
+def test_metadata_names_only_what_is_tested():
+    """The classifiers claim Python versions and an OS; CI is the evidence for each."""
+    import re
+
+    classifiers = _config()["project"]["classifiers"]
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    tested = set(re.findall(r'python-version:\s*"(3\.\d+)"', workflow))
+    claimed = {
+        c.rsplit(" :: ", 1)[1]
+        for c in classifiers
+        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)
+    }
+    assert claimed, "no Python version classifier"
+    assert claimed <= tested, f"classifiers claim {claimed - tested}, which no CI job runs"
+    assert not any(c.startswith("License ::") for c in classifiers), (
+        "PEP 639: the SPDX `license` field replaces License classifiers; setuptools "
+        "refuses both together"
+    )

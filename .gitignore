@@ -118,6 +118,9 @@ helm/
 # checkout. tests/test_mcp_client_docs.py parses the JSON in it and checks every
 # tool name against what the server actually advertises.
 !/docs/mcp.md
+# The PyPI page: pyproject.toml's `readme`. Ignored, the wheel and sdist could not
+# be built from a clean clone.
+!/docs/pypi.md
 !/docs/evaluation/
 /docs/evaluation/*
 !/docs/evaluation/m006.md
