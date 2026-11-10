@@ -12,7 +12,7 @@
 #
 # ## What it does, in order
 #
-#   1. check out BASE_TAG (default v0.10.0) into a temporary tree
+#   1. check out BASE_TAG (default v0.11.0) into a temporary tree
 #   2. install that release into its own venv (never the editable HEAD install)
 #   3. migrate a FRESH database to the base release's head, derived from the base
 #      tree's own migration files
@@ -34,7 +34,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY="${PYTHON:-python}"
 WORK="$(mktemp -d)"
-BASE_TAG="${UPGRADE_BASE_TAG:-v0.10.0}"
+BASE_TAG="${UPGRADE_BASE_TAG:-v0.11.0}"
 OLD="$WORK/$BASE_TAG"
 BEFORE="$WORK/before"
 AFTER="$WORK/after"

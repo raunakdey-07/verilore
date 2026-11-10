@@ -41,7 +41,7 @@ State when `v0.11.0` was prepared, 2026-11-10:
 
 - [ ] `$BASE_TAG` archive → `upgrade head` preserves every claim identity; no claim
       is lost; the old receipt still verifies offline; the Memory Pack is
-      byte-identical with the clock pinned. (`$BASE_TAG` defaults to v0.10.0 in
+      byte-identical with the clock pinned. (`$BASE_TAG` defaults to v0.11.0 in
       `scripts/release/upgrade_safety.sh`; override with `UPGRADE_BASE_TAG`.)
 - [ ] `upgrade head` → `$BASE_HEAD` → `upgrade head` preserves the same, **and** a
       mutation is proven to be caught. A mutation that *survives* is a release
