@@ -6,6 +6,29 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+## [v0.11.0] - 2026-11-10
+
+The first release on PyPI: `uv tool install --python 3.13 verilore`, or
+`pipx install verilore` with a Python from 3.11 to 3.14.
+
+### Upgrading from v0.10.0
+
+- **No schema change.** There is no new migration; the head stays
+  `016_hoist_scope_initplan`.
+- **Reindex once.** Run `verilore reindex <corpus>` once per corpus, so documents
+  ingested as drafts before this release leave the search index (#138, below).
+- **Install from PyPI.** `uv tool install --python 3.13 verilore` replaces the
+  GitHub install. Python 3.15 is refused until its dependencies ship wheels.
+- **Imports.** The documented import is `from verilore import Verilore`.
+  `verilore_sdk` and `verilore_errors` still import, with a
+  `DeprecationWarning`, and are removed in v0.12.
+- **Migrations by hand.** They moved into the package, so from a checkout the
+  command is `python -m alembic -c verilore/migrations/alembic.ini upgrade head`;
+  an installed package applies them with `verilore init`. Revision ids are
+  unchanged.
+- **Server deployments** are unchanged: they take every secret from the
+  environment and never read `~/.verilore/config.toml`.
+
 ### Breaking changes
 
 **`query` withholds like `current` and `pack` (#138).** Draft, rejected and
@@ -25,13 +48,24 @@ before this release leave the index.
 
 ### Changed
 
+**`verilore-mcp` works from a plain install.** The README's quickstart points a
+coding agent at `verilore-mcp` right after `uv tool install verilore`, but `mcp`
+was the `[mcp]` extra, so that install got a `verilore-mcp` that died with
+`ModuleNotFoundError: No module named 'mcp'`. `mcp` is a core dependency now, as
+typer and psycopg2 became for the same reason; the `[mcp]` extra still resolves.
+Its floor is `mcp>=2.1.0`, the first version the server works at: 2.0.x returns a
+failed tool call in a different shape. Every install job in CI runs
+`verilore-mcp --help`, and the wheel job holds a real MCP session on the plain
+install.
+
 **Python 3.11 to 3.14, each one tested.** On Fedora 45, whose default Python is
 3.15, the install failed inside the resolver: onnxruntime ships no wheel for 3.15
 yet. `requires-python` is now `>=3.11,<3.15`, so an installer refuses a newer
 Python plainly, and the README installs with `uv tool install --python 3.13`,
 which downloads that Python when it is missing (Fedora's packaged uv downloads
-only when asked, so the quickstart's Fedora row runs `uv python install 3.13`). `asyncpg` is a floor
-(`>=0.30.0`) instead of a pin, because 0.30.0 has no wheel for 3.14. A new CI job
+only when asked, so the quickstart's Fedora row runs `uv python install 3.13`).
+`asyncpg` is a floor (`>=0.30.0`) instead of a pin, because 0.30.0 has no wheel
+for 3.14. A new CI job
 installs the built wheel from binary wheels only on 3.11, 3.12, 3.13 and 3.14,
 and on 64-bit ARM Linux, and runs `init`, `remember` and `recall` on each; the
 classifiers and `requires-python` may only name versions that job runs, and a
@@ -81,15 +115,18 @@ in a fresh venv and runs `verilore --help` and `verilore-proof --help`, and
 refuses a build whose version differs from `pyproject.toml` or from the tag
 being published. A manual run publishes to TestPyPI; a published GitHub Release
 publishes to PyPI after the `pypi` environment is approved. PyPI trusts the
-workflow itself, so no password or token is stored anywhere. A pull request that
-changes the workflow or `pyproject.toml` runs the build job only.
+workflow itself, so no password or token is stored anywhere. After each publish,
+the exact version built is installed back from that index on Linux and macOS and
+its three commands run, so a publish counts as done only once it is installable.
+A pull request that changes the workflow or `pyproject.toml` runs the build job
+only.
 
 **Package metadata for PyPI.** The PyPI page is `docs/pypi.md`, written for PyPI
 with absolute links only, because the README's relative links render broken
 there. The package declares its license as the SPDX expression `Apache-2.0` with
 `LICENSE` and `NOTICE` (PEP 639, so the build now needs setuptools 77 or newer),
 its author, keywords, project links, and classifiers that claim only what CI
-tests: Python 3.11, on Linux. CI runs `twine check --strict` on every wheel it
+tests (the platform entry above lists what that is). CI runs `twine check --strict` on every wheel it
 builds. The release checklist describes publishing through PyPI trusted
 publishing, which stores no password or token.
 
@@ -149,13 +186,13 @@ shims for v0.11 (they emit a `DeprecationWarning` and are removed in v0.12).
 
 **Migrations.** Alembic now runs from the packaged migrations:
 `python -m alembic -c verilore/migrations/alembic.ini upgrade head`
-(CI, README, quickstart, deployment, and the CLI all use the packaged path;
-`script_location = %(here)s` in `alembic.ini` is unchanged). Migration
-revision ids do not change.
+(CI and the deployment docs use the packaged path, and `verilore init` applies
+the migrations itself; `script_location = %(here)s` in `alembic.ini` is
+unchanged). Migration revision ids do not change.
 
-**Install without a clone.** The README now shows installing the command from
-GitHub with `uv tool install` or `pipx install`, starting the database, and
-running `verilore init`, with no environment variables to export. The package
+**Install without a clone.** The README shows installing the command with
+`uv tool install` or `pipx install` (from PyPI as of this release) and running
+`verilore init`, with no environment variables to export. The package
 description now says what Verilore is, and documentation that cited moved line
 numbers names the function instead.
 

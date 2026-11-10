@@ -1,17 +1,16 @@
 # Tag checklist
 
-**Nothing in this file has been done.** It is the list of things that must be
-true before a tag exists. The owner alone decides when to cut one.
+The list of things that must be true before a tag exists, re-run for every
+tag. The owner alone decides when to cut one.
 
-Current state, measured 2026-10-13:
+State when `v0.11.0` was prepared, 2026-11-10:
 
 | | |
 |---|---|
-| `origin/main` | `07d0f91` |
-| latest tag | **`v0.9.0`** |
-| `pyproject.toml` version | `0.9.1` — **ahead of the last tag** |
-| schema head in `v0.9.0` | `007`; `main` is at `010` |
-| migrations shipped in a tag | `008`, `009`, `010` — **none** |
+| latest tag | **`v0.10.0`**, at `1fad1e8` |
+| `pyproject.toml` version | `0.11.0`, the release being prepared |
+| schema head | `016`, unchanged since `v0.10.0` |
+| migrations shipped since the last tag | none |
 
 ## Before a tag
 
@@ -20,12 +19,11 @@ Current state, measured 2026-10-13:
 - [ ] `pyproject.toml` version matches the tag exactly.
 - [ ] `CHANGELOG.md` has a dated entry for this version, not `[Unreleased]`.
 - [ ] `docs/release-map.md` maps the milestone identifiers to this version.
-- [ ] The release notes **lead with the upgrade notes**: migrations `008`–`010`,
-      the `scripts/db/runtime_roles.sql` grant step, what a downgrade destroys,
-      and that there were no tenants to preserve.
+- [ ] The release notes **lead with the upgrade notes**: new migrations (if
+      any), a one-time step such as `verilore reindex`, renamed or removed
+      imports and commands, and what a downgrade destroys.
 - [ ] `docs/security.md`'s applicability note names **this version**, not a
-      branch. It currently names the 0.9.x train and says plainly that
-      `v0.9.0` itself has neither `008`'s `{*}` handling nor `010`'s binding.
+      branch, and which tag first shipped each migration it relies on.
 
 ### Green, on a runner, at the tagged commit
 
@@ -61,34 +59,35 @@ Current state, measured 2026-10-13:
       `verilore-proof verify` on a real receipt with no database and no
       network.
 - [ ] `verilore_errors`, the runtime entry point and the verifier all ship.
-- [ ] The MCP extra serves a real MCP session with all tools documented.
+- [ ] A plain install serves a real MCP session with all tools documented.
 
 ### The README's first command actually works
 
 - [ ] Run it, in a clean container, exactly as printed.
-- [ ] Until the first PyPI release, the README installs from GitHub
-      (`uv tool install git+https://github.com/raunakdey-07/verilore`). Once
-      `pipx install verilore` works from a clean machine, the README and
-      `docs/pypi.md` switch to the bare name in the same commit.
+- [ ] The README, `docs/quickstart.md` and `docs/pypi.md` install by name from
+      PyPI (`uv tool install --python 3.13 verilore`), and the "Installs from
+      PyPI" jobs below prove that name installs.
 
 ### Publishing to PyPI (trusted publishing; no password or token is stored)
 
-- [ ] One-time, on both pypi.org and test.pypi.org: add a **pending publisher**
+- [ ] One-time, on both pypi.org and test.pypi.org: a **pending publisher**
       for project `verilore`: owner `raunakdey-07`, repository `verilore`,
       workflow `publish.yml`, environment `pypi` (on TestPyPI: `testpypi`).
-- [ ] One-time, in the repository settings: create the environments `pypi`
-      and `testpypi`, with yourself as a required reviewer on `pypi`.
-- [ ] The CI job "Clean install from the built wheel" passed on the commit
-      being tagged, including `twine check --strict`.
-- [ ] TestPyPI first. Push a release-candidate tag (`v0.11.0-rc1`, with
-      `version = "0.11.0rc1"` in `pyproject.toml`), then Actions -> Publish ->
-      Run workflow, target `testpypi`, ref `v0.11.0-rc1`. The build job refuses
-      a tag that does not match the package version.
-- [ ] Install it in a clean venv and run `verilore --help` and `verilore init`:
-      `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ verilore`
-- [ ] PyPI. Set the final version, tag `v0.11.0`, and publish a GitHub Release
-      for that tag. The workflow builds the tag and waits for you to approve
-      the `pypi` environment. Then `pipx install verilore` from a clean machine.
+      After the first upload it becomes the project's active publisher.
+- [ ] One-time, in the repository settings: the environments `pypi` and
+      `testpypi`; `pypi` has you as a required reviewer and a tag rule `v*`.
+- [ ] CI is green on the exact commit being tagged, including "Clean install
+      from the built wheel" (`twine check --strict`) and every "Installs on"
+      and "Installs and runs on Python" job.
+- [ ] Tag that commit, annotated, and push the tag:
+      `git tag -a vX.Y.Z <commit> -m "vX.Y.Z" && git push origin vX.Y.Z`.
+- [ ] TestPyPI first, with the same tag: Actions -> Publish -> Run workflow,
+      target `testpypi`, ref `vX.Y.Z`. The build job refuses a tag that does
+      not match the package version. Both "Installs from TestPyPI" jobs must
+      pass: they install that exact version back from TestPyPI and run it.
+- [ ] PyPI: publish a GitHub Release for the tag. The workflow builds the tag
+      and waits for you to approve the `pypi` environment. Both "Installs from
+      PyPI" jobs must pass.
 - [ ] A version on PyPI can never be re-uploaded, even after deletion. A
       mistake is fixed by a new patch version, not by moving the tag.
 - [ ] `mind-palace` on PyPI is a **different project** (a note-taking app at
@@ -116,5 +115,5 @@ Current state, measured 2026-10-13:
 ## Not on this list, deliberately
 
 * **1.0.0.** `docs/release/v1.0.0-readiness.md` is the checklist for that, and
-  it currently reports **0 of 8 met**. This file is about tagging the 0.9.x
-  train, which is a different decision at a different time.
+  it currently reports **0 of 8 met**. This file is about tagging the 0.x
+  releases, which is a different decision at a different time.

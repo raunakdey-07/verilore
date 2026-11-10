@@ -26,6 +26,7 @@ relationship between the two numbering systems.
 | M016 | Instant recall, explicit model-free mode, real-project dogfooding | `v0.9.0` |
 | M016.1 | Final limitation audit: reproducible CI, a smaller wheel, Python 3.15 evaluated | `v0.9.1` |
 | M017 | Prose ingestion, authority states, task-aware retrieval, tenant hardening, benchmark | `v0.10.0` |
+| — | First PyPI release; one-command setup; every platform tested; claim-key, withholding and extraction fixes | `v0.11.0` |
 
 ### The trust boundary, stated here
 
@@ -69,17 +70,23 @@ the existing `M015` / `M015.1` pattern for the same release line and is recorded
 
 ## Current release
 
-**The latest tagged public release is `v0.10.0`**, tagged by the owner on
-`main`.
+**The latest tagged public release is `v0.11.0`**, tagged by the owner on
+`main` and the first release published on PyPI.
 
-`v0.10.0` is **released**. `pyproject.toml` says `0.10.0`, `CHANGELOG.md` has a
-`[v0.10.0]` entry. Verilore is not published on PyPI; install from the tag:
+`pyproject.toml` says `0.11.0` and `CHANGELOG.md` has a `[v0.11.0]` entry.
+Install it from PyPI:
 
 ```
-uv tool install git+https://github.com/raunakdey-07/verilore@v0.10.0
+uv tool install --python 3.13 verilore
 ```
 
-`v0.9.3` remains the previous tagged release, tagged at `039c541`.
+`v0.10.0` remains the previous tagged release, tagged at `1fad1e8`; it was never
+published on PyPI and installs from its tag
+(`uv tool install git+https://github.com/raunakdey-07/verilore@v0.10.0`).
+`v0.9.3` is the release before that, tagged at `039c541`.
+
+`v0.11.0` has no milestone identifier: its work was tracked as GitHub issues,
+which the changelog names entry by entry.
 
 `v0.9.0` is therefore the release in which a developer can adopt Verilore —
 seven commands that take a statement and a question, answers that arrive fast, outputs
@@ -90,6 +97,32 @@ task-aware retrieval, tenant hardening, and the 4-way agency benchmark.
 
 `v0.9.1` is a patch on `v0.9.0`: no memory semantics, no retrieval behaviour, no
 public response field, and no benchmark input changed.
+
+### What v0.11.0 changed
+
+**On PyPI.** `uv tool install --python 3.13 verilore` or `pipx install verilore`,
+published through trusted publishing: no password or token is stored anywhere,
+and each publish is installed back from its index before it counts as done.
+
+**One command to set up.** `verilore init` starts PostgreSQL with pgvector in
+Podman or Docker, applies the schema and records the database in
+`~/.verilore/config.toml`, so nothing needs exporting. Every failure prints what
+happened, why, and the fix, and `verilore doctor` checks each piece in order.
+
+**Every platform, tested.** CI installs the wheel and runs `init`, `remember` and
+`recall` on Python 3.11 to 3.14, on Debian 12 and 13, Ubuntu 24.04 (WSL's
+default), Fedora, Arch, Apple-silicon and Intel macOS, and 64-bit ARM Linux.
+
+**Memory fixes.** Claim keys stay stable when list items move (#160); draft,
+rejected and superseded material is withheld from `query` and from search
+(#138), including authored `claims:` in a draft document (#140); a first ingest
+says what it could not read (#158); ingest runs without the model (#173).
+
+**Upgrade.** No new migration (the head stays `016_hoist_scope_initplan`). Run
+`verilore reindex <corpus>` once per corpus so documents ingested as drafts
+before this release leave the search index. Import `from verilore import
+Verilore`; `verilore_sdk` and `verilore_errors` still work, with a deprecation
+warning, until v0.12.
 
 ### What v0.9.1 changed
 

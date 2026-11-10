@@ -39,7 +39,9 @@ Issue the app its key. The secret is printed once, so copy it now:
 verilore credential issue my-app --corpus default
 ```
 
-Give your app three environment variables: `VERILORE_URL=http://127.0.0.1:8000`,
+Your app imports the client from the same package, so add `verilore` to the
+app's own dependencies (its `requirements.txt` or `pyproject.toml`). Then give
+the app three environment variables: `VERILORE_URL=http://127.0.0.1:8000`,
 `BRAND_CORPUS=default`, and `BRAND_MEMORY_KEY` set to that secret. The app reads
 them from the environment, never from code or a checked-in file:
 

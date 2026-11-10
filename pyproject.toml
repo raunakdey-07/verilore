@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "verilore"
-version = "0.10.0"
+version = "0.11.0"
 description = "Versioned, evidence-backed memory for AI apps: every answer cites its source and the time it was true."
 # The PyPI page. Not README.md: its relative links render broken on PyPI.
 readme = {file = "docs/pypi.md", content-type = "text/markdown"}
@@ -84,6 +84,12 @@ dependencies = [
     # install the README and the website show.
     "psycopg2-binary>=2.9.0",
     "pgvector>=0.3.0",
+    # The MCP server. The README's quickstart points a coding agent at
+    # `verilore-mcp` right after `uv tool install verilore`, and as the `[mcp]`
+    # extra that executable died with `No module named 'mcp'` -- the same failure
+    # typer and psycopg2 caused, fixed the same way. 2.1.0 is the floor the server
+    # works at: 2.0.x returns failed tool calls in a different shape.
+    "mcp>=2.1.0",
 ]
 [project.urls]
 Homepage = "https://github.com/raunakdey-07/verilore"
@@ -97,7 +103,9 @@ Issues = "https://github.com/raunakdey-07/verilore/issues"
 # `pip install -e '.[cli,mcp]'`. Removing it would break those install lines to save
 # four characters. `[cli]` now means "the CLI, which you already have".
 cli = []
-mcp = ["mcp>=1.2.0"]
+# Kept so existing `verilore[mcp]` install lines still resolve; mcp is a core
+# dependency now, because a plain install has to serve `verilore-mcp`.
+mcp = ["mcp>=2.1.0"]
 # Kept so existing `pip install 'verilore[migrations]'` lines still resolve; the
 # three packages are core dependencies now, because `init` migrates.
 migrations = [
