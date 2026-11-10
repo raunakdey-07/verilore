@@ -80,10 +80,15 @@ Current state, measured 2026-10-13:
       and `testpypi`, with yourself as a required reviewer on `pypi`.
 - [ ] The CI job "Clean install from the built wheel" passed on the commit
       being tagged, including `twine check --strict`.
-- [ ] Push the tag. The publish workflow uploads to TestPyPI first; install
-      from there in a clean venv and run `verilore --help` and `verilore init`.
-- [ ] Approve the `pypi` environment's deployment in the workflow run. Then
-      `pipx install verilore` from a clean machine.
+- [ ] TestPyPI first. Push a release-candidate tag (`v0.11.0-rc1`, with
+      `version = "0.11.0rc1"` in `pyproject.toml`), then Actions -> Publish ->
+      Run workflow, target `testpypi`, ref `v0.11.0-rc1`. The build job refuses
+      a tag that does not match the package version.
+- [ ] Install it in a clean venv and run `verilore --help` and `verilore init`:
+      `pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ verilore`
+- [ ] PyPI. Set the final version, tag `v0.11.0`, and publish a GitHub Release
+      for that tag. The workflow builds the tag and waits for you to approve
+      the `pypi` environment. Then `pipx install verilore` from a clean machine.
 - [ ] A version on PyPI can never be re-uploaded, even after deletion. A
       mistake is fixed by a new patch version, not by moving the tag.
 - [ ] `mind-palace` on PyPI is a **different project** (a note-taking app at
