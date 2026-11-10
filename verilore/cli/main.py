@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -2608,6 +2609,13 @@ def serve(
         bool,
         typer.Option("--reload", help="Restart the server when code changes (development)."),
     ] = False,
+    log_json: Annotated[
+        bool,
+        typer.Option(
+            "--log-json",
+            help="Emit access and error logs as JSON (default: one-line readable).",
+        ),
+    ] = False,
 ) -> None:
     """Start an HTTP API for clients that are not this CLI.
 
@@ -2622,24 +2630,198 @@ def serve(
     command to run. Both forms are here so the boundary is visible before
     anything is bound to a port.
     """
-    if run:
-        import uvicorn
+    from verilore.cli import config as local_config
 
-        typer.echo(f"Serving the HTTP API on http://{host}:{port}")
-        typer.echo(f"Docs: http://{host}:{port}/docs")
-        uvicorn.run("verilore.api.main:app", host=host, port=port, reload=reload)
+    # The URL `init` recorded, or the built-in default: a laptop needs nothing
+    # exported. The server opens its pool from the environment, so the resolved
+    # value has to land there before the app is imported.
+    if not os.environ.get("DATABASE_URL"):
+        os.environ["DATABASE_URL"] = local_config.resolve(
+            "DATABASE_URL", local_config.DEFAULT_LOCAL_DATABASE_URL
+        )
+
+    if not run:
+        typer.echo("Start the HTTP API with: verilore serve --run")
+        typer.echo("Equivalent: uvicorn verilore.api.main:app --reload")
+        typer.echo("Then visit http://localhost:8000/docs")
+        typer.echo("")
+        typer.echo("The CLI commands themselves run in-process; this server is for")
+        typer.echo("REST, the HTTP SDK, MCP over a network, or another process.")
+        typer.echo("")
+        typer.echo("That is a local server. Before exposing one to a network:")
+        typer.echo("  VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \\")
+        typer.echo("      verilore serve --run --host 0.0.0.0")
+        typer.echo("In that mode the app refuses to start if authentication is off.")
         return
-    typer.echo("Start the HTTP API with: verilore serve --run")
-    typer.echo("Equivalent: uvicorn verilore.api.main:app --reload")
-    typer.echo("Then visit http://localhost:8000/docs")
-    typer.echo("")
-    typer.echo("The CLI commands themselves run in-process; this server is for")
-    typer.echo("REST, the HTTP SDK, MCP over a network, or another process.")
-    typer.echo("")
-    typer.echo("That is a local server. Before exposing one to a network:")
-    typer.echo("  VERILORE_DEPLOYMENT=server VERILORE_AUTH_MODE=required \\")
-    typer.echo("      verilore serve --run --host 0.0.0.0")
-    typer.echo("In that mode the app refuses to start if authentication is off.")
+
+    config = build_serve_config(host=host, port=port, reload=reload, log_json=log_json)
+    _print_serve_startup(host=host, port=port)
+    if host != "127.0.0.1" and not _is_server_deployment():
+        # A laptop server is private by default. Binding beyond loopback makes
+        # it reachable from the network, and that has to be said out loud.
+        typer.echo(
+            f"warning: the server binds {host}, so it is reachable from the network. "
+            "Only do this with VERILORE_DEPLOYMENT=server and VERILORE_AUTH_MODE=required."
+        )
+    try:
+        _run_server(config)
+    except KeyboardInterrupt:
+        # Ctrl-C is how a server is stopped, not a failure.
+        raise typer.Exit(code=0)
+
+
+def _run_server(config) -> None:
+    """Run the config `serve` built.
+
+    uvicorn's reloader needs the application as an import string and runs its
+    own supervisor process, so that one case goes through `uvicorn.run`.
+    Everything else runs the config that was built, unchanged.
+    """
+    import uvicorn
+
+    if config.reload:
+        uvicorn.run(
+            config.app,
+            host=config.host,
+            port=config.port,
+            reload=True,
+            log_config=config.log_config,
+        )
+        return
+    uvicorn.Server(config).run()
+
+
+def build_serve_config(*, host: str, port: int, reload: bool = False, log_json: bool = False):
+    """Build the uvicorn Config this process runs.
+
+    Factored out so tests can assert on the bind, the reload mode and the log
+    format without opening a socket. One line per log record: readable text by
+    default, JSON with `--log-json`.
+    """
+    import copy
+
+    import uvicorn
+
+    log_config = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
+    if log_json:
+        log_config["filters"] = {"request_id": {"()": "verilore.cli.main.RequestIdFilter"}}
+        for handler in log_config["handlers"].values():
+            handler["filters"] = ["request_id"]
+        log_config["formatters"] = {
+            key: {"()": "verilore.cli.main.VeriloreJsonFormatter", "fmt": "%(message)s"}
+            for key in ("default", "access")
+        }
+    # The app's own loggers, so an error line from the API is formatted like
+    # the rest of the output rather than falling through to the root logger.
+    log_config.setdefault("loggers", {})["verilore"] = {
+        "handlers": ["default"],
+        "level": "INFO",
+        "propagate": False,
+    }
+
+    return uvicorn.Config(
+        "verilore.api.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_config=log_config,
+    )
+
+
+class RequestIdFilter(logging.Filter):
+    """Put the current request id on a record, when there is one.
+
+    The API mints an id for every request and returns it to the caller, so a
+    log line that names it is the one a developer can quote.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        from verilore.errors import RequestId
+
+        current = RequestId.get()
+        if current:
+            record.request_id = current
+        return True
+
+
+class VeriloreJsonFormatter(logging.Formatter):
+    """One JSON object per log line (for `--log-json`).
+
+    Fields: `time`, `level`, `logger`, `message`, and `request_id` when the
+    record carries one.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        import json
+
+        from datetime import datetime, timezone
+
+        payload: dict = {
+            "time": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if getattr(record, "request_id", None):
+            payload["request_id"] = record.request_id
+        return json.dumps(payload)
+
+
+def _is_server_deployment() -> bool:
+    """True in the server profile, where a network bind is the point."""
+    return os.getenv("VERILORE_DEPLOYMENT", "").strip().lower() == "server"
+
+
+def _print_serve_startup(*, host: str, port: int) -> None:
+    """The URL, the corpus list, and the exact command to issue an app key."""
+    typer.echo(f"Serving the HTTP API on http://{host}:{port}")
+    typer.echo(f"Docs: http://{host}:{port}/docs")
+    corpora = _serve_corpus_list()
+    if corpora:
+        typer.echo("  corpora: " + ", ".join(corpora))
+        first = corpora[0]
+    else:
+        typer.echo("  corpora: (none yet -- create one with `verilore corpus create default`)")
+        first = "default"
+    typer.echo(f"  issue an app key: verilore credential issue my-app --corpus {first}")
+
+
+def _serve_corpus_list() -> list[str]:
+    """The corpus names, best effort.
+
+    A database that is down must not stop the server from starting, so this
+    returns an empty list instead of raising. The URL comes from the
+    environment, which `serve` resolved before the app was imported.
+    """
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    url = (
+        os.environ.get("DATABASE_URL", "")
+        .replace("postgresql+psycopg://", "postgresql+asyncpg://")
+        .replace("postgresql://", "postgresql+asyncpg://")
+    )
+
+    async def read() -> list[str]:
+        engine = create_async_engine(url, poolclass=NullPool, connect_args={"timeout": 5})
+        try:
+            async with engine.connect() as conn:
+                rows = (
+                    (await conn.execute(text("SELECT name FROM corpora ORDER BY name")))
+                    .scalars()
+                    .all()
+                )
+                return list(rows)
+        finally:
+            await engine.dispose()
+
+    try:
+        return asyncio.run(read())
+    except Exception:  # noqa: BLE001 - the list is informational only
+        return []
 
 
 if __name__ == "__main__":
