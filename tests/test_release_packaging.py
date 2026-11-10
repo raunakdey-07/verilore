@@ -108,9 +108,9 @@ def test_each_console_script_declares_the_extra_it_needs():
     """A console script that cannot run from its declared install is a packaging bug.
 
     This is not hypothetical. The wheel CI job asserted `verilore-mcp --help`
-    against a **bare** install, which cannot supply `mcp` -- it is a declared extra.
-    The job failed with `ModuleNotFoundError: No module named 'mcp'`, and its
-    `|| import verilore.mcp_server` fallback could not have saved it, for the same reason.
+    against a **bare** install while `mcp` was a declared extra, and failed with
+    `ModuleNotFoundError: No module named 'mcp'`. `mcp` is a core dependency now
+    (see `test_a_plain_install_serves_mcp`), so a bare install serves it.
 
     `typer` is the interesting counter-case, and the reason this test is worth having.
     It is also an extra, so `verilore` ought to be uninstallable without it -- but a
@@ -133,7 +133,7 @@ def test_each_console_script_declares_the_extra_it_needs():
         # console script -> (what it needs, the extra that provides it)
         "verilore": ({"typer"}, "cli"),
         "verilore-proof": (set(), None),
-        "verilore-mcp": ({"mcp"}, "mcp"),
+        "verilore-mcp": ({"mcp"}, None),
     }
 
     scripts = config["project"]["scripts"]
@@ -307,3 +307,37 @@ def test_requires_python_admits_exactly_the_tested_versions():
     admitted = {f"3.{minor}" for minor in range(int(bounds[">="]), int(bounds["<"]))}
     tested = _python_versions_ci_runs()
     assert admitted <= tested, f"requires-python admits {admitted - tested}, which no CI job runs"
+
+
+def test_a_plain_install_serves_mcp():
+    """The README's quickstart wires a coding agent to `verilore-mcp` straight after
+    `uv tool install verilore`. While `mcp` was the `[mcp]` extra, that install got a
+    `verilore-mcp` executable that died with `ModuleNotFoundError: No module named
+    'mcp'` -- the failure typer and psycopg2 once caused, fixed the same way."""
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
+    project = _config()["project"]
+    base = {Requirement(d).name: Requirement(d) for d in project["dependencies"]}
+    assert "mcp" in base, "mcp must be a core dependency: a plain install runs verilore-mcp"
+
+    # 2.0 renamed the server module to `mcp.server.mcpserver`, which
+    # verilore/mcp_server.py imports, and 2.0.x still returns a failed tool call in
+    # a different shape: on mcp 2.0.1, 32 cases of
+    # tests/test_memory_mcp.py::test_service_errors_are_structured_mcp_errors fail,
+    # and from 2.1.0 they pass. A floor the code does not work at is a broken install
+    # for anyone whose environment already holds an older mcp.
+    floors = [Version(s.version) for s in base["mcp"].specifier if s.operator == ">="]
+    assert floors and min(floors) >= Version("2.1.0"), f"mcp floor too low: {base['mcp']}"
+
+    # The kept `[mcp]` extra and the development requirements say the same thing.
+    extra = [str(Requirement(d)) for d in project["optional-dependencies"]["mcp"]]
+    assert extra == [str(base["mcp"])], extra
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8").split()
+    assert str(base["mcp"]) in requirements, "requirements.txt disagrees on mcp"
+
+    # Proved on every platform, not only declared: each install job runs it.
+    script = (ROOT / "scripts" / "ci" / "install_and_run.sh").read_text(encoding="utf-8")
+    assert '"$bin/verilore-mcp" --help' in script
+    steps = _ci_jobs()["python-versions"]["steps"]
+    assert any('verilore-mcp" --help' in (step.get("run") or "") for step in steps)

@@ -81,3 +81,40 @@ def test_every_action_is_pinned_to_a_release():
     assert refs
     for action, ref in refs:
         assert re.fullmatch(r"v\d+(\.\d+){0,2}", ref), f"{action}@{ref} is not a release tag"
+
+
+def test_each_publication_is_installed_back_from_its_index():
+    """An upload proves the index accepted the files, not that a person can install
+    them. After each publish, the exact version that was built is installed back
+    from that index, on Linux and on macOS, and its three commands run."""
+    jobs = _workflow()["jobs"]
+    assert "version" in jobs["build"].get("outputs", {}), "the build job must say what it built"
+
+    for publish, verify, index in (
+        ("publish-testpypi", "verify-testpypi", "https://test.pypi.org/simple/"),
+        ("publish-pypi", "verify-pypi", None),
+    ):
+        job = jobs[verify]
+        needs = job["needs"] if isinstance(job["needs"], list) else [job["needs"]]
+        assert {"build", publish} <= set(needs), (verify, needs)
+        # The same condition as the publish job, so a pull request never runs it.
+        assert job["if"] == jobs[publish]["if"], verify
+        assert "id-token" not in job.get("permissions", {}), f"{verify} must not be able to publish"
+
+        runners = job["strategy"]["matrix"]["os"]
+        assert any(r.startswith("ubuntu") for r in runners), runners
+        assert any(r.startswith("macos") for r in runners), runners
+
+        text = "\n".join(str(step.get("run", "")) for step in job["steps"])
+        env = yaml.safe_dump([step.get("env", {}) for step in job["steps"]])
+        assert "needs.build.outputs.version" in env, f"{verify} must install the built version"
+        assert 'verilore=="$VERSION"' in text, f"{verify} must pin the version it installs"
+        for command in ("verilore --help", "verilore-proof --help", "verilore-mcp --help"):
+            assert command in text, (verify, command)
+        if index:
+            assert index in text, (verify, index)
+            # PyPI is asked first for every package, so only verilore can come from
+            # TestPyPI, where anyone may upload a look-alike of a real dependency.
+            assert "--extra-index-url https://pypi.org/simple" in text, verify
+        else:
+            assert "test.pypi.org" not in text, verify
