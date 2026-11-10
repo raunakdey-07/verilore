@@ -25,6 +25,15 @@ before this release leave the index.
 
 ### Changed
 
+**A publish workflow with trusted publishing.** `.github/workflows/publish.yml`
+builds the sdist and the wheel, runs `twine check --strict`, installs the wheel
+in a fresh venv and runs `verilore --help` and `verilore-proof --help`, and
+refuses a build whose version differs from `pyproject.toml` or from the tag
+being published. A manual run publishes to TestPyPI; a published GitHub Release
+publishes to PyPI after the `pypi` environment is approved. PyPI trusts the
+workflow itself, so no password or token is stored anywhere. A pull request that
+changes the workflow or `pyproject.toml` runs the build job only.
+
 **Package metadata for PyPI.** The PyPI page is `docs/pypi.md`, written for PyPI
 with absolute links only, because the README's relative links render broken
 there. The package declares its license as the SPDX expression `Apache-2.0` with

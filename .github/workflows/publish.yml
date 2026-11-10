@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Raunak Dey
+#
+# Publish to TestPyPI or PyPI with trusted publishing: PyPI trusts this exact
+# workflow file in this repository, through a short-lived OIDC token. No stored
+# credential of any kind is used, and none may be added.
+#
+# The file name is part of the trust: the pending publishers on pypi.org and
+# test.pypi.org name `publish.yml`. Renaming it stops publishing.
+#
+#   TestPyPI: Actions -> Publish -> Run workflow, target testpypi, ref <tag or branch>
+#   PyPI:     publish a GitHub Release for the tag, then approve the `pypi` environment
+#
+# On a pull request that touches this file or pyproject.toml, only the build job
+# runs, so a change here is proved before it can publish anything.
+
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Where to publish"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+      ref:
+        description: "The tag or branch to build"
+        type: string
+        default: main
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - .github/workflows/publish.yml
+      - pyproject.toml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and check the distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the ref being published
+        uses: actions/checkout@v6
+        with:
+          # A release builds its own tag; a manual run builds the ref it was given;
+          # a pull request builds itself.
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref || '' }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # The only version CI tests, and the only one the classifiers claim.
+          python-version: "3.11"
+
+      - name: Build the sdist and the wheel
+        run: |
+          python -m pip install --upgrade pip build twine packaging
+          python -m build
+          ls -l dist/
+
+      - name: twine check
+        run: python -m twine check --strict dist/*
+
+      - name: Smoke-test the wheel in a fresh venv
+        run: |
+          set -euo pipefail
+          wheel="$(ls "$GITHUB_WORKSPACE"/dist/*.whl)"
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/pip" install --quiet "$wheel"
+          # Outside the checkout, so the source tree cannot stand in for the wheel.
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/verilore" --help > /dev/null
+          echo "verilore --help: ok"
+          "$RUNNER_TEMP/smoke/bin/verilore-proof" --help > /dev/null
+          echo "verilore-proof --help: ok"
+          "$RUNNER_TEMP/smoke/bin/python" -c "import verilore; print(verilore.__version__)" \
+            | tee "$RUNNER_TEMP/installed-version"
+
+      - name: The version matches pyproject.toml and the tag
+        env:
+          # Passed through the environment, never interpolated into the script.
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          installed="$(cat "$RUNNER_TEMP/installed-version")"
+          declared="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          tag=""
+          if [ "$EVENT" = "release" ]; then
+            tag="$RELEASE_TAG"
+          elif [ "$EVENT" = "workflow_dispatch" ] && [[ "$INPUT_REF" =~ ^v[0-9] ]]; then
+            tag="$INPUT_REF"
+          fi
+          python - "$installed" "$declared" "$tag" <<'PY'
+          import sys
+          from packaging.version import Version
+
+          installed, declared, tag = sys.argv[1:4]
+          print(f"installed {installed}, pyproject {declared}, tag {tag or '(none)'}")
+          if Version(installed) != Version(declared):
+              sys.exit(f"the built wheel is {installed}, but pyproject.toml says {declared}")
+          # v0.11.0-rc1 and 0.11.0rc1 are the same version; compare them as versions.
+          if tag and Version(tag.removeprefix("v")) != Version(installed):
+              sys.exit(f"the tag {tag} does not match the version {installed}")
+          print("version check: ok")
+          PY
+
+      - name: Keep the distribution for the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/verilore
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/verilore
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
