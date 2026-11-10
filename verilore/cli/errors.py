@@ -191,11 +191,9 @@ def explain(exc: Exception) -> Advice:
             remediation,
             503,
         )
-    if (
-        "cannot connect to the docker daemon" in chain_text
-        or "is the docker daemon running" in chain_text
-        or "docker daemon is not running" in chain_text
-    ):
+    from verilore.cli.postgres import engine_not_running
+
+    if engine_not_running(chain_text):
         try:
             from verilore.cli import postgres as _postgres
 

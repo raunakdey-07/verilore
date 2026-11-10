@@ -25,6 +25,49 @@ before this release leave the index.
 
 ### Changed
 
+**Python 3.11 to 3.14, each one tested.** On Fedora 45, whose default Python is
+3.15, the install failed inside the resolver: onnxruntime ships no wheel for 3.15
+yet. `requires-python` is now `>=3.11,<3.15`, so an installer refuses a newer
+Python plainly, and the README installs with `uv tool install --python 3.13`,
+which downloads that Python when it is missing (Fedora's packaged uv downloads
+only when asked, so the quickstart's Fedora row runs `uv python install 3.13`). `asyncpg` is a floor
+(`>=0.30.0`) instead of a pin, because 0.30.0 has no wheel for 3.14. A new CI job
+installs the built wheel from binary wheels only on 3.11, 3.12, 3.13 and 3.14,
+and on 64-bit ARM Linux, and runs `init`, `remember` and `recall` on each; the
+classifiers and `requires-python` may only name versions that job runs, and a
+test holds them together.
+
+**macOS, Debian, Ubuntu, Fedora, Arch and WSL, each one tested.** CI installs the
+wheel inside Debian 12, Debian 13, Ubuntu 24.04 (WSL's default), Fedora and Arch
+containers, and on Apple-silicon and Intel Macs, with the tools
+`docs/quickstart.md` gives each system: `uv tool install --python 3.13`
+everywhere, and pipx with the system's own Python where Verilore supports it.
+Then `init --database-url` runs, and `remember` and `recall` find the database
+from the config file it wrote. The quickstart has a table of how each system gets
+uv and Podman, and a test fails if it names a system no CI job installs on. The
+`Operating System :: MacOS` classifier is new. Intel Macs stop at Python 3.13,
+because onnxruntime publishes no newer wheel for them.
+
+**Setup advice that fits the machine.** A Mac with no container engine was told
+to run `sudo dnf install -y podman`, and a Mac whose Docker Desktop was closed
+was told to run `systemctl`. macOS now gets `brew install podman && podman machine
+init && podman machine start`, or `open -a Docker`; Podman's "cannot connect"
+when its VM is stopped is recognised; a port clash on a Mac names
+`brew services stop`. openSUSE gets `zypper`, an unknown Linux gets the Podman
+install page instead of another distribution's command, and distribution names
+match as whole words (Oracle Linux's `ol` had matched inside other names). On WSL
+the advice also offers Docker Desktop's WSL integration. `verilore doctor --report`
+names the macOS version instead of "unknown".
+
+**A failed schema no longer points at a source checkout.** When `init` could not
+apply the schema it said to run `python -m alembic -c
+verilore/migrations/alembic.ini upgrade head`, a path that exists only in a
+clone, so a pipx or uv install had no way to follow it. It now prints the one
+error format with the cause and a fix that works anywhere: a missing extension is
+named, with where to get it; a role that may not create extensions is told so;
+and every case ends with `verilore init`, which applies the schema and is safe to
+rerun.
+
 **Contributor and security docs; a current quickstart.** `CONTRIBUTING.md` says
 how to set up, test and propose a change, and asks for `verilore doctor --report`
 in bug reports. `SECURITY.md` asks for vulnerabilities to be reported privately

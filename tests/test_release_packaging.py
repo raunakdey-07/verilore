@@ -186,13 +186,56 @@ def test_pypi_description_has_no_relative_links():
     assert not relative, f"relative or non-https links in docs/pypi.md: {relative}"
 
 
+def _ci_jobs() -> dict:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    return workflow["jobs"]
+
+
+def _resolve(job: dict, value) -> set[str]:
+    """A job setting, with `${{ matrix.x }}` expanded to every value x takes,
+    from the matrix lists and from `include` entries alike."""
+    import re
+
+    value = str(value)
+    reference = re.fullmatch(r"\$\{\{\s*matrix\.(\w+)\s*\}\}", value)
+    if not reference:
+        return {value}
+    key = reference.group(1)
+    matrix = (job.get("strategy") or {}).get("matrix") or {}
+    values = {str(v) for v in matrix.get(key, [])}
+    values |= {str(entry[key]) for entry in matrix.get("include", []) if key in entry}
+    return values
+
+
+def _python_versions_ci_runs() -> set[str]:
+    """Every Python version some CI job sets up, including a matrix's."""
+    import re
+
+    versions: set[str] = set()
+    for job in _ci_jobs().values():
+        for step in job.get("steps", []):
+            value = (step.get("with") or {}).get("python-version")
+            if value is not None:
+                versions |= {v for v in _resolve(job, value) if re.fullmatch(r"3\.\d+", v)}
+    return versions
+
+
+def _install_jobs() -> dict[str, dict]:
+    """The jobs that install the built wheel the way a person does."""
+    jobs = _ci_jobs()
+    return {name: jobs[name] for name in ("python-versions", "distros", "macos")}
+
+
 def test_metadata_names_only_what_is_tested():
     """The classifiers claim Python versions and an OS; CI is the evidence for each."""
     import re
 
     classifiers = _config()["project"]["classifiers"]
-    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    tested = set(re.findall(r'python-version:\s*"(3\.\d+)"', workflow))
+    tested = _python_versions_ci_runs()
     claimed = {
         c.rsplit(" :: ", 1)[1]
         for c in classifiers
@@ -204,3 +247,63 @@ def test_metadata_names_only_what_is_tested():
         "PEP 639: the SPDX `license` field replaces License classifiers; setuptools "
         "refuses both together"
     )
+
+
+def test_operating_systems_claimed_are_the_ones_ci_installs_on():
+    """An OS classifier is a promise that `pip install verilore` works there."""
+    classifiers = set(_config()["project"]["classifiers"])
+    claimed = {c for c in classifiers if c.startswith("Operating System ::")}
+    runners: set[str] = set()
+    for job in _install_jobs().values():
+        runners |= _resolve(job, job["runs-on"])
+    proven = set()
+    if any(r.startswith("ubuntu") for r in runners):
+        proven.add("Operating System :: POSIX :: Linux")
+    if any(r.startswith("macos") for r in runners):
+        proven.add("Operating System :: MacOS")
+    assert claimed, "no Operating System classifier"
+    assert claimed <= proven, f"classifiers claim {claimed - proven}, which no install job runs"
+
+
+def test_every_platform_the_quickstart_names_is_installed_on_in_ci():
+    """docs/quickstart.md tells each system how to get uv and a container engine;
+    each one it names is a CI job that installs the wheel there and runs it."""
+    quickstart = (ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8")
+    section = quickstart.split("## Your system", 1)[1].split("\n## ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith("| ") and "---" not in line]
+    named = {row.split("|")[1].strip() for row in rows[1:]}
+    assert named, "the quickstart's system table is missing"
+
+    jobs = _install_jobs()
+    images = {
+        entry["image"].split(":")[0] for entry in jobs["distros"]["strategy"]["matrix"]["include"]
+    }
+    mac_chips = {entry["chip"] for entry in jobs["macos"]["strategy"]["matrix"]["include"]}
+    arm_linux = _resolve(jobs["python-versions"], jobs["python-versions"]["runs-on"])
+
+    proof = {
+        "macOS, Apple silicon": "Apple silicon" in mac_chips,
+        "macOS, Intel": "Intel" in mac_chips,
+        "Ubuntu, WSL": "ubuntu" in images,
+        "Debian": "debian" in images,
+        "Fedora": "fedora" in images,
+        "Arch": "archlinux" in images,
+    }
+    assert named == set(proof), f"the table names {sorted(named)}; CI proves {sorted(proof)}"
+    unproven = sorted(name for name, ok in proof.items() if not ok)
+    assert not unproven, f"named in the quickstart with no CI job installing there: {unproven}"
+    assert "64-bit ARM Linux" in section and any(r.endswith("-arm") for r in arm_linux)
+
+
+def test_requires_python_admits_exactly_the_tested_versions():
+    """An install on a Python no CI job runs must be refused by the installer, with
+    a plain "requires Python" message, not attempted and failed deep in a resolver
+    (onnxruntime had no wheel for 3.15, and that is how Fedora 45 met it)."""
+    import re
+
+    spec = _config()["project"]["requires-python"]
+    bounds = dict(re.findall(r"(>=|<)\s*3\.(\d+)", spec))
+    assert ">=" in bounds and "<" in bounds, f"requires-python needs both bounds: {spec!r}"
+    admitted = {f"3.{minor}" for minor in range(int(bounds[">="]), int(bounds["<"]))}
+    tested = _python_versions_ci_runs()
+    assert admitted <= tested, f"requires-python admits {admitted - tested}, which no CI job runs"

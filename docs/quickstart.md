@@ -5,8 +5,10 @@ explains why; this is for the person who already read it and wants the list.
 
 ```bash
 # 1. Install. PyPI publishing is planned for v0.11; until then, from GitHub.
-uv tool install git+https://github.com/raunakdey-07/verilore
-# or: pipx install git+https://github.com/raunakdey-07/verilore
+#    Verilore runs on Python 3.11 to 3.14; uv downloads 3.13 if you do not have it
+#    (on Fedora, see the table below).
+uv tool install --python 3.13 git+https://github.com/raunakdey-07/verilore
+# or, with a Python from 3.11 to 3.14: pipx install git+https://github.com/raunakdey-07/verilore
 
 # 2. Set up. With Podman or Docker installed, this starts a local PostgreSQL,
 #    applies the schema, creates the corpus `default` and records the database
@@ -28,6 +30,42 @@ is `verilore-postgres`, listening on 127.0.0.1:5432 only, with its data in the
 `verilore-pgdata` volume. To use a PostgreSQL you already run, run
 `verilore init --database-url postgresql://...` once instead. When something is
 wrong, `verilore doctor` checks each piece in order and says which one failed.
+
+## Your system
+
+Verilore runs on macOS and Linux, and on Windows through WSL 2. Step 1 needs uv
+and step 2 needs Podman (or Docker); this is how each system gets them. CI
+installs Verilore on every system in the table and runs `init`, `remember` and
+`recall` there.
+
+| System | uv, for step 1 | Podman, for step 2 |
+|---|---|---|
+| macOS, Apple silicon | `brew install uv` | `brew install podman && podman machine init && podman machine start` |
+| macOS, Intel | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | Docker Desktop, or Podman's installer from podman.io, then `podman machine init && podman machine start` |
+| Ubuntu, WSL | `sudo apt install pipx && pipx ensurepath && pipx install uv` | `sudo apt update && sudo apt install -y podman` |
+| Debian | `sudo apt install pipx && pipx ensurepath && pipx install uv` | `sudo apt update && sudo apt install -y podman` |
+| Fedora | `sudo dnf install uv && uv python install 3.13` | `sudo dnf install -y podman` |
+| Arch | `sudo pacman -S uv` | `sudo pacman -S podman` |
+
+After `pipx ensurepath` or uv's installer, open a new terminal so `uv` is on your
+PATH. Fedora's uv package downloads a Python only when asked, so the Fedora row
+asks for 3.13 once. Homebrew no longer builds Intel bottles for every update, so on an Intel
+Mac it may compile from source; uv's installer and Podman's own avoid that.
+
+- **Python.** Verilore runs on Python 3.11 to 3.14, and on Intel Macs 3.11 to
+  3.13 (onnxruntime publishes nothing newer for them). `--python 3.13` in step 1
+  covers both, and a system whose own Python is newer, such as Fedora 45 with 3.15.
+- **Docker instead of Podman** works everywhere: Docker Desktop on macOS, and on
+  Windows with WSL integration turned on for your distribution.
+- **No container engine?** Point Verilore at a PostgreSQL with pgvector you
+  already run: `verilore init --database-url postgresql://...`. On a Mac,
+  Postgres.app includes pgvector: run `createdb verilore` with its command-line
+  tools, then `verilore init --database-url postgresql://localhost:5432/verilore`.
+  That is how CI runs the macOS jobs.
+- **WSL.** Run every command inside your Linux distribution (Ubuntu by default),
+  not in PowerShell. Windows outside WSL is not supported.
+- **64-bit ARM Linux** (a Raspberry Pi 5, an ARM server, WSL on Windows on ARM)
+  takes the same commands as its distribution; CI runs it too.
 
 Working on Verilore itself? Install from a clone, then run the same steps:
 

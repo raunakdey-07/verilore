@@ -40,9 +40,13 @@ database and nothing exported.
 Lines starting with `$ ` are the commands CI runs; type them without the `$ `.
 
 ```bash
-# Install the command. PyPI publishing is planned for v0.11; until then, from GitHub:
-uv tool install git+https://github.com/raunakdey-07/verilore
-# or: pipx install git+https://github.com/raunakdey-07/verilore
+# Install the command. PyPI publishing is planned for v0.11; until then, from GitHub.
+# Verilore runs on Python 3.11 to 3.14; uv downloads 3.13 if you do not have it
+# (Fedora's uv downloads only when asked: run `uv python install 3.13` first).
+# macOS, Ubuntu, WSL, Debian, Fedora, Arch: docs/quickstart.md#your-system says
+# how to get uv and Podman on each.
+uv tool install --python 3.13 git+https://github.com/raunakdey-07/verilore
+# or, with a Python from 3.11 to 3.14: pipx install git+https://github.com/raunakdey-07/verilore
 
 # The whole local setup. With Podman or Docker installed, init starts a local
 # PostgreSQL (the first run downloads its image once), applies the schema,

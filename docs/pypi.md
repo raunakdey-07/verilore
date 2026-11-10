@@ -9,14 +9,20 @@ never heard of Verilore.
 ## Install
 
 ```bash
+uv tool install --python 3.13 verilore
+# or, with a Python from 3.11 to 3.14:
 pipx install verilore
-# or
-uv tool install verilore
 ```
 
-Verilore needs Python 3.11 or newer and PostgreSQL 15 with pgvector. With Podman
-or Docker installed, `verilore init` starts that database for you; to use a
-PostgreSQL you already run, pass `verilore init --database-url ...`.
+Verilore runs on macOS and Linux, and on Windows through WSL 2, with Python 3.11
+to 3.14 (3.13 at most on an Intel Mac). uv downloads 3.13 if you do not have it,
+which also covers a system whose own Python is newer, such as Fedora 45's 3.15
+(Fedora's uv downloads only when asked: run `uv python install 3.13` first).
+It needs PostgreSQL 15 or newer with pgvector: with Podman or Docker installed,
+`verilore init` starts one for you, and to use one you already run, pass
+`verilore init --database-url ...`.
+[Your system](https://github.com/raunakdey-07/verilore/blob/main/docs/quickstart.md#your-system)
+says how to get uv and Podman on each.
 
 ## Quickstart
 

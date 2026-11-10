@@ -272,6 +272,49 @@ def _migration_dir() -> "Path | None":
     return local if (local / "alembic.ini").exists() else None
 
 
+def _migration_failure_advice(detail: str):
+    """Why the schema could not be applied, and the fix, in the one error format.
+
+    The fix is never a command that needs a source checkout: a person who
+    installed with pipx or uv has no `verilore/migrations/alembic.ini` to point
+    alembic at. `verilore init` applies the schema itself and is safe to rerun.
+    """
+    import re
+
+    from verilore.cli.errors import Advice
+
+    what = "The memory schema could not be applied."
+    rerun = "then run: verilore init"
+    missing = re.search(r'extension "([\w-]+)" is not available', detail)
+    if missing:
+        return Advice(
+            "memory_unavailable",
+            what,
+            f'This PostgreSQL has no "{missing.group(1)}" extension, and the schema needs it.',
+            "Use a PostgreSQL with pgvector, pg_trgm and pgcrypto (the "
+            "pgvector/pgvector:pg15 image `verilore init` starts has all three), or "
+            f"install the extension on that server, {rerun}",
+        )
+    denied = re.search(r'permission denied to create extension "([\w-]+)"', detail)
+    if denied or "must be superuser" in detail.lower():
+        name = denied.group(1) if denied else "vector"
+        return Advice(
+            "memory_unavailable",
+            what,
+            "The database role Verilore connects as may not create extensions.",
+            "Connect as a role that may (a superuser, or the database owner for "
+            f'trusted extensions), or have an administrator run CREATE EXTENSION "{name}"; '
+            f"{rerun}",
+        )
+    first_line = next((line for line in detail.splitlines() if line.strip()), detail)
+    return Advice(
+        "memory_unavailable",
+        what,
+        first_line,
+        f"Fix the cause above, {rerun} (it applies the schema and is safe to rerun).",
+    )
+
+
 def _apply_migrations() -> _MigrationResult:
     """Apply the schema in-process. Returns what happened, never raises.
 
@@ -361,8 +404,12 @@ def _doctor_wsl() -> bool:
 
 
 def _doctor_distro() -> str:
+    import platform
+
     from verilore.cli import postgres
 
+    if postgres.is_macos():
+        return f"macOS {platform.mac_ver()[0] or ''}".strip()
     try:
         return postgres.linux_distro() or "unknown"
     except Exception:  # noqa: BLE001 - not Linux, or no os-release
@@ -513,11 +560,14 @@ def init(
     if not all(tables):
         applied = _apply_migrations()
         if not applied.ok:
+            from verilore.cli.errors import render
+
             typer.echo(
-                "Verilore is installed, but the memory schema is not applied yet.\n"
-                f"\n{applied.detail}\n"
-                "\nWhat to do:\n"
-                "  python -m alembic -c verilore/migrations/alembic.ini upgrade head",
+                render(
+                    _migration_failure_advice(applied.detail),
+                    RuntimeError(applied.detail),
+                    verbose=_debug_requested(debug),
+                ),
                 err=True,
             )
             raise typer.Exit(code=1)
