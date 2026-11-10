@@ -29,8 +29,8 @@ before this release leave the index.
 reads the `~/.verilore/config.toml` that `verilore init` wrote, binds
 `127.0.0.1:8000` by default (`--host`/`--port` to change), and prints on start
 the URL, the corpus list, and the exact `verilore credential issue …` command.
-Binding to anything other than `127.0.0.1` in local mode warns that the server is
-reachable from the network. Logs are one line each: readable text with the
+Binding to anything but this machine (`127.0.0.1`, `localhost`, `::1`) in local
+mode warns that the server is reachable from the network. Logs are one line each: readable text with the
 `request_id` on every error line, or JSON with `--log-json`. Ctrl-C exits 0.
 `docs/integration/guide.md` opens with an "On your laptop" section: `verilore
 init`, `verilore serve --run`, issue a key, and a five-line `from verilore import
@@ -41,9 +41,11 @@ request_id (both run in the guide test).
 **`MemoryClientError` is a `VeriloreError` (#189).** A remote failure raised by
 the SDK is now a `VeriloreError`, so one `except VeriloreError` catches an
 in-process failure and a remote one alike. `code`, `message`, `retryable` and
-`request_id` are all present on it, and `request_id` is the one the server
-logged, so an app can quote it in its own error report. `except
-MemoryClientError` keeps working.
+`request_id` are all present on it. `request_id` is the one the server logged,
+from the error envelope or else the `X-Request-Id` header, so an app can quote it
+in its own error report. `retryable` is what the server said; when it said
+nothing, a timeout, an unreachable server and a 502, 503 or 504 are retryable and
+nothing else is. `except MemoryClientError` keeps working.
 
 **One error format for every CLI failure, and a doctor that finds the cause (#187).**
 Every CLI failure now prints the same five lines — `error: <what> (<code>)`,

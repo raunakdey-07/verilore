@@ -18,30 +18,40 @@ Shell blocks are not run; each shell command must appear verbatim in
 
 ## 0. On your laptop
 
-The two-step job when your web app talks to Verilore on your own machine.
-`verilore init` provisions the database and writes the local config once;
-`verilore serve --run` binds `127.0.0.1:8000` and prints the key command.
+Your web app and Verilore, both on your own machine, in two steps. First set
+up the database once; `init` also creates the corpus `default`:
 
 ```bash
 verilore init
 ```
 
+Then start the server, in its own terminal. It listens on `127.0.0.1:8000`, so
+nothing outside this machine can reach it, and it prints the command for the
+next step:
+
 ```bash
 verilore serve --run
 ```
+
+Issue the app its key. The secret is printed once, so copy it now:
 
 ```bash
 verilore credential issue my-app --corpus default
 ```
 
-Your web app then reads the server URL and the key from the environment —
-never from code, never from a checked-in file:
+Give your app three environment variables: `VERILORE_URL=http://127.0.0.1:8000`,
+`BRAND_CORPUS=default`, and `BRAND_MEMORY_KEY` set to that secret. The app reads
+them from the environment, never from code or a checked-in file:
 
 ```python
 import os
 from verilore import Verilore
 
-client = Verilore(os.environ["BRAND_CORPUS"], base_url=os.environ["VERILORE_URL"], api_key=os.environ["BRAND_MEMORY_KEY"])
+client = Verilore(
+    os.environ["BRAND_CORPUS"],
+    base_url=os.environ["VERILORE_URL"],
+    api_key=os.environ["BRAND_MEMORY_KEY"],
+)
 print(client.memory.current(query="tone"))
 ```
 
@@ -54,7 +64,8 @@ authentication and the least-privileged database role — see
 A web app shows Verilore's errors to its own developers, not a stack trace.
 `VeriloreError` carries the code, the message, whether retrying can work,
 and the request id the server logged, so one log line says everything a
-developer needs:
+developer needs. It catches a server that refused the request and a server that
+could not be reached alike; for the second, `retryable` is true:
 
 ```python
 import logging

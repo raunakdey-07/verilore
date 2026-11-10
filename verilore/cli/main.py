@@ -2656,7 +2656,7 @@ def serve(
 
     config = build_serve_config(host=host, port=port, reload=reload, log_json=log_json)
     _print_serve_startup(host=host, port=port)
-    if host != "127.0.0.1" and not _is_server_deployment():
+    if host not in _LOOPBACK_HOSTS and not _is_server_deployment():
         # A laptop server is private by default. Binding beyond loopback makes
         # it reachable from the network, and that has to be said out loud.
         typer.echo(
@@ -2765,6 +2765,10 @@ class VeriloreJsonFormatter(logging.Formatter):
         if getattr(record, "request_id", None):
             payload["request_id"] = record.request_id
         return json.dumps(payload)
+
+
+#: Names that only this machine can reach. Anything else is a network bind.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 def _is_server_deployment() -> bool:

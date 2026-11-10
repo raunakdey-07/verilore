@@ -152,8 +152,14 @@ class MemoryClientError(VeriloreError):
 
     It is a `VeriloreError`, so one `except VeriloreError` catches in-process
     and remote failures alike. `retryable` and `request_id` are preserved from
-    the server's error envelope when the server sent one.
+    the server's error envelope when the server sent one. When nothing said,
+    the failures a retry can fix -- a timeout, an unreachable server, a 502,
+    503 or 504 -- are retryable, and nothing else is.
     """
+
+    #: The adapter's own codes for a request that never got an answer.
+    _TRANSIENT_CODES = frozenset({"timeout", "transport_error"})
+    _TRANSIENT_STATUSES = frozenset({502, 503, 504})
 
     def __init__(
         self,
@@ -162,9 +168,11 @@ class MemoryClientError(VeriloreError):
         status_code: int,
         *,
         attempts: int = 1,
-        retryable: bool = False,
+        retryable: bool | None = None,
         request_id: str | None = None,
     ):
+        if retryable is None:
+            retryable = code in self._TRANSIENT_CODES or status_code in self._TRANSIENT_STATUSES
         super().__init__(
             message,
             code=code,
@@ -211,7 +219,13 @@ def _as_client_error(exc: Exception) -> Exception:
     # two exception classes for one condition, so `except MemoryClientError`
     # would not catch it locally.
     if isinstance(exc, (ServiceMemoryError, AuthorizationError)):
-        return MemoryClientError(exc.code, exc.message, exc.status_code)
+        return MemoryClientError(
+            exc.code,
+            exc.message,
+            exc.status_code,
+            retryable=getattr(exc, "retryable", None),
+            request_id=getattr(exc, "request_id", None),
+        )
     return exc
 
 
@@ -219,7 +233,7 @@ def _remote_error(response, default_message: str, attempts: int = 1) -> MemoryCl
     """Preserve the server's stable error code without exposing its body."""
     code = "http_error"
     message = default_message
-    retryable = False
+    retryable = None
     request_id = None
     try:
         detail = response.json()
@@ -230,10 +244,16 @@ def _remote_error(response, default_message: str, attempts: int = 1) -> MemoryCl
                     code = detail["code"]
                 if isinstance(detail.get("message"), str):
                     message = detail["message"]
-                retryable = bool(detail.get("retryable"))
+                if isinstance(detail.get("retryable"), bool):
+                    retryable = detail["retryable"]
                 request_id = detail.get("request_id")
     except ValueError:
         pass
+    if not isinstance(request_id, str) or not request_id:
+        # Every response carries the id in a header, even one with no envelope:
+        # it is the id the server logged, so it is the one to quote.
+        headers = getattr(response, "headers", None) or {}
+        request_id = headers.get("X-Request-Id") or None
     return MemoryClientError(
         code,
         message,
