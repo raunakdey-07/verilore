@@ -1,13 +1,6 @@
-<p align="center">
-  <a href="https://verilore.vercel.app/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="site/logo-dark.svg">
-      <img alt="Verilore" src="site/logo-light.svg" width="232" height="56">
-    </picture>
-  </a>
-</p>
+<a href="https://verilore.vercel.app/"><picture><source media="(prefers-color-scheme: dark)" srcset="site/logo-dark.svg"><img alt="Verilore" src="site/logo-light.svg" width="232" height="56"></picture></a>
 
-<p align="center"><b>Memory your AI can cite.</b></p>
+**Memory your AI can cite.**
 
 [![PyPI](https://img.shields.io/pypi/v/verilore)](https://pypi.org/project/verilore/)
 [![Release](https://img.shields.io/github/v/release/raunakdey-07/verilore)](https://github.com/raunakdey-07/verilore/releases)
