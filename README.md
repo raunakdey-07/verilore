@@ -1,12 +1,13 @@
 # Verilore
 
+[![PyPI](https://img.shields.io/pypi/v/verilore)](https://pypi.org/project/verilore/)
 [![Release](https://img.shields.io/github/v/release/raunakdey-07/verilore)](https://github.com/raunakdey-07/verilore/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/raunakdey-07/verilore/ci.yml?branch=main&label=CI)](https://github.com/raunakdey-07/verilore/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 Verilore was called Mind Palace until v0.10.0.
 
-[Current release: v0.11.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
+[Website](https://verilore.vercel.app/) · [Current release: v0.11.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
 
 
 **Memory for AI applications that remembers what changed, what was true when, and

@@ -1,5 +1,7 @@
 # Verilore
 
+[Website](https://verilore.vercel.app/) · [GitHub](https://github.com/raunakdey-07/verilore) · [Changelog](https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md)
+
 Memory for AI applications that remembers what changed, what was true when, and
 why to believe the recorded state. Add Verilore to an application, record a fact,
 and get back an answer with its source, the time it was true, and the exact

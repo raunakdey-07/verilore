@@ -1,5 +1,7 @@
 # The Verilore website
 
+Live at https://verilore.vercel.app/.
+
 One static page: `index.html`, plus `favicon.svg`. No build step, no framework,
 no dependencies; fonts load from Google Fonts. Edit the page and open it in a
 browser to see the change.

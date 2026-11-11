@@ -92,7 +92,7 @@ dependencies = [
     "mcp>=2.1.0",
 ]
 [project.urls]
-Homepage = "https://github.com/raunakdey-07/verilore"
+Homepage = "https://verilore.vercel.app/"
 Repository = "https://github.com/raunakdey-07/verilore"
 Documentation = "https://github.com/raunakdey-07/verilore/blob/main/docs/integration/guide.md"
 Changelog = "https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md"
