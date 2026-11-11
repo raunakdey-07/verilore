@@ -15,6 +15,12 @@ commands are the README's. `site/README.md` says how to deploy it and what must
 stay true. It is live at https://verilore.vercel.app/, which the README, the
 PyPI page and the package's `Homepage` link now point to.
 
+**The README reads cleaner.** It opens with the logo, served from the site so the
+PyPI page shows the same one. The quickstart is numbered steps, each a sentence
+and then a command block, and no command block in the README, the quickstart or
+the PyPI page carries a comment: what was a comment is the prose around it. The
+commands CI runs from the README are unchanged, in the same order.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or

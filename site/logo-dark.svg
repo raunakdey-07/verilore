@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="232" height="56" viewBox="0 0 232 56" role="img" aria-label="Verilore">
+  <title>Verilore</title>
+  <g transform="translate(4 4) scale(2)" fill="none" stroke-width="1.8" stroke-linejoin="round">
+    <path d="M4 5h16v11H9l-5 4V5z" stroke="#E8B04B"/>
+    <path d="M8.5 10.5l2.2 2.2 4.8-4.8" stroke="#F4F4F5" stroke-linecap="round"/>
+  </g>
+  <text x="62" y="39" fill="#FAFAFA" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="32" font-weight="600" letter-spacing="-0.8">Verilore</text>
+</svg>

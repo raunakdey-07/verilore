@@ -1,4 +1,4 @@
-# Verilore
+![Verilore](https://verilore.vercel.app/logo-light.svg)
 
 [Website](https://verilore.vercel.app/) · [GitHub](https://github.com/raunakdey-07/verilore) · [Changelog](https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md)
 
@@ -12,9 +12,9 @@ never heard of Verilore.
 
 ```bash
 uv tool install --python 3.13 verilore
-# or, with a Python from 3.11 to 3.14:
-pipx install verilore
 ```
+
+Or, with a Python from 3.11 to 3.14, `pipx install verilore`.
 
 Verilore runs on macOS and Linux, and on Windows through WSL 2, with Python 3.11
 to 3.14 (3.13 at most on an Intel Mac). uv downloads 3.13 if you do not have it,

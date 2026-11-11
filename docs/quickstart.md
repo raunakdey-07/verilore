@@ -3,18 +3,25 @@
 Commands only. Each one is the command, not a description of it. The README
 explains why; this is for the person who already read it and wants the list.
 
+**1. Install.** Verilore runs on Python 3.11 to 3.14; uv downloads 3.13 if you
+do not have it (on Fedora, see the table below). `pipx install verilore` works
+too, with a Python from 3.11 to 3.14.
+
 ```bash
-# 1. Install from PyPI. Verilore runs on Python 3.11 to 3.14; uv downloads 3.13
-#    if you do not have it (on Fedora, see the table below).
 uv tool install --python 3.13 verilore
-# or, with a Python from 3.11 to 3.14: pipx install verilore
+```
 
-# 2. Set up. With Podman or Docker installed, this starts a local PostgreSQL,
-#    applies the schema, creates the corpus `default` and records the database
-#    for every later command. Running it again changes nothing.
+**2. Set up.** With Podman or Docker installed, this starts a local PostgreSQL,
+applies the schema, creates the corpus `default` and records the database for
+every later command. Running it again changes nothing.
+
+```bash
 verilore init
+```
 
-# 3. Write one fact and ask about it.
+**3. Write one fact and ask about it.**
+
+```bash
 verilore remember "Production uses PostgreSQL." --key datastore
 verilore recall "What database does production use?"
 ```
@@ -391,10 +398,11 @@ it is not shown:
 Passing `{"question": "..."}` instead fails with
 `1 validation error ... request Field required`, and so does passing `request`
 without `corpus`. The full argument schema — including `as_of`, `intent` and
-`budget` — is available from the server itself:
+`budget` — is available from the server itself: start it, then ask the client
+for `tools/list`, or read each tool's `inputSchema`.
 
 ```bash
-verilore-mcp   # then ask the client for tools/list, or read inputSchema
+verilore-mcp
 ```
 
 Fifteen tools are advertised. `memory_recall`, `memory_explain`, `memory_current`,
@@ -476,16 +484,16 @@ does not say you may read the server's filesystem.
 
 The five commands above are the product. The rest exists when you need it:
 
-```bash
-verilore memory current     --corpus C --query "..."   # what is true now
-verilore memory changes     --corpus C                 # what changed
-verilore memory evidence    --corpus C --claim-id ID   # why one claim holds
-verilore memory as-of       --corpus C --as-of T       # what was true at T
-verilore memory snapshot    --corpus C                 # freeze a state
-verilore memory replay      --corpus C --snapshot-id ID # read a frozen state
-verilore memory pack        --corpus C                 # bounded context for a model
-verilore memory feed        --corpus C                 # durable change feed
-```
+| Command | What it gives you |
+|---|---|
+| `verilore memory current --corpus C --query "..."` | what is true now |
+| `verilore memory changes --corpus C` | what changed |
+| `verilore memory evidence --corpus C --claim-id ID` | why one claim holds |
+| `verilore memory as-of --corpus C --as-of T` | what was true at T |
+| `verilore memory snapshot --corpus C` | freeze a state |
+| `verilore memory replay --corpus C --snapshot-id ID` | read a frozen state |
+| `verilore memory pack --corpus C` | bounded context for a model |
+| `verilore memory feed --corpus C` | durable change feed |
 
 These commands read the local database in-process, like the five commands above.
 Pass `--base-url http://host:8000` (or set `VERILORE_BASE_URL`) only when a
@@ -499,10 +507,10 @@ explicit budget, and selectors such as `--claim-id` and `--snapshot-id`.
 
 ## Errors
 
-Failures answer what happened, why, and what to run.
+Failures answer what happened, why, and what to run. With the database stopped:
 
 ```console
-$ verilore recall "..."   # with the database stopped
+$ verilore recall "..."
 error: The memory database is unavailable. (database_unavailable)
   why: Verilore could not connect to PostgreSQL at localhost:5432.
   fix: verilore init
