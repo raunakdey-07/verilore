@@ -2,9 +2,10 @@
 
 Live at https://verilore.vercel.app/.
 
-One static page: `index.html`, plus `favicon.svg`. No build step, no framework,
-no dependencies; fonts load from Google Fonts. Edit the page and open it in a
-browser to see the change.
+One static page, `index.html`, with `favicon.svg` and the two logos
+(`logo-light.svg`, `logo-dark.svg`) that the repository README and the PyPI page
+show. No build step, no framework, no dependencies; fonts load from Google
+Fonts. Edit the page and open it in a browser to see the change.
 
 ## Deploying on Vercel
 

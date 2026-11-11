@@ -1,4 +1,6 @@
-# Verilore
+<a href="https://verilore.vercel.app/"><picture><source media="(prefers-color-scheme: dark)" srcset="site/logo-dark.svg"><img alt="Verilore" src="site/logo-light.svg" width="232" height="56"></picture></a>
+
+**Memory your AI can cite.**
 
 [![PyPI](https://img.shields.io/pypi/v/verilore)](https://pypi.org/project/verilore/)
 [![Release](https://img.shields.io/github/v/release/raunakdey-07/verilore)](https://github.com/raunakdey-07/verilore/releases)
@@ -40,38 +42,59 @@ database and nothing exported.
 
 Lines starting with `$ ` are the commands CI runs; type them without the `$ `.
 
+**1. Install.** Verilore runs on Python 3.11 to 3.14, and uv downloads 3.13 if
+you do not have it. [Your system](docs/quickstart.md#your-system) says how to
+get uv and Podman on macOS, Ubuntu, WSL, Debian, Fedora and Arch.
+
 ```bash
-# Install the command from PyPI. Verilore runs on Python 3.11 to 3.14; uv downloads
-# 3.13 if you do not have it (Fedora's uv downloads only when asked: run
-# `uv python install 3.13` first). macOS, Ubuntu, WSL, Debian, Fedora, Arch:
-# docs/quickstart.md#your-system says how to get uv and Podman on each.
 uv tool install --python 3.13 verilore
-# or, with a Python from 3.11 to 3.14: pipx install verilore
+```
 
-# The whole local setup. With Podman or Docker installed, init starts a local
-# PostgreSQL (the first run downloads its image once), applies the schema,
-# creates your first corpus and records the database for every later command.
-# Run it again any time; it changes nothing.
+With a Python from 3.11 to 3.14, `pipx install verilore` works too. Fedora's uv
+downloads a Python only when asked, so run `uv python install 3.13` first.
+
+**2. Set up.** With Podman or Docker installed, `init` starts a local PostgreSQL
+(its image downloads once), applies the schema, creates your first corpus and
+records the database for every later command. Running it again changes nothing.
+
+```bash
 $ verilore init
+```
 
-# Ingest a plain ADR. No frontmatter, no `claims:` block: headings, list items and
-# `Key: Value` lines become claims, each quoted from the file it came from.
-# docs/adr/001-datastore.md is the worked example; point this at your own.
+**3. Ingest a document.** No frontmatter and no `claims:` block are needed:
+headings, list items and `Key: Value` lines become claims, each quoted from the
+file it came from. `docs/adr/001-datastore.md` is the worked example; point this
+at your own folder.
+
+```bash
 $ verilore ingest-repo ./docs/adr --corpus project
+```
 
-# Recall. An ambiguous answer prints the claims it could not separate, with ids.
+**4. Ask.** An ambiguous answer lists the claims it could not separate, with
+their ids.
+
+```bash
 $ verilore recall "What is the primary datastore?" --corpus project
+```
 
-# Record what replaces it. `--topic-key` retires what is live under that key, across
-# files: the new statement is a different document from the old one.
+**5. Record what replaces it.** `--topic-key` retires whatever is live under that
+key, across files, so the new statement can come from a different document.
+
+```bash
 $ verilore remember "The primary datastore is PostgreSQL 16." \
   --corpus project --key architecture.datastore --topic-key architecture.datastore
+```
 
-# What is true now, and what it displaced.
+**6. See what is true now, and what it displaced.**
+
+```bash
 $ verilore recall "What is the primary datastore?" --corpus project
 $ verilore history "" --corpus project
+```
 
-# Verify the answer offline: no database, no model, no network.
+**7. Verify the answer offline**, with no database, model or network.
+
+```bash
 $ verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
 $ verilore verify receipt.json
 ```
