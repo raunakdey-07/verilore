@@ -6,6 +6,14 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Added
+
+**A website.** `site/` is Verilore's one-page site: static HTML with no build
+step, deployed on Vercel with `site` as the project's root directory. Its demo
+is recorded from the Trailhead scenario in Verilore's own tests, and its install
+commands are the README's. `site/README.md` says how to deploy it and what must
+stay true.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or

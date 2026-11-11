@@ -1,0 +1,575 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright 2026 Raunak Dey -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verilore — memory your AI can cite</title>
+<meta name="description" content="Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version. Open source, on PyPI.">
+<meta name="theme-color" content="#0A0A0B">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Verilore — memory your AI can cite">
+<meta property="og:description" content="Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0A0A0B;
+  --panel: #0D0D0F;
+  --text: #F4F4F5;
+  --strong: #FAFAFA;
+  --body: #D4D4D8;
+  --muted: #A1A1AA;
+  --faint: #8B8B93;
+  --dim: #6B6B73;
+  --accent: #E8B04B;
+  --old: #F2A285;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-soft: rgba(255, 255, 255, 0.05);
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gap: clamp(72px, 10vw, 132px);
+  --side: clamp(16px, 4vw, 24px);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: var(--body); text-decoration: none; }
+a:hover { color: #FFF; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.mono { font-family: var(--mono); }
+.wrap { position: relative; max-width: calc(1180px + 2 * var(--side)); margin: 0 auto; padding: 0 var(--side); }
+
+.grid-bg { position: absolute; inset: 0 0 auto; height: 900px; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 100%); }
+
+header.wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: clamp(18px, 3vw, 28px); padding-bottom: clamp(18px, 3vw, 28px); }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+nav.main { display: flex; align-items: center; gap: 24px; font-size: 14px; flex-wrap: wrap; }
+nav.main a { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 520px) { .nav-opt { display: none !important; } }
+
+.hero { padding-top: clamp(48px, 9vw, 112px); padding-bottom: var(--gap); }
+h1 { margin: 0; max-width: 980px; font-size: clamp(44px, 8vw, 104px); line-height: 1; font-weight: 600; letter-spacing: -0.04em; color: var(--strong); text-wrap: balance; }
+h1 em { font-style: normal; color: var(--accent); }
+.hero-lead { margin: clamp(20px, 3vw, 32px) 0 0; max-width: 560px; font-size: clamp(17px, 1.6vw, 20px); line-height: 1.55; color: var(--muted); text-wrap: pretty; }
+.actions { margin-top: clamp(28px, 4vw, 40px); display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
+.primary { display: inline-flex; align-items: center; min-height: 48px; padding: 0 26px; border-radius: 10px; background: var(--accent); color: var(--bg); font-weight: 600; font-size: 16px; }
+.primary:hover { color: var(--bg); filter: brightness(1.08); }
+.prompt-link { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; font-family: var(--mono); font-size: 15px; color: var(--body); }
+.prompt-link span, .acc { color: var(--accent); }
+
+h2 { margin: 0; font-size: clamp(28px, 3.4vw, 42px); line-height: 1.1; font-weight: 600; letter-spacing: -0.025em; color: var(--strong); text-wrap: balance; }
+.lead { margin: 0; font-size: 17px; line-height: 1.6; color: var(--muted); }
+.note { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--faint); }
+.hero .note { margin-top: 28px; }
+section.block { padding-bottom: var(--gap); scroll-margin-top: 24px; }
+.split { display: flex; flex-wrap: wrap; gap: clamp(28px, 5vw, 64px); align-items: flex-start; }
+.side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.exhibit { flex: 1.5 1 520px; min-width: 0; }
+.rule { border-top: 1px solid var(--line); }
+
+.term { border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: var(--panel); overflow: hidden; }
+.term-bar { padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: var(--mono); font-size: 12px; color: var(--faint); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.term-bar.top-rule { border-top: 1px solid rgba(255,255,255,0.07); }
+.plain { background: transparent; border: 0; padding: 0; cursor: pointer; color: inherit; }
+
+/* Demo */
+#try { overflow: hidden; max-height: 0; opacity: 0; transform: translateY(24px); transition: max-height 900ms cubic-bezier(0.65, 0, 0.35, 1), opacity 520ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+#try.open { max-height: 1600px; opacity: 1; transform: none; }
+.suggest { display: flex; flex-direction: column; align-items: flex-start; }
+.suggest button { min-height: 44px; text-align: left; font-family: var(--mono); font-size: 14px; color: var(--muted); }
+.suggest button:hover, .ask-run:hover { color: #FFF; }
+.skip { text-decoration: underline; text-underline-offset: 3px; }
+.log { padding: 20px clamp(14px, 3vw, 22px); display: flex; flex-direction: column; gap: 18px; font-family: var(--mono); font-size: 14px; line-height: 1.65; }
+.log p { margin: 0; color: var(--faint); }
+.entry { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.entry .cmd { color: var(--text); overflow-wrap: anywhere; }
+.entry .out { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.entry .claim { font-family: var(--sans); font-size: 16px; color: var(--strong); }
+.entry .src { color: var(--faint); overflow-wrap: anywhere; }
+.entry .src b { font-weight: 400; color: var(--body); }
+.entry .quote { color: var(--muted); overflow-wrap: anywhere; }
+.entry .none { color: var(--body); }
+.entry .why { font-family: var(--sans); font-size: 14px; color: var(--faint); }
+.ask-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
+.ask-row:focus-within { border-color: rgba(232,176,75,0.6); }
+.ask-row label { color: var(--accent); white-space: nowrap; }
+.ask-row label span { color: var(--text); }
+.ask-row input { flex: 1 1 200px; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-family: var(--mono); font-size: 14px; caret-color: var(--accent); }
+.ask-row input:focus { outline: none; }
+.ask-run { min-height: 44px; padding: 0 4px; font-family: var(--mono); font-size: 14px; color: var(--accent) !important; }
+
+/* Why */
+.q { margin: 0 0 14px; font-family: var(--mono); font-size: 13px; color: var(--faint); }
+.diff { display: flex; gap: clamp(12px, 2.4vw, 22px); padding: clamp(18px, 3vw, 26px) 0; border-top: 1px solid var(--line); }
+.diff .mark { flex: none; width: 14px; font-family: var(--mono); font-size: 22px; line-height: 1.25; }
+.diff .body { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.diff .who { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.diff .said { font-size: clamp(19px, 2.2vw, 24px); line-height: 1.35; }
+.diff .meta { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--faint); overflow-wrap: anywhere; }
+.diff.old .mark, .diff.old .who, .diff.old .word { color: var(--old); }
+.diff.old .said { color: var(--muted); }
+.diff.old .word { text-decoration: line-through; }
+.diff.new .mark, .diff.new .who, .diff.new .word { color: var(--accent); }
+.diff.new .said { color: var(--strong); }
+.after-diff { padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* How */
+ol.steps { margin: 8px 0 0; padding: 0; list-style: none; }
+ol.steps li { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
+ol.steps .n { flex: none; font-family: var(--mono); font-size: 13px; line-height: 1.75; color: var(--accent); }
+ol.steps .t { display: flex; flex-direction: column; gap: 4px; }
+ol.steps strong { font-size: 17px; font-weight: 600; color: var(--strong); }
+ol.steps span span { font-size: 15px; line-height: 1.55; color: var(--muted); }
+pre.code { margin: 0; padding: clamp(16px, 3vw, 24px); font-family: var(--mono); font-size: 13.5px; line-height: 1.75; color: var(--body); overflow-x: auto; }
+pre.code .k { color: var(--faint); }
+pre.code .s { color: var(--accent); }
+.pack { padding: 6px clamp(16px, 3vw, 24px) clamp(16px, 3vw, 22px); }
+.pack-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 20px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
+.pack-row span:first-child { font-size: 15px; line-height: 1.45; color: var(--text); }
+.pack-row span:last-child { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.pack-foot { margin: 14px 0 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--faint); }
+
+/* Help */
+.help { padding: clamp(14px, 2.6vw, 22px) clamp(14px, 3vw, 22px); font-family: var(--mono); font-size: 14px; line-height: 1.6; }
+.help p { margin: 0 0 12px; color: var(--faint); }
+.help dl { margin: 0; }
+.help div { display: flex; flex-wrap: wrap; column-gap: 20px; row-gap: 2px; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.help dt { flex: 0 0 96px; color: var(--accent); }
+.help dd { flex: 1 1 260px; min-width: 0; margin: 0; color: var(--body); }
+
+/* Install */
+.from-demo { margin: 0; font-size: 15px; line-height: 1.6; color: var(--body); }
+.guide { margin: 8px 0 0; font-size: 15px; line-height: 1.9; color: var(--muted); }
+.underline { color: var(--body); border-bottom: 1px solid rgba(255,255,255,0.22); padding-bottom: 2px; transition: color 160ms ease, border-color 160ms ease; }
+.underline:hover { border-color: currentColor; }
+.tabs { display: flex; margin-bottom: 10px; }
+.tabs [role="group"] { display: flex; gap: 20px; }
+.tabs button { min-height: 44px; font-size: 13px; color: var(--faint); }
+.tabs button:hover { color: #FFF; }
+.tabs button[aria-pressed="true"] { color: var(--strong); box-shadow: inset 0 -2px 0 var(--accent); }
+.tabs .installers button { font-family: var(--mono); }
+.step { padding: 14px clamp(14px, 3vw, 18px); display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--line-soft); }
+.step:last-child { border-bottom: 0; }
+.step-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.step-head span { font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
+.copy { min-height: 32px; min-width: 56px; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.copy:hover { color: #FFF; }
+.copy.done { color: var(--accent); }
+.step pre { margin: 0; font-family: var(--mono); font-size: 13.5px; line-height: 1.7; color: #E4E4E7; white-space: pre; overflow-x: auto; }
+
+footer { border-top: 1px solid rgba(255,255,255,0.07); }
+footer .wrap { padding-top: 32px; padding-bottom: 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; font-size: 13px; color: var(--faint); }
+footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #try { transition: none; } }
+</style>
+</head>
+<body>
+<div class="grid-bg" aria-hidden="true"></div>
+
+<header class="wrap">
+  <a class="brand" href="#top">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16v11H9l-5 4V5z" stroke="#E8B04B" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 10.5l2.2 2.2 4.8-4.8" stroke="#F4F4F5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Verilore
+  </a>
+  <nav class="main" aria-label="Main">
+    <a class="nav-opt" href="#why">Why</a>
+    <a class="nav-opt" href="#how">How it works</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/raunakdey-07/verilore">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.7 11.7 0 0 0-6.2 0C6.6 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      GitHub
+    </a>
+  </nav>
+</header>
+
+<main>
+<section id="top" class="wrap hero">
+  <h1>Memory your AI can&nbsp;<em>cite</em>.</h1>
+  <p class="hero-lead">Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version.</p>
+  <div class="actions">
+    <a class="primary" href="#install">Get started</a>
+    <a class="prompt-link" id="try-link" href="#try"><span>$</span><span id="try-label" style="color: inherit">try the demo</span></a>
+  </div>
+  <p class="note">Open source · on PyPI · for Python, the terminal and AI assistants</p>
+</section>
+
+<section id="try" class="wrap" aria-label="Try it" aria-hidden="true">
+  <div class="split" style="padding-bottom: var(--gap)">
+    <div class="side">
+      <h2>Ask a brand's memory.</h2>
+      <p class="lead">Trailhead is the made-up bike brand from Verilore's own tests. This memory holds its brand guide, specs and spring campaign.</p>
+      <div class="suggest" id="suggest"></div>
+      <a class="note skip" href="#install">Skip to install</a>
+    </div>
+    <div class="exhibit term">
+      <div class="term-bar"><span>trailhead · brand + campaigns/spring</span><span id="left" role="status" aria-live="polite" class="acc"></span></div>
+      <div class="log" id="log">
+        <p id="empty"></p>
+        <div class="ask-row" id="ask-row">
+          <label for="q">$ <span>verilore recall</span></label>
+          <input id="q" type="text" autocomplete="off" placeholder="&quot;When does the spring campaign launch?&quot;">
+          <button type="button" class="plain ask-run" id="run">run ↵</button>
+        </div>
+        <p id="farewell" hidden>› that was the last question. taking you to the install<span class="acc">…</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why" class="wrap block" aria-labelledby="why-title">
+  <div class="split">
+    <div class="side">
+      <h2 id="why-title">Search hands your AI whatever matches.</h2>
+      <p class="lead">It can't tell an outdated rule or a rejected draft from the current decision.</p>
+    </div>
+    <div class="exhibit">
+      <p class="q">q: "How should our copy sound?"</p>
+      <div class="diff old">
+        <span class="mark" aria-hidden="true">−</span>
+        <div class="body">
+          <span class="who">Ordinary search</span>
+          <span class="said">"Our voice is warm, plain and <span class="word">confident</span>."</span>
+          <span class="meta">brand/guide-old.md · score 0.91 · no status, no version</span>
+        </div>
+      </div>
+      <div class="diff new">
+        <span class="mark" aria-hidden="true">+</span>
+        <div class="body">
+          <span class="who">Verilore</span>
+          <span class="said">"Our voice is warm, plain and <span class="word">direct</span>."</span>
+          <span class="meta">brand/guide.md · approved · replaces v1</span>
+        </div>
+      </div>
+      <p class="note after-diff">The team changed "confident" to "direct". Only Verilore knows.</p>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="wrap block" aria-labelledby="how-title">
+  <div class="split">
+    <div class="side">
+      <h2 id="how-title">From Markdown to a prompt you can trust.</h2>
+      <ol class="steps">
+        <li><span class="n">01</span><span class="t"><strong>Write it down</strong><span>Rules and facts in Markdown, one bullet each.</span></span></li>
+        <li><span class="n">02</span><span class="t"><strong>Review it</strong><span>Mark documents draft, approved or rejected. Corrections keep the old version.</span></span></li>
+        <li><span class="n">03</span><span class="t"><strong>Ask for a pack</strong><span>Your app gets the approved lines for the task, each with its source.</span></span></li>
+      </ol>
+    </div>
+    <div class="exhibit term">
+      <div class="term-bar">step 03 · app.py</div>
+<pre class="code"><span class="k">from</span> verilore <span class="k">import</span> Verilore
+
+vl = Verilore(<span class="s">"trailhead"</span>, base_url=URL, api_key=KEY)
+pack = vl.memory.pack(
+    query=<span class="s">""</span>,
+    path_prefix=[<span class="s">"brand"</span>, <span class="s">"campaigns/spring"</span>],
+)</pre>
+      <div class="term-bar top-rule">pack.current_memories</div>
+      <div class="pack">
+        <div class="pack-row"><span>Our voice is warm, plain and direct.</span><span>brand/memory · corrects v1 of brand/guide.md</span></div>
+        <div class="pack-row"><span>Never use the word "curated" in copy.</span><span>brand/guide.md</span></div>
+        <div class="pack-row"><span>The Trailhead 2 bike weighs 9.8 kilograms.</span><span>brand/specs.md</span></div>
+        <div class="pack-row"><span>The spring launch date is 14 March 2027.</span><span>campaigns/spring/brief.md</span></div>
+        <p class="pack-foot">held back: 1 rejected headline · conflicts: none</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap block" aria-labelledby="get-title">
+  <div class="split">
+    <div class="side">
+      <h2 id="get-title">What your AI sees is what you approved.</h2>
+      <p class="lead">And you can prove it later.</p>
+      <p class="note">Fast enough for every request: about a tenth of a second across 200 documents.</p>
+    </div>
+    <div class="exhibit term">
+      <div class="term-bar"><span><span class="acc">$</span> verilore --help</span></div>
+      <div class="help">
+        <p>usage: verilore &lt;command&gt; [options]</p>
+        <dl>
+          <div><dt>remember</dt><dd>save a rule or fact, with where it came from</dd></div>
+          <div><dt>recall</dt><dd>the answer, its source, and when it was true</dd></div>
+          <div><dt>explain</dt><dd>why that answer, and what it replaced</dd></div>
+          <div><dt>history</dt><dd>every earlier version, oldest first</dd></div>
+          <div><dt>receipt</dt><dd>a record of exactly what your AI was given</dd></div>
+          <div><dt>verify</dt><dd>check a receipt offline: no database, no network</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="wrap block" aria-labelledby="install-title">
+  <div class="split">
+    <div class="side">
+      <h2 id="install-title">Try it on your own documents.</h2>
+      <p class="from-demo" id="from-demo" hidden>That was the demo. This is the real thing.</p>
+      <p class="lead">Three commands. It starts its own database.</p>
+      <p class="note" id="os-note">Needs Podman or Docker.</p>
+      <p class="guide">Building it into an app?<br><a class="underline" href="https://github.com/raunakdey-07/verilore/blob/main/docs/integration/guide.md">Read the developer guide →</a></p>
+    </div>
+    <div class="exhibit">
+      <div class="tabs">
+        <div role="group" aria-label="Installer" class="installers" id="installers">
+          <button type="button" class="plain" data-installer="uv" aria-pressed="true">uv</button>
+          <button type="button" class="plain" data-installer="pipx" aria-pressed="false">pipx</button>
+          <button type="button" class="plain" data-installer="pip" aria-pressed="false">pip</button>
+        </div>
+      </div>
+      <div class="term">
+        <div class="term-bar" id="shell">zsh</div>
+        <div id="steps"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Verilore v0.11.0 · Apache-2.0</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/raunakdey-07/verilore">GitHub</a>
+      <a href="https://pypi.org/project/verilore/">PyPI</a>
+      <a href="https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/raunakdey-07/verilore/blob/main/LICENSE">License</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------- demo ----
+  // A recorded demo, not a live server: every answer below is what Verilore
+  // returns for the Trailhead documents in
+  // tests/test_integration_brand_kit_scenario.py. Questions are matched by
+  // keyword, and a question none of them answers gets Verilore's real
+  // behaviour: it says so instead of guessing.
+  var LIMIT = 3;
+  var SUGGESTIONS = ['What does our brand voice sound like?', 'When does the spring campaign launch?', 'What is the spring headline?'];
+
+  function lookup(question) {
+    var text = question.toLowerCase();
+    function hit(claim, source) { return { asked: question, claim: claim, quote: '- ' + claim, source: source }; }
+    function miss(none, why) { return { asked: question, none: none, why: why }; }
+    if (/(headline|slogan|tagline)/.test(text)) {
+      return miss('no approved answer · held back: 1 rejected headline', 'The team rejected "Ride Into Spring" and hasn’t approved another headline, so it says so instead of handing over the rejected one.');
+    }
+    if (/(launch|release|when)/.test(text) && !/(autumn|fall)/.test(text)) {
+      return hit('The spring launch date is 14 March 2027.', 'campaigns/spring/brief.md · approved');
+    }
+    if (/(autumn|fall)/.test(text)) {
+      return miss('nothing on that in this scope', 'This app only asked for the brand and the spring campaign, so the autumn campaign stays out.');
+    }
+    if (/(voice|tone|sound|style)/.test(text)) {
+      return hit('Our voice is warm, plain and direct.', 'brand/memory · corrects v1 of brand/guide.md');
+    }
+    if (/(curated|word|avoid|never|banned)/.test(text)) {
+      return hit('Never use the word "curated" in copy.', 'brand/guide.md · approved');
+    }
+    if (/(weigh|weight|kg|kilo|bike|trailhead 2)/.test(text)) {
+      return hit('The Trailhead 2 bike weighs 9.8 kilograms.', 'brand/specs.md');
+    }
+    return miss('nothing on that', 'None of these documents answer that, so it says so instead of guessing.');
+  }
+
+  // Questions used are remembered for this tab only, and the page works the
+  // same when storage is unavailable.
+  var store = {
+    get: function (k, d) { try { var v = window.sessionStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { window.sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  var used = store.get('verilore.demo.used', 0);
+  var picked = store.get('verilore.demo.picked', []);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var trySection = $('try');
+  var log = $('log');
+  var askRow = $('ask-row');
+  var input = $('q');
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function scrollToId(id, delay) {
+    setTimeout(function () {
+      var target = $(id);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, delay || 160);
+  }
+
+  function spent() { return used >= LIMIT; }
+
+  function renderMeta() {
+    var left = Math.max(0, LIMIT - used);
+    $('left').textContent = left === 1 ? '1 question left' : left + ' questions left';
+    $('left').style.color = spent() ? '#52525B' : '';
+    $('try-label').textContent = spent() ? 'demo used · install instead' : 'try the demo';
+    $('try-link').setAttribute('href', spent() ? '#install' : '#try');
+    var words = ['One', 'Two', 'Three', 'Four', 'Five'];
+    $('empty').textContent = 'Type a question, or pick one. ' + (words[LIMIT - 1] || LIMIT) + (LIMIT === 1 ? ' question' : ' questions') + ' per visit.';
+    var box = $('suggest');
+    box.textContent = '';
+    if (!spent()) {
+      SUGGESTIONS.filter(function (s) { return picked.indexOf(s) < 0; }).forEach(function (label) {
+        var b = el('button', 'plain');
+        b.type = 'button';
+        b.innerHTML = '<span class="acc">›</span> ';
+        b.appendChild(document.createTextNode(label));
+        b.addEventListener('click', function () { ask(label, true); });
+        box.appendChild(b);
+      });
+    }
+    askRow.hidden = spent();
+  }
+
+  function renderEntry(e) {
+    var wrap = el('div', 'entry');
+    var line = el('div');
+    line.appendChild(el('span', 'acc', '$ '));
+    line.appendChild(el('span', 'cmd', 'verilore recall "' + e.asked + '"'));
+    wrap.appendChild(line);
+    var out = el('div', 'out');
+    if (e.claim) {
+      out.appendChild(el('span', 'claim', e.claim));
+      var src = el('span', 'src', '↳ quoted from ');
+      src.appendChild(el('b', '', e.source));
+      out.appendChild(src);
+      out.appendChild(el('span', 'quote', '  "' + e.quote + '"'));
+    } else {
+      out.appendChild(el('span', 'none', e.none));
+      out.appendChild(el('span', 'why', e.why));
+    }
+    wrap.appendChild(out);
+    log.insertBefore(wrap, askRow);
+    $('empty').hidden = true;
+  }
+
+  function ask(question, fromSuggestion) {
+    question = (question || '').trim();
+    if (!question || spent()) return;
+    used += 1;
+    if (fromSuggestion) picked = picked.concat([question]);
+    store.set('verilore.demo.used', used);
+    store.set('verilore.demo.picked', picked);
+    renderEntry(lookup(question));
+    input.value = '';
+    renderMeta();
+    if (spent()) {
+      // The last answer stays readable for a moment, then the demo folds away
+      // the way it opened and the page moves on to the install.
+      $('farewell').hidden = false;
+      setTimeout(function () {
+        trySection.classList.remove('open');
+        trySection.setAttribute('aria-hidden', 'true');
+        $('from-demo').hidden = false;
+        scrollToId('install', 950);
+      }, 1800);
+    } else {
+      input.focus();
+    }
+  }
+
+  $('try-link').addEventListener('click', function (ev) {
+    ev.preventDefault();
+    if (spent()) { scrollToId('install'); return; }
+    trySection.classList.add('open');
+    trySection.setAttribute('aria-hidden', 'false');
+    scrollToId('try');
+  });
+  $('run').addEventListener('click', function () { ask(input.value, false); });
+  input.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); ask(input.value, false); }
+  });
+
+  // ------------------------------------------------------------- install ----
+  // The commands are the same everywhere; the system only decides the shell
+  // shown and, on Windows, that they run inside WSL 2.
+  function detectOs() {
+    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '').toLowerCase();
+    if (p.indexOf('win') >= 0) return 'win';
+    if (/mac|iphone|ipad/.test(p)) return 'mac';
+    return 'linux';
+  }
+  var state = { installer: 'uv', os: detectOs() };
+
+  function stepsFor(installer) {
+    var install = {
+      uv: 'uv tool install --python 3.13 verilore',
+      pipx: 'pipx install verilore',
+      pip: 'python3 -m pip install verilore'
+    }[installer];
+    return [
+      { title: installer === 'uv' ? 'install' : 'install · Python 3.11 to 3.14', lines: [install] },
+      { title: 'set up', lines: ['verilore init'] },
+      { title: 'add a folder, then ask', lines: ['verilore ingest-repo ./docs', 'verilore recall "What did we decide about pricing?"'] }
+    ];
+  }
+
+  function renderInstall() {
+    document.querySelectorAll('#installers button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.installer === state.installer)); });
+    $('shell').textContent = { win: 'Windows · inside WSL 2 · bash', mac: 'macOS · zsh', linux: 'Linux · bash' }[state.os];
+    $('os-note').textContent = 'Needs Podman or Docker.' + (state.os === 'win' ? ' On Windows, run these inside WSL 2.' : '');
+    var box = $('steps');
+    box.textContent = '';
+    stepsFor(state.installer).forEach(function (st) {
+      var row = el('div', 'step');
+      var head = el('div', 'step-head');
+      head.appendChild(el('span', '', '# ' + st.title));
+      var copy = el('button', 'plain copy', 'copy');
+      copy.type = 'button';
+      copy.setAttribute('aria-label', 'Copy: ' + st.title);
+      copy.addEventListener('click', function () {
+        var text = st.lines.join('\n');
+        var done = function () {
+          copy.textContent = 'copied';
+          copy.classList.add('done');
+          setTimeout(function () { copy.textContent = 'copy'; copy.classList.remove('done'); }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, function () {});
+        }
+      });
+      head.appendChild(copy);
+      row.appendChild(head);
+      var pre = el('pre');
+      st.lines.forEach(function (line, i) {
+        if (i) pre.appendChild(document.createTextNode('\n'));
+        pre.appendChild(el('span', 'acc', '$ '));
+        pre.appendChild(document.createTextNode(line));
+      });
+      row.appendChild(pre);
+      box.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll('#installers button').forEach(function (b) {
+    b.addEventListener('click', function () { state.installer = b.dataset.installer; renderInstall(); });
+  });
+
+  renderMeta();
+  renderInstall();
+})();
+</script>
+</body>
+</html>
