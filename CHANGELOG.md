@@ -12,7 +12,8 @@ through [`docs/release-map.md`](docs/release-map.md).
 step, deployed on Vercel with `site` as the project's root directory. Its demo
 is recorded from the Trailhead scenario in Verilore's own tests, and its install
 commands are the README's. `site/README.md` says how to deploy it and what must
-stay true.
+stay true. It is live at https://verilore.vercel.app/, which the README, the
+PyPI page and the package's `Homepage` link now point to.
 
 ## [v0.11.0] - 2026-11-10
 
