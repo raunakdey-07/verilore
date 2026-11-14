@@ -1558,7 +1558,7 @@ from verilore.receipt import (  # noqa: E402
 # The taxonomy is re-exported here rather than left in its own module to be
 # imported by path. An integrator should be able to write
 # `from verilore.sdk import ProviderError` and have that be a supported import,
-# not an accident of the file layout -- and `verilore_errors` stays importable
+# not an accident of the file layout -- and `verilore.errors` stays importable
 # on its own for a deployment that wants it without the client.
 from verilore.errors import (  # noqa: E402
     AuthenticationError as VeriloreAuthenticationError,

@@ -3,8 +3,7 @@
 
 """Top-level ``verilore`` package.
 
-The wheel ships exactly one importable namespace, ``verilore`` (plus the two
-one-release shims ``verilore_sdk`` and ``verilore_errors``). The public surface
+The wheel ships exactly one importable namespace, ``verilore``. The public surface
 lives in the submodules -- ``verilore.sdk``, ``verilore.errors``, ``verilore.api``,
 ``verilore.cli``, ``verilore.mcp_server``, ``verilore.pack``, ``verilore.proof``,
 ``verilore.proof_cli``, ``verilore.receipt``, ``verilore.runtime`` -- and the
@@ -14,7 +13,7 @@ none of httpx, fastapi, sqlalchemy, onnxruntime, or the api/cli surfaces.
     from verilore import Verilore
 
 is the documented import. The top-level ``verilore_sdk`` and ``verilore_errors``
-modules remain as deprecated shims for v0.11.
+shims that v0.11 kept for one release were removed in v0.12.
 """
 
 from __future__ import annotations

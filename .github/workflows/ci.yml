@@ -540,8 +540,8 @@ jobs:
           python -m pip install flake8 black
       - name: Run flake8 and black
         run: |
-          flake8 verilore tests scripts verilore_sdk.py verilore_errors.py --max-line-length=100
-          black --check verilore tests scripts verilore_sdk.py verilore_errors.py --line-length 100
+          flake8 verilore tests scripts --max-line-length=100
+          black --check verilore tests scripts --line-length 100
       - name: Enforce release truth
         run: |
           python scripts/check_release_truth.py

@@ -140,15 +140,10 @@ verilore-proof = "verilore.proof_cli:main"
 verilore-mcp = "verilore.mcp_server:main"
 
 [tool.setuptools]
-# Only the `verilore` package ships, plus the two one-release shims below.
-# memory_pack, memory_proof, memory_proof_cli, memory_receipt and mcp_server now
-# live inside the verilore package (verilore.pack, verilore.proof, ...), so they
-# are not top-level names any more and no longer collide with a consumer's own
-# `api/` package.
-py-modules = [
-    "verilore_sdk",
-    "verilore_errors",
-]
+# Only the `verilore` package ships: no top-level module at all. The v0.11
+# shims `verilore_sdk` and `verilore_errors` are gone, as their deprecation
+# warning said they would be; `from verilore import Verilore` is the import.
+py-modules = []
 
 [tool.setuptools.packages.find]
 where = ["."]

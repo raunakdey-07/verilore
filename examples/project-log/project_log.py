@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Work from a checkout as well as from an installed package. `pip install -e .` is
 # the documented install and this is a no-op there; without it, the repository root
-# has to be importable for `verilore_sdk` and the standard-library verifier to
+# has to be importable for `verilore` and the standard-library verifier to
 # resolve. Deliberately the only path manipulation in the file.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 

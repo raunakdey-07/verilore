@@ -52,8 +52,8 @@ import time
 import urllib.error
 import urllib.request
 
-# The repository root, because `verilore_sdk` is imported as a top-level module
-# and imports `memory_receipt` the same way. Running this file by path puts
+# The repository root, so that the `verilore` package of this checkout is the
+# one imported. Running this file by path puts
 # `scripts/release` on the path instead, and the import fails there.
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
