@@ -57,6 +57,20 @@ BaseURL = Annotated[
 AsOf = Annotated[str | None, typer.Option("--as-of", help="Aware ISO-8601 observation cutoff.")]
 ValidAt = Annotated[str | None, typer.Option("--valid-at", help="Aware ISO-8601 validity time.")]
 Path = Annotated[str | None, typer.Option("--path")]
+PathPrefix = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--path-prefix",
+        help="Only memory from documents under this folder. Repeat for more than one.",
+    ),
+]
+IncludeState = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--include-state",
+        help="Also return claims in this state: draft, rejected or superseded. Repeatable.",
+    ),
+]
 
 #: A remote service can also be named for the process, so a shell or a CI job
 #: that talks to one host does not have to repeat `--base-url` on every command.
@@ -142,9 +156,20 @@ def current(
     valid_at: ValidAt = None,
     path: Path = None,
     base_url: BaseURL = None,
+    path_prefix: PathPrefix = None,
+    include_state: IncludeState = None,
 ) -> None:
     """Read current memory."""
-    _dispatch("current", corpus, query, base_url, valid_at=valid_at, path=path)
+    _dispatch(
+        "current",
+        corpus,
+        query,
+        base_url,
+        valid_at=valid_at,
+        path=path,
+        path_prefix=path_prefix or None,
+        include_states=include_state or None,
+    )
 
 
 @app.command()
@@ -272,6 +297,8 @@ def pack(
     path: Path = None,
     base_url: BaseURL = None,
     snapshot_id: Annotated[str | None, typer.Option("--snapshot-id")] = None,
+    path_prefix: PathPrefix = None,
+    include_state: IncludeState = None,
 ) -> None:
     """Pack memory into a budgeted response."""
     _dispatch(
@@ -284,4 +311,6 @@ def pack(
         valid_at=valid_at,
         path=path,
         snapshot_id=snapshot_id,
+        path_prefix=path_prefix or None,
+        include_states=include_state or None,
     )

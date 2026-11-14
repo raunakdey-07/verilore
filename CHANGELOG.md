@@ -20,6 +20,10 @@ replaced statements are counted in the last line and never quoted; `max_chars`
 server operation: a brief is `current`, rendered by `verilore/brief.py`, which uses
 the standard library only. MCP now advertises eighteen tools.
 
+**Scope and states from the command line.** `verilore memory current` and
+`verilore memory pack` take `--path-prefix` and `--include-state`, both
+repeatable, so the CLI can ask for what the SDK and the HTTP API already could.
+
 **A website.** `site/` is Verilore's one-page site: static HTML with no build
 step, deployed on Vercel with `site` as the project's root directory. Its demo
 is recorded from the Trailhead scenario in Verilore's own tests, and its install
