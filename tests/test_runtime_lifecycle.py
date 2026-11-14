@@ -62,31 +62,69 @@ def child_env(state: Path, **extra: str) -> dict:
 
 
 def launch(state: Path, **extra: str) -> subprocess.Popen:
-    return subprocess.Popen(
-        [sys.executable, "-m", "verilore.runtime"],
-        cwd=str(ROOT),
-        env=child_env(state, **extra),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    """Start a runtime child, and keep what it says.
+
+    The child's own message is the only explanation of a runtime that never
+    starts, so it goes to a file beside the socket rather than into a pipe
+    nobody reads. A pipe that is never drained is also a way to stop a child
+    that has more to say than the buffer holds.
+    """
+    log = state / "runtime.log"
+    handle = log.open("ab")
+    try:
+        process = subprocess.Popen(
+            [sys.executable, "-m", "verilore.runtime"],
+            cwd=str(ROOT),
+            env=child_env(state, **extra),
+            stdin=subprocess.DEVNULL,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        handle.close()
+    process.log_path = log  # type: ignore[attr-defined]
+    return process
 
 
-def wait_until(runtime_module, timeout: float = 300.0) -> None:
+def child_output(process: subprocess.Popen | None, limit: int = 2000) -> str:
+    """What the child printed, if anything. A message, so it never raises."""
+    path = getattr(process, "log_path", None)
+    if path is None:
+        return "(no child process to report)"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return "(the child's output could not be read)"
+    return text[-limit:] if text else "(the child printed nothing)"
+
+
+def wait_until(
+    runtime_module, process: subprocess.Popen | None = None, timeout: float = 300.0
+) -> None:
     """Wait for `ready`, not merely for reachable.
 
     A `loading` runtime is deliberately reachable -- a command that arrives while the
     model is still importing is served correctly, which is the whole point of
     accepting it. These tests are about the settled state, so they wait for it.
+
+    A child that has already exited will never answer, so the wait ends at once and
+    reports what it printed. Sitting out the whole timeout for a process that is
+    gone turns one clear message into "unreachable".
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if runtime_module.status().state == "ready":
             return
+        if process is not None and process.poll() is not None:
+            raise AssertionError(
+                f"the runtime exited with {process.returncode} before it was ready; "
+                f"it said: {child_output(process)}"
+            )
         time.sleep(0.2)
     raise AssertionError(
-        f"the runtime never reached ready; last state was {runtime_module.status().state}"
+        f"the runtime never reached ready; last state was {runtime_module.status().state}; "
+        f"the child said: {child_output(process)}"
     )
 
 
@@ -105,7 +143,7 @@ def runtime(tmp_path):
     """A runtime in its own state directory, stopped and cleaned up afterwards."""
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         try:
             yield runtime_module, process, state
         finally:
@@ -229,7 +267,7 @@ def test_sigkill_is_recoverable(tmp_path):
     """The least polite way a process can die must still leave the CLI working."""
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         os.kill(process.pid, signal.SIGKILL)
         process.wait(timeout=20)
         time.sleep(0.5)
@@ -237,7 +275,7 @@ def test_sigkill_is_recoverable(tmp_path):
 
         replacement = launch(state)
         try:
-            wait_until(runtime_module)
+            wait_until(runtime_module, replacement)
             assert replacement.poll() is None
             assert runtime_module.status().state == "ready"
         finally:
@@ -252,7 +290,7 @@ def test_sigterm_during_a_request_finishes_it_and_exits_zero(tmp_path):
     """
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
 
         result: dict = {}
 
@@ -316,7 +354,7 @@ def test_a_protocol_mismatch_is_refused_with_the_fix(tmp_path):
     """An old runtime must not answer a newer request with the old semantics."""
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         try:
             import asyncio
 
@@ -352,7 +390,7 @@ def test_a_runtime_from_a_different_build_refuses_with_the_fix(tmp_path):
     """
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         try:
             import asyncio
 
@@ -509,7 +547,7 @@ def test_a_stale_runtime_is_discarded_and_the_command_still_succeeds(tmp_path):
 
     with isolated_state(tmp_path) as (runtime_module, state):
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         try:
             # A shutdown that must not raise even when the runtime is unreachable.
             _discard_stale_runtime()
@@ -535,7 +573,7 @@ def test_the_socket_is_private_and_never_a_port(tmp_path):
         import stat as stat_module
 
         process = launch(state)
-        wait_until(runtime_module)
+        wait_until(runtime_module, process)
         try:
             socket_file = runtime_module.socket_path()
             mode = socket_file.stat().st_mode
