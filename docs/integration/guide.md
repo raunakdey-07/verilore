@@ -256,6 +256,28 @@ assert any("warm, plain and confident" in c for c in current_claims), current_cl
 assert any("14 March 2027" in c for c in current_claims), current_claims
 ```
 
+### Brief for the prompt
+
+`brief(path_prefix=[...])` is the same approved claims as one plain line each,
+with the source path, and nothing else. It is what goes into the model's prompt;
+the pack above is what you store next to the generated draft as its proof. A
+brief asks no question, so there is no wording to get wrong, and its last line
+counts what was withheld.
+
+```python
+brief = mp.memory.brief(path_prefix=["brand", "campaigns/spring"])
+assert "- Our voice is warm, plain and confident. [brand/guide.md]" in brief.text
+assert "14 March 2027" in brief.text
+assert "autumn" not in brief.text.lower()
+assert set(brief.claim_ids) == {c.id for c in pack.current_memories}
+prompt = f"{brief.text}\n\nWrite an Instagram caption for the spring launch."
+print(f"brief chars: {len(brief.text)}, pack chars: {len(pack.canonical_json())}")
+```
+
+`max_chars` (6,000 by default, about sixty rules) bounds the text. When a scope
+holds more, the brief stops at a whole line and `brief.omitted` says how many
+lines were left out: narrow the `path_prefix` instead of raising the number.
+
 ### Remember decisions and corrections
 
 `remember(statement, key=..., scope=..., state=...)` records a decision as
@@ -461,10 +483,11 @@ never below 8000. For a brand kit of 5 claims, that is 8000; at 8000 the pack
 fits all current claims but drops all change entries (hence `truncated: true`).
 Use 16000 when you also want the change history in the same call.
 
-**Build the prompt from claim texts only.** The pack's `current_memories` carry
-each claim's sentence in `claim`; join those sentences for the prompt. The
-prompt stays small (about 60 characters per claim); the budget pays for the
-metadata the server attaches, not for what your model reads.
+**Build the prompt from claim texts only.** `brief` does this for you (section 5).
+By hand, the pack's `current_memories` carry each claim's sentence in `claim`;
+join those sentences for the prompt. The prompt stays small (about 60 characters
+per claim); the budget pays for the metadata the server attaches, not for what
+your model reads.
 
 **"4 characters per token"** is a rough approximation for the prompt text only.
 It does not apply to the budget: the budget counts the full JSON response

@@ -1084,6 +1084,30 @@ class MemoryClient:
             include_states=include_states,
         )
 
+    def brief(
+        self,
+        corpus: str | None = None,
+        *,
+        path_prefix: str | list[str] | None = None,
+        max_chars: int = 6000,
+        valid_at: datetime | str | None = None,
+    ):
+        """Approved memory in scope, as a few plain lines for a model's prompt.
+
+        Asks no question: it is every current, approved claim under
+        `path_prefix` (the whole corpus when omitted), so no wording can miss.
+        Returns a `verilore.brief.Brief`; `str()` of it, or `.text`, is the
+        block to put in the prompt, and `.claim_ids` names what it carries.
+
+        A pack of the same claims is about twenty times longer, because a pack
+        also carries the proof. Use `pack` to hand memory to another system, and
+        `brief` to hand it to a model.
+        """
+        from verilore.brief import render_brief
+
+        response = self.current(corpus, "", valid_at=valid_at, path_prefix=path_prefix)
+        return render_brief(response, path_prefix=path_prefix, max_chars=max_chars)
+
 
 class Verilore:
     """Local corpus client or remote memory client (when base_url is supplied)."""

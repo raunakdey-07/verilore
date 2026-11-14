@@ -888,6 +888,71 @@ def recall(
 
 
 @app.command()
+def brief(
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    path_prefix: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--path-prefix",
+            help="Only memory from documents under this folder. Repeat for more than one.",
+        ),
+    ] = None,
+    max_chars: Annotated[
+        int, typer.Option("--max-chars", help="The most text to return, in characters.")
+    ] = 6000,
+    base_url: BaseURL = None,
+    json_out: Annotated[
+        bool,
+        typer.Option("--json", help="Print the text with its claim ids and counts, as JSON."),
+    ] = False,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Print approved memory as plain lines, ready to paste into a model's prompt.
+
+    No question is asked, so no wording can miss: it is everything current and
+    approved in the scope you name. Drafts, rejected and replaced statements are
+    left out, and the last line says how many.
+    """
+    try:
+        client = _client(base_url, runtime=True)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    try:
+        result = _run(
+            client.memory.brief,
+            corpus,
+            path_prefix=path_prefix or None,
+            max_chars=max_chars,
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        typer.echo(
+            json.dumps(
+                {
+                    "text": result.text,
+                    "corpus": result.corpus,
+                    "scope": list(result.scope),
+                    "claim_ids": list(result.claim_ids),
+                    "omitted": result.omitted,
+                    "withheld": result.withheld,
+                    "conflicts": result.conflicts,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return
+    typer.echo(result.text)
+
+
+@app.command()
 def explain(
     question: Annotated[str, typer.Argument(help="The question you want justified.")],
     corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,

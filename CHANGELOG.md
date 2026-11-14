@@ -8,6 +8,18 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ### Added
 
+**A brief: approved memory as plain lines for a prompt.** `vl.memory.brief(path_prefix=[...])`
+in the SDK, `verilore brief --path-prefix ...` in the CLI and `memory_brief` over MCP
+return every current, approved claim in a scope as one line each with its source
+path, and nothing else. It asks no question, so no wording can miss, and it is what
+a model should be given: fifty one-line rules are 98,644 characters as a pack and
+about 5,000 as a brief, because a pack also carries the proof. Drafts, rejected and
+replaced statements are counted in the last line and never quoted; `max_chars`
+(6,000 by default) cuts at a line and says how many lines were left out. The brief's
+`claim_ids` name what it carries, so the proof is one `evidence` call away. No new
+server operation: a brief is `current`, rendered by `verilore/brief.py`, which uses
+the standard library only. MCP now advertises eighteen tools.
+
 **A website.** `site/` is Verilore's one-page site: static HTML with no build
 step, deployed on Vercel with `site` as the project's root directory. Its demo
 is recorded from the Trailhead scenario in Verilore's own tests, and its install
