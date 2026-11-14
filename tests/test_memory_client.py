@@ -558,6 +558,21 @@ CLI_CASES = [
     ("snapshot", ["--as-of", STAMP], "snapshot", {"as_of": STAMP}),
     ("replay", ["--snapshot-id", SNAPSHOT_ID], "replay", {"snapshot_id": SNAPSHOT_ID}),
     ("pack", ["--budget", "1500"], "pack", {"budget": 1500}),
+    # The scope and the states an app passes from the SDK, from the command line.
+    (
+        "pack",
+        ["--path-prefix", "brand", "--path-prefix", "campaigns/spring", "--budget", "16000"],
+        "pack",
+        {"path_prefix": ["brand", "campaigns/spring"], "budget": 16000},
+    ),
+    ("current", ["--path-prefix", "brand"], "current", {"path_prefix": ["brand"]}),
+    (
+        "current",
+        ["--include-state", "draft", "--include-state", "rejected"],
+        "current",
+        {"include_states": ["draft", "rejected"]},
+    ),
+    ("pack", ["--include-state", "draft"], "pack", {"include_states": ["draft"]}),
     (
         "replay",
         ["--snapshot-id", SNAPSHOT_ID, "--path", "notes.md"],
