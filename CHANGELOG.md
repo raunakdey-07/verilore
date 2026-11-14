@@ -20,6 +20,15 @@ replaced statements are counted in the last line and never quoted; `max_chars`
 server operation: a brief is `current`, rendered by `verilore/brief.py`, which uses
 the standard library only. MCP now advertises eighteen tools.
 
+**A benchmark of the claim itself.** `benchmarks/governed_context/` hands one
+brand kit to a model three ways (every file, the lines `grep` finds, and
+`verilore brief`) and scores eight writing tasks by rules written beforehand: did
+the answer use a rejected headline, the draft's voice, the other campaign's date.
+`python -m benchmarks.governed_context.run --dry-run` needs nothing; a real run
+needs an OpenRouter key and a model id, fits the free tier, keeps every raw
+answer and resumes. No result is committed: the repository states the method,
+not a number.
+
 **Scope and states from the command line.** `verilore memory current` and
 `verilore memory pack` take `--path-prefix` and `--include-state`, both
 repeatable, so the CLI can ask for what the SDK and the HTTP API already could.
