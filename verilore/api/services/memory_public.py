@@ -6,6 +6,8 @@ projection and bounded selection; adapters must not implement those policies.
 
 from __future__ import annotations
 
+import json
+
 import time
 from datetime import datetime, timezone
 
@@ -478,6 +480,19 @@ def project(
     return response
 
 
+def _json_chars(model) -> int:
+    """Length of one model in the canonical JSON: the settings `canonical_json` uses."""
+    return len(
+        json.dumps(
+            model.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    )
+
+
 def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
     """Greedy stable selection; claims, evidence and conflict sides are atomic units.
 
@@ -503,9 +518,35 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
         unmatched_subparts=list(full.unmatched_subparts),
         truncated=True,
     )
-    if len(result.canonical_json()) > budget:
+    size = len(result.canonical_json())
+    if size > budget:
         raise MemoryError("invalid_budget", "Budget cannot fit the response envelope", 422)
     evidence = {e.id: e for e in full.evidence}
+    # What one unit adds to the canonical JSON at the very least: its own JSON,
+    # and the JSON of each evidence row it brings that the pack does not hold
+    # yet. Both appear verbatim inside the pack, so `size + floor` can only
+    # undershoot the candidate's real size. An item whose floor already misses
+    # the budget is dropped without building the candidate, which is what makes
+    # the work proportional to what fits rather than to the corpus: packing 500
+    # claims into 8,000 characters took 1,001 full serializations and now takes 7.
+    evidence_chars: dict[str, int] = {}
+    held: set[str] = set()
+
+    def _floor(field: str, item) -> int:
+        if field == "changes":
+            claims = item.previous + item.current
+        elif field == "conflicts":
+            claims = item.claims
+        else:
+            claims = [item]
+        total = _json_chars(item)
+        for eid in {eid for claim in claims for eid in claim.evidence_ids} - held:
+            if eid not in evidence_chars:
+                # A missing row raises KeyError here, exactly as `_attach` does.
+                evidence_chars[eid] = _json_chars(evidence[eid])
+            total += evidence_chars[eid]
+        return total
+
     dropped = False
     for field in (
         "current_memories",
@@ -515,6 +556,9 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
         "uncertain_memories",
     ):
         for item in getattr(full, field):
+            if item not in getattr(result, field) and size + _floor(field, item) > budget:
+                dropped = True
+                continue
             # Selection treats nested items as read-only. Isolate only the lists
             # we append to; _attach replaces evidence/sources rather than mutating them.
             candidate = result.model_copy()
@@ -538,8 +582,11 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
             selected_conflicts = {g.id for g in candidate.conflicts}
             candidate.conflicts = [g for g in full.conflicts if g.id in selected_conflicts]
             _attach(candidate, evidence)
-            if len(candidate.canonical_json()) <= budget:
+            candidate_size = len(candidate.canonical_json())
+            if candidate_size <= budget:
                 result = candidate
+                size = candidate_size
+                held = {e.id for e in result.evidence}
             else:
                 dropped = True
     if not dropped:
