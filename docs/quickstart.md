@@ -553,8 +553,6 @@ verilore/            the package; the only top-level name the wheel installs
   proof.py           proof construction and verification
   proof_cli.py       standalone verifier, no optional dependencies
   runtime.py         the background runtime's entry point
-verilore_sdk.py      deprecated shim for `verilore.sdk`; removed in v0.12
-verilore_errors.py   deprecated shim for `verilore.errors`; removed in v0.12
 tests/               the suite, against real PostgreSQL
 examples/            runnable examples
 docs/                status, operations, research, release notes

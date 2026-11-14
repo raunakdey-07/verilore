@@ -17,7 +17,7 @@ from typing import Annotated
 import typer
 from typing import TYPE_CHECKING
 
-# `verilore_sdk` reaches httpx, asyncio and yaml, which measured 28 ms of the
+# `verilore.sdk` reaches httpx, asyncio and yaml, which measured 28 ms of the
 # ~400 ms `verilore --help` on this machine -- and `memory` is a subcommand
 # that `--help` never runs. So it is imported inside the functions that use it,
 # and named here for a type checker only.

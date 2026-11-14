@@ -96,7 +96,7 @@ def main() -> int:
 
     # Does the SDK import without pulling the semantic stack?
     probe = (
-        "import sys, verilore_sdk;"
+        "import sys, verilore.sdk;"
         "banned=[m for m in ('torch','sentence_transformers','transformers') if m in sys.modules];"
         "print(','.join(banned) or 'none')"
     )

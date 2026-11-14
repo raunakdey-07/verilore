@@ -49,6 +49,14 @@ corpus with a scope: a 16,000-character pack went from 680 ms to 428 ms and a
 128,000-character pack from 2,300 ms to 765 ms; on 20,000 claims, 9,308 ms to
 2,396 ms. What remains is loading and projecting the corpus (#112).
 
+### Removed
+
+**The `verilore_sdk` and `verilore_errors` shims.** v0.11 kept them for one
+release and warned "removed in v0.12" on import. The wheel now installs the
+`verilore` package and no top-level module. Change `import verilore_sdk` to
+`from verilore import Verilore` (or `import verilore.sdk`), and
+`import verilore_errors` to `import verilore.errors`.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
