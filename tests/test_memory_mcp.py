@@ -55,8 +55,10 @@ async def test_tools_are_async_typed_and_preserve_legacy_tools():
     # because a write has no query, no budget and no intent. Asserting the whole
     # `memory_` namespace as this family would fail on it for being different,
     # which is the wrong reason. It is named explicitly below so that it cannot
-    # be dropped, and so that a seventeenth tool still fails here.
-    flat_writes = {"memory_remember", "memory_revalidate"}
+    # be dropped, and so that a new tool still fails here. `memory_brief` is flat
+    # for a different reason: it returns text for a prompt, not the response
+    # object, so it takes the two things a brief needs and nothing else.
+    flat_writes = {"memory_remember", "memory_revalidate", "memory_brief"}
     family = {name for name in tools if name.startswith("memory_")} - flat_writes
     assert family == {tool_name(operation) for operation in explained}
     assert flat_writes <= tools.keys()
