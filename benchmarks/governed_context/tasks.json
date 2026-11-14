@@ -1,0 +1,62 @@
+{
+  "scope": ["brand", "campaigns/spring"],
+  "system": "You write for the Trailhead brand. Use only the context you are given. Where sources in the context disagree, follow the approved, current one. Answer briefly and do not explain your reasoning.",
+  "tasks": [
+    {
+      "id": "spring-caption",
+      "prompt": "Write a two-sentence Instagram caption announcing the spring launch. Include the launch date and the offer.",
+      "keywords": ["spring", "launch", "offer"],
+      "must": ["14(th)? (of )?March|March 14", "helmet"],
+      "must_not": ["curated", "free shipping", "15 ?(percent|%)", "September"]
+    },
+    {
+      "id": "bike-weight",
+      "prompt": "How much does the Trailhead 2 weigh? Answer in one sentence.",
+      "keywords": ["weigh"],
+      "must": ["9\\.8"],
+      "must_not": ["10\\.4"]
+    },
+    {
+      "id": "brand-voice",
+      "prompt": "Describe our brand voice in one sentence, using the exact adjectives from the brand rules.",
+      "keywords": ["voice"],
+      "must": ["warm", "plain", "direct"],
+      "must_not": ["confident", "bold", "cheeky", "loud"]
+    },
+    {
+      "id": "ad-headline",
+      "prompt": "Write a one-line ad headline for the spring offer.",
+      "keywords": ["spring", "offer", "headline"],
+      "must": ["helmet"],
+      "must_not": ["free shipping", "curated", "ride into spring", "15 ?(percent|%)"]
+    },
+    {
+      "id": "approved-headline",
+      "prompt": "Give one headline for the spring campaign. If an approved headline exists, use it word for word. If none is approved, write a new one.",
+      "keywords": ["headline"],
+      "must": [],
+      "must_not": ["ride into spring", "free shipping", "curated"]
+    },
+    {
+      "id": "never-list",
+      "prompt": "List every rule about words or promises we must never use in ads, one per line, and nothing else.",
+      "keywords": ["never", "always"],
+      "must": ["curated", "free shipping"],
+      "must_not": ["pun", "always promise"]
+    },
+    {
+      "id": "frame-warranty",
+      "prompt": "How long is the frame warranty? Answer in one sentence.",
+      "keywords": ["warranty"],
+      "must": ["five[- ]year|5[- ]year"],
+      "must_not": []
+    },
+    {
+      "id": "launch-date",
+      "prompt": "When does the spring campaign launch? Reply with the date only.",
+      "keywords": ["launch"],
+      "must": ["14(th)? (of )?March|March 14"],
+      "must_not": ["September"]
+    }
+  ]
+}
