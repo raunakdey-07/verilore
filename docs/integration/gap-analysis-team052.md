@@ -61,7 +61,7 @@ cut line is "owner decides" for every item.
 | MP-SE-29 | Retention and permanent erasure | P0 (real deploy) | **partial** | `DELETE /api/corpora/{name}` → `mindpalace_erase_corpus` (migration 009); append-only triggers remain; receipts/packs/backups survive (docs/security.md §data lifecycle). No TTL/purge. | core (primitives) + adapter (policy) | owner decides |
 | MP-SE-30 | Archive pagination/scaling | P2 | **partial** | `GET /feed` paginated; full-corpus load documented cliff up to ~1,200 versions (docs/STATUS.md §2). | core | owner decides |
 | MP-SE-31 | Persistent claim-vector index | P2 | **absent** | `memory_claim_embeddings` table exists (migration 007) but `recall` recomputes vectors (docs/STATUS.md §7). | core candidate | owner decides |
-| MP-SE-32 | Production monitoring | P2 | **partial** | `/health/ready`, `verilore posture`, `mp_scope_enforcement_status`, structured logs. No metrics endpoint. | core | owner decides |
+| MP-SE-32 | Production monitoring | P2 | **partial** | `/health/ready`, `verilore posture`, `mp_scope_enforcement_status`, structured logs, and `GET /metrics` in Prometheus format ([deployment](../deployment.md#metrics)). No dashboards or alerts. | core | closed in v0.12 (#113) |
 | MP-SE-33 | General application integration guide | P2 | **partial** | `examples/MEMORY_API.md`, `examples/marketing-campaign-memory/`; `docs/integration/` does not exist yet (being built in v0.10.0 I-series). | core (docs) | owner decides |
 | MP-SE-34 | Secure production deployment validation | P0 (real deploy) | **partial** | Server profile refuses unsafe role, scope-secret mismatch, enforcement off (`verilore/api/main.py` lifespan, docs/security.md). Validated by CI ("A server deployment refuses/starts"). | core | owner decides |
 
@@ -212,7 +212,7 @@ Each line = one issue, one small PR. Cut line is "owner decides" for every item.
 | 6 | Archive pagination/scaling (MP-SE-30) | P2 | owner decides | Known cliff ~1,200 versions. |
 | 7 | Marketing eval benchmark (MP-SE-27) | P1 | owner decides | Domain-neutral benchmark exists (agency_readiness); consumer-side benchmark belongs in adapter. |
 | 8 | Retention/TTL/purge (MP-SE-29) | P0 (real deploy) | owner decides | Erasure exists; TTL/purge not. |
-| 9 | Production monitoring/metrics (MP-SE-32) | P2 | owner decides | Readiness + posture exist; no metrics endpoint. |
+| 9 | Production monitoring/metrics (MP-SE-32) | P2 | done | Readiness, posture and `GET /metrics` exist; dashboards and alerts are the operator's. |
 
 Issues #107-#113 were filed for rows 2-8. Issue #105 was filed for live probes (covering §2.1-2.6 unknowns). Issue #106 was filed for the hoisting measurement (Stage 2).
 

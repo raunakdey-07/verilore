@@ -37,6 +37,14 @@ and then a command block, and no command block in the README, the quickstart or
 the PyPI page carries a comment: what was a comment is the prose around it. The
 commands CI runs from the README are unchanged, in the same order.
 
+### Documented
+
+**`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
+said so, and the gap analysis recorded the endpoint as missing. `docs/deployment.md`
+now lists the series, and `tests/test_metrics_endpoint.py` holds that the endpoint
+answers without a credential, counts requests by route template, and puts no corpus
+name, path or query in a label.
+
 ### Changed
 
 **Building a pack costs what fits, not what the corpus holds.** `pack` tried every

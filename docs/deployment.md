@@ -85,8 +85,26 @@ Feed requests emit one structured `verilore.ops` record with bounded,
 non-content fields: operation, corpus name, requested page size, returned count,
 `has_more`, whether a cursor was supplied, latency, and error category. The
 record does not include cursor contents, signatures, secrets, database URLs, or
-document contents. Existing Prometheus HTTP instrumentation remains available;
-Verilore does not introduce a metrics platform.
+document contents.
+
+### Metrics
+
+`GET /metrics` serves Prometheus text, without a credential, like `/health`. Keep
+it off the public internet the same way: it is for the scraper on your network.
+It carries the standard HTTP series, labelled by route template, method and
+status class, and the Python process series:
+
+| Series | What it answers |
+|---|---|
+| `http_requests_total{handler,method,status}` | How many requests each route served, and how many failed (`status="5xx"`). |
+| `http_request_duration_seconds` (histogram, by `handler`) | How long each route takes; `/api/memory/{operation}` is every memory read. |
+| `http_request_duration_highr_seconds` (histogram) | Latency across all routes, with fine buckets for percentiles. |
+| `http_request_size_bytes`, `http_response_size_bytes` | Payload sizes by route. |
+| `process_resident_memory_bytes`, `process_cpu_seconds_total` | The server process itself. |
+
+No label carries a corpus name, a document path or a query: the route is the
+template, never the URL. `tests/test_metrics_endpoint.py` holds that. Verilore
+does not ship dashboards or alerts; those belong to whoever runs the scraper.
 
 ### OpenTelemetry
 
