@@ -21,6 +21,18 @@ and then a command block, and no command block in the README, the quickstart or
 the PyPI page carries a comment: what was a comment is the prose around it. The
 commands CI runs from the README are unchanged, in the same order.
 
+### Changed
+
+**Building a pack costs what fits, not what the corpus holds.** `pack` tried every
+item in the corpus against the budget by serializing the whole response each time,
+including long after the budget was spent. It now skips an item whose own JSON
+plus its new evidence cannot fit, without building it. The output is byte for byte
+the same, held by the existing reference oracle in
+`tests/test_memory_pack_performance.py`. Measured over HTTP on a 5,000-claim
+corpus with a scope: a 16,000-character pack went from 680 ms to 428 ms and a
+128,000-character pack from 2,300 ms to 765 ms; on 20,000 claims, 9,308 ms to
+2,396 ms. What remains is loading and projecting the corpus (#112).
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
