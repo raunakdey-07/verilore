@@ -255,7 +255,39 @@ def test_candidates_do_not_recursively_copy_accepted_items(monkeypatch):
 
     monkeypatch.setattr(MemoryResponse, "model_copy", tracked_copy)
     assert bounded_pack(full, 8000).canonical_json() == expected
-    assert copy_modes == [False] * 12  # Six claims and six changes, including rejections.
+    # Six claims. The six changes cannot fit once the claims are in, and an item
+    # whose own JSON already misses the budget is dropped before a candidate is
+    # copied for it.
+    assert copy_modes == [False] * 6
+
+
+def test_work_is_proportional_to_what_fits_not_to_the_corpus(monkeypatch):
+    """A pack that keeps five claims must not serialize the response 1,001 times.
+
+    Every item used to cost a full copy and a full `canonical_json` of the pack so
+    far, including every item tried after the budget was already spent. On a
+    5,000-claim corpus that was 74% of a pack's time. Counted, not timed: a call
+    count does not move when the machine is busy.
+    """
+    full = synthetic_response(500)
+    expected = reference_pack(full, 8000).canonical_json()
+    spent = 0
+    original = MemoryResponse.canonical_json
+
+    def counted(self):
+        nonlocal spent
+        spent += 1
+        return original(self)
+
+    monkeypatch.setattr(MemoryResponse, "canonical_json", counted)
+    actual = bounded_pack(full, 8000)
+    monkeypatch.undo()
+
+    assert actual.canonical_json() == expected
+    kept = len(actual.current_memories) + len(actual.changes)
+    assert kept < 20, "the fixture is meant to overflow the budget many times over"
+    # One per item that was actually tried, plus the envelope and the final check.
+    assert spent <= kept + 4, f"{spent} serializations to keep {kept} items"
 
 
 def test_missing_evidence_is_not_silently_skipped():
