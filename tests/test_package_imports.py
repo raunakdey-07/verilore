@@ -1,7 +1,7 @@
 """The wheel ships one top-level namespace: `verilore`.
 
-`verilore_sdk` and `verilore_errors` remain as deprecated top-level shims for
-this release; nothing else may be a top-level module or package.
+`verilore_sdk` and `verilore_errors` were deprecated shims for v0.11 only and
+are gone; nothing but `verilore` may be a top-level module or package.
 """
 
 from __future__ import annotations
@@ -9,28 +9,23 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 import verilore
 
 
-def test_shims_alias_the_package() -> None:
-    """The deprecated shims alias the package modules exactly.
+@pytest.mark.parametrize("name", ["verilore_sdk", "verilore_errors"])
+def test_the_v011_shims_are_gone(name: str) -> None:
+    """v0.11 warned "removed in v0.12" on import; v0.12 removes them.
 
-    Aliasing ``sys.modules`` keeps private names and monkeypatch targets
-    identical to importing ``verilore.sdk`` / ``verilore.errors`` directly.
-    Importing a shim emits a DeprecationWarning once.
+    The file is what an import from a checkout or a wheel would find, and
+    tests/test_wheel_contents.py holds that the built wheel ships only `verilore`.
     """
-    sys.modules.pop("verilore_sdk", None)
-    with pytest.warns(DeprecationWarning):
-        import verilore_sdk
-    assert verilore_sdk is verilore.sdk
-
-    sys.modules.pop("verilore_errors", None)
-    with pytest.warns(DeprecationWarning):
-        import verilore_errors
-    assert verilore_errors is verilore.errors
+    root = Path(__file__).resolve().parents[1]
+    assert not (root / f"{name}.py").exists(), f"{name}.py is still in the repository"
+    assert name not in dir(verilore)
 
 
 def test_pack_is_dependency_free() -> None:

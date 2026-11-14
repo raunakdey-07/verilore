@@ -53,11 +53,7 @@ def test_the_runtime_surface_is_still_included():
     modules = set(config["tool"]["setuptools"]["py-modules"])
 
     assert {"verilore*"} <= include, include
-    for required in (
-        "verilore_sdk",
-        "verilore_errors",
-    ):
-        assert required in modules, f"{required} is no longer a py-module; the wheel loses it"
+    assert modules == set(), f"the wheel ships only the verilore package, not {modules}"
 
     scripts = config["project"]["scripts"]
     assert scripts["verilore"] == "verilore.cli.main:app", scripts
@@ -74,13 +70,6 @@ def test_nothing_outside_scripts_imports_the_scripts_package():
     wheel no longer contains it.
     """
     shipped = [ROOT / "verilore"]
-    shipped += [
-        ROOT / f"{name}.py"
-        for name in (
-            "verilore_sdk",
-            "verilore_errors",
-        )
-    ]
 
     offenders: list[str] = []
     for path in shipped:

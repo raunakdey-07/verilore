@@ -135,15 +135,15 @@ def test_a_built_wheel_contains_every_declared_module(tmp_path):
 
 
 def test_top_level_declaration_is_only_verilore():
-    """pyproject declares only the verilore package plus the two shims."""
+    """pyproject declares only the verilore package: no top-level module."""
     config = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]
-    assert config.get("py-modules") == ["verilore_sdk", "verilore_errors"]
+    assert config.get("py-modules") == []
     include = config.get("packages", {}).get("find", {}).get("include", [])
     assert include == ["verilore*"], include
 
 
 def test_wheel_ships_only_the_verilore_namespace(tmp_path):
-    """The built wheel's top-level names are exactly verilore + the two shims."""
+    """The built wheel's only top-level name is verilore."""
     result = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "-o", str(tmp_path)],
         cwd=ROOT,
@@ -163,5 +163,5 @@ def test_wheel_ships_only_the_verilore_namespace(tmp_path):
         }
     # dist-info directories are excluded above; the first path component of every
     # remaining file is the namespace it ships under.
-    expected = {"verilore", "verilore_sdk.py", "verilore_errors.py"}
+    expected = {"verilore"}
     assert top_level == expected, f"unexpected top-level names: {sorted(top_level)}"
