@@ -76,10 +76,16 @@ whether it connected. `opencode mcp list` in OpenCode, or Settings, AI, MCP
 Servers in Zed, and a failed server usually means a `command` that is not on the
 path the client sees.
 
-Seventeen tools are advertised. `memory_recall`, `memory_query`, `memory_explain`,
-`memory_current`, `memory_history`, `memory_changes`, `memory_evidence`,
-`memory_as_of`, `memory_replay`, `memory_pack`, `memory_snapshot`,
+Eighteen tools are advertised. `memory_brief`, `memory_recall`, `memory_query`,
+`memory_explain`, `memory_current`, `memory_history`, `memory_changes`,
+`memory_evidence`, `memory_as_of`, `memory_replay`, `memory_pack`, `memory_snapshot`,
 `memory_remember`, `memory_revalidate`, `list_corpora`, `search`, `sync` and `context`.
+
+`memory_brief` is the one to call first. It asks no question: it returns every
+current, approved claim in a corpus, or in the folders named by `path_prefix`, as
+plain text lines with their source paths, sized for a prompt (`max_chars`, 6,000 by
+default). Drafts, rejected and replaced statements are counted in its last line and
+never quoted. Use `memory_recall` when you need one fact and its evidence.
 
 ## What comes back
 

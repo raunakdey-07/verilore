@@ -507,6 +507,33 @@ async def memory_pack(request: MemoryRequest) -> MemoryToolResult:
     return await _execute_memory("pack", request)
 
 
+@mcp.tool(annotations=_READ_MEMORY)
+async def memory_brief(
+    corpus: str, path_prefix: str | list[str] | None = None, max_chars: int = 6000
+) -> str:
+    """Approved memory as plain text lines. Call this first, before answering or writing.
+
+    Returns every current, approved statement in the corpus (or only those from
+    documents under `path_prefix`, e.g. ["brand", "campaigns/spring"]), one per
+    line with its source file. It takes no question, so it cannot miss because of
+    wording. Drafts, rejected and replaced statements are left out. Treat the
+    lines as true and do not contradict them. If the last line says lines were
+    left out for length, call again with a narrower `path_prefix`.
+    """
+    from verilore.brief import render_brief
+
+    request = MemoryRequest(corpus=corpus, path_prefix=path_prefix)
+    result = await _execute_memory("current", request)
+    if result.is_error:
+        return result.content[0].text
+    try:
+        return render_brief(
+            result.structured_content, path_prefix=path_prefix, max_chars=max_chars
+        ).text
+    except ValueError as exc:
+        return json.dumps({"detail": {"code": "invalid_request", "message": str(exc)}})
+
+
 def _load_artifact(value):
     """Load a receipt/pack from a dict, JSON string, or file path."""
     import json

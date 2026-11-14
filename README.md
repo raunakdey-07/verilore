@@ -266,7 +266,7 @@ print(f"{memory.claim}  [{memory.status}]")
   a leading `@` in an evidence quote discards the whole block. Quote the value.
   The ingest now says `frontmatter_unparseable` instead of `no_claims_declared`.
 - **An agent can write memory, and that is a risk.** `memory_remember` is one
-  of 17 MCP tools and the first that writes. Without `file=` the evidence for the
+  of 18 MCP tools and the first that writes. Without `file=` the evidence for the
   claim is the statement itself, so it proves what the agent was told and not that
   it is true ([why, and the review it needs](docs/authoring.md#memory_remember)).
 - **The install is 216 MB, not gigabytes**, unless you ask. Every latency and size
