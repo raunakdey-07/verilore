@@ -21,6 +21,11 @@ PROSE = (
     "and the room was warm. We went through the calendar together.\n"
 )
 BULLETS = "# Brand voice\n\n- Headlines stay under sixty characters.\n"
+#: The same notes read the way they were before v0.12: only rule-like sentences.
+RULES_ONLY = "---\nprose: rules\n---\n\n" + PROSE
+#: And not read at all, so the document declares no claims and takes the path
+#: that embeds its chunks, which is what the #173 cases are about.
+NO_CLAIMS = "---\nprose: off\n---\n\n" + PROSE
 
 
 def _codes(result: dict) -> list[str]:
@@ -74,8 +79,18 @@ async def _null_vectors(store, path: str) -> tuple[int, int]:
 # ------------------------------------------------------------------- #158
 
 
-async def test_fresh_corpus_prose_warns(store):
+async def test_fresh_corpus_prose_is_read(store):
+    """Since v0.12 a paragraph is memory: three sentences, three claims, no warning."""
     result = await _service().ingest_file(content=PROSE, path="notes.md", corpus_id=store.corpus)
+    assert result["success"]
+    assert result.get("claim_count") == 3
+    assert "prose_not_extracted" not in _codes(result)
+
+
+async def test_fresh_corpus_prose_warns(store):
+    result = await _service().ingest_file(
+        content=RULES_ONLY, path="notes.md", corpus_id=store.corpus
+    )
     assert result["success"]
     assert "prose_not_extracted" in _codes(result)
     assert not result.get("claim_count")
@@ -84,14 +99,14 @@ async def test_fresh_corpus_prose_warns(store):
 async def test_the_warning_is_the_same_once_the_corpus_has_memory(store):
     service = _service()
     await service.ingest_file(content=BULLETS, path="voice.md", corpus_id=store.corpus)
-    result = await service.ingest_file(content=PROSE, path="notes.md", corpus_id=store.corpus)
+    result = await service.ingest_file(content=RULES_ONLY, path="notes.md", corpus_id=store.corpus)
     assert "prose_not_extracted" in _codes(result)
 
 
 async def test_an_unchanged_reingest_still_warns(store):
     service = _service()
-    await service.ingest_file(content=PROSE, path="notes.md", corpus_id=store.corpus)
-    again = await service.ingest_file(content=PROSE, path="notes.md", corpus_id=store.corpus)
+    await service.ingest_file(content=RULES_ONLY, path="notes.md", corpus_id=store.corpus)
+    again = await service.ingest_file(content=RULES_ONLY, path="notes.md", corpus_id=store.corpus)
     assert "prose_not_extracted" in _codes(again)
 
 
@@ -112,7 +127,7 @@ async def test_rule_like_prose_still_extracts_in_a_fresh_corpus(store):
 async def test_lexical_ingest_does_not_load_the_model(store, monkeypatch):
     monkeypatch.setenv("VERILORE_LEXICAL", "1")
     result = await _service(_MustNotLoad()).ingest_file(
-        content=PROSE, path="notes.md", corpus_id=store.corpus
+        content=NO_CLAIMS, path="notes.md", corpus_id=store.corpus
     )
     assert result["success"]
     assert "embedding_unavailable" not in _codes(result)
@@ -123,7 +138,7 @@ async def test_lexical_ingest_does_not_load_the_model(store, monkeypatch):
 async def test_a_missing_model_degrades_instead_of_failing(store, monkeypatch):
     monkeypatch.delenv("VERILORE_LEXICAL", raising=False)
     result = await _service(_NoModel()).ingest_file(
-        content=PROSE, path="notes.md", corpus_id=store.corpus
+        content=NO_CLAIMS, path="notes.md", corpus_id=store.corpus
     )
     assert result["success"]
     assert "embedding_unavailable" in _codes(result)
@@ -133,7 +148,9 @@ async def test_a_missing_model_degrades_instead_of_failing(store, monkeypatch):
 
 async def test_a_present_model_is_unchanged(store, monkeypatch):
     monkeypatch.delenv("VERILORE_LEXICAL", raising=False)
-    result = await _service().ingest_file(content=PROSE, path="notes.md", corpus_id=store.corpus)
+    result = await _service().ingest_file(
+        content=NO_CLAIMS, path="notes.md", corpus_id=store.corpus
+    )
     assert "embedding_unavailable" not in _codes(result)
     total, missing = await _null_vectors(store, "notes.md")
     assert total > 0 and missing == 0

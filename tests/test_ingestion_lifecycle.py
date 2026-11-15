@@ -109,12 +109,16 @@ def _fresh_engine_per_test():
         pass
 
 
+# `prose: off` in both documents: this file is about a document that declares no
+# claims, the path that embeds chunks at ingest and hashes only the body. Since
+# v0.12 a paragraph is read, so a document has to ask not to be.
 DOC_V1 = """---
 title: "Lifecycle Test Doc"
 date: 2024-05-01
 tags: ["lifecycle", "test"]
 document_type: "project"
 summary: "First version"
+prose: off
 ---
 
 # Intro
@@ -132,6 +136,7 @@ date: 2024-05-01
 tags: ["lifecycle", "test"]
 document_type: "project"
 summary: "Second version"
+prose: off
 ---
 
 # Intro
@@ -268,12 +273,16 @@ async def test_metadata_only_change_is_detected():
     ingestion because change detection hashes only the body. This is a
     known limitation captured deliberately as a test.
 
-    Depends on the shared corpus having no archived versions yet. `memory.enabled`
-    reports "this corpus has memory history", and ingestion routes to the memory
-    path once it does -- where the fingerprint covers content *and* metadata, so a
-    frontmatter-only edit is correctly detected. Run this against a corpus another
-    test has already written to and it fails on its premise, not on a defect.
+    Holds only for a corpus with no archived versions. `memory.enabled` reports
+    "this corpus has memory history", and ingestion routes to the memory path
+    once it does -- where the fingerprint covers content *and* metadata, so a
+    frontmatter-only edit is correctly detected. So the test makes a corpus of
+    its own: in the shared one, any earlier test that ingested a paragraph has
+    given it memory history since v0.12, and the premise would be gone.
     """
+    from uuid import uuid4
+
+    from verilore.api.services.corpora import create_corpus
     from verilore.api.services.db import session_scope
 
     meta_a = DOC_V1.replace('summary: "First version"', 'summary: "Changed summary"')
@@ -281,9 +290,11 @@ async def test_metadata_only_change_is_detected():
 
     svc = await _get_service()
     async with session_scope() as db:
-        r1 = await svc._ingest_content(db, DOC_V1, "test/metaonly.md", DEFAULT_CORPUS_ID)
+        corpus = await create_corpus(db, f"metaonly-{uuid4().hex[:12]}", "no memory history")
     async with session_scope() as db:
-        r2 = await svc._ingest_content(db, meta_a, "test/metaonly.md", DEFAULT_CORPUS_ID)
+        r1 = await svc._ingest_content(db, DOC_V1, "test/metaonly.md", corpus["id"])
+    async with session_scope() as db:
+        r2 = await svc._ingest_content(db, meta_a, "test/metaonly.md", corpus["id"])
 
     assert r1["chunk_count"] > 0
     # body unchanged -> manifest hit -> skipped even though summary changed

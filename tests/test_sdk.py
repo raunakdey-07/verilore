@@ -104,6 +104,7 @@ date: 2024-07-01
 tags: ["security"]
 document_type: "note"
 summary: "How authentication works"
+prose: off
 ---
 
 # Authentication
@@ -111,6 +112,9 @@ summary: "How authentication works"
 The system uses flurble-token authentication with wibble rotation every hour.
 """)
 
+    # `prose: off`: this is the flow for a document that declares no claims,
+    # found through its chunks. Since v0.12 a paragraph is read unless the
+    # document asks otherwise.
     mp = Verilore("sdk-test-corpus")
 
     summary = mp.sync(str(docs))

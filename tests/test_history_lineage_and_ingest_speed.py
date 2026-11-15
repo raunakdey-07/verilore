@@ -338,8 +338,12 @@ def test_a_statement_ending_on_a_conjunction_continues_on_the_next_line():
     )
     claims, warnings = _extract(body)
     assert not warnings, warnings
-    assert len(claims) == 1, claims
-    claim = claims[0]["claim"]
+    # Since v0.12 the paragraph is read sentence by sentence: the opening
+    # three words are one, the wrapped sentence is the other, and the lead-in
+    # "Reproduce it with:" states nothing.
+    assert [c["claim"] for c in claims][0] == "Numbers, not adjectives."
+    assert len(claims) == 2, claims
+    claim = claims[1]["claim"]
     assert "PDF and" in claim, claim
     assert "DOCX export cost" in claim, claim
 

@@ -119,10 +119,12 @@ Both commands run in-process. Nothing needs a server started.
 
 ## When it answers nothing
 
-A document becomes memory from its headings, list items and `Key: Value` lines, or
-from an authored `claims:` block. Prose with none of those is stored and searchable
-but answers nothing, and comes back named in the output as `no_claims_declared`. An
-authored `evidence:` quote must appear verbatim in the document.
+A document becomes memory from its list items, `Key: Value` lines, table rows and
+the sentences of its paragraphs, or from an authored `claims:` block. A question, a
+heading and a line of two words state nothing and are not memory. A document with
+none of those, or one that says `prose: off`, is stored and searchable but answers
+nothing, and comes back named in the output as `no_claims_declared`. An authored
+`evidence:` quote must appear verbatim in the document.
 [authoring.md](authoring.md) has the rejection messages and what causes each one.
 
 ## What to read next

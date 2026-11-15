@@ -139,15 +139,21 @@ def test_a_wrapped_numbered_item_is_one_claim():
     assert claims[0]["evidence"] in WRAPPED_NUMBERED
 
 
-def test_a_wrapped_field_is_one_claim():
-    """A `Key: Value` line in prose is a statement, and it wraps like one."""
+def test_a_sentence_that_wraps_past_a_colon_stays_whole():
+    """`this design: whoever ...` on a wrapped line is the sentence, not a field.
+
+    Before v0.12 the paragraph was not read, the wrapped line was taken for a
+    `Key: Value` field, and the claim was the second half of the first sentence
+    glued to the second. The paragraph is two sentences and each is whole.
+    """
     claims, warnings = extract(WRAPPED_FIELD, chunks_for(WRAPPED_FIELD))
     assert warnings == []
-    assert len(claims) == 1
-    assert claims[0]["value"] == (
-        "whoever holds it can read every tenant's rows. It is a maintenance "
-        "credential, not an application credential."
-    )
+    assert [claim["claim"] for claim in claims] == [
+        "`mindpalace_owner` holding `BYPASSRLS` is deliberate and is the honest limit of "
+        "this design: whoever holds it can read every tenant's rows.",
+        "It is a maintenance credential, not an application credential.",
+    ]
+    assert all(claim["evidence"] in WRAPPED_FIELD for claim in claims)
 
 
 def test_a_statement_is_not_split_across_two_chunks():

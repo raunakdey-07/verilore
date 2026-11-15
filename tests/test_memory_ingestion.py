@@ -334,7 +334,7 @@ async def test_string_claim_a_b_delete_restore_without_memory_flag(memory_ingest
             "DELETED",
             "RESTORED",
         ]
-    path.write_text("# Architecture\n\nNo claims now.")
+    path.write_text("---\nprose: off\n---\n\n# Architecture\n\nNo claims now.")
     assert (await service.sync_repo(str(tmp_path), corpus))["changed"] == 1
     async with sessions() as db:
         assert len(await memory.history(db, corpus)) == 5

@@ -140,10 +140,10 @@ def render_recall(
         # is. "Nothing matched" alone sends the reader looking for a retrieval
         # fault when the document simply states nothing assertable.
         lines.append(
-            "\nA document becomes memory from its headings, list items and\n"
-            "`Key: Value` lines, or from an authored `claims:` block. A file\n"
-            "with prose and no such lines contributes nothing here. See\n"
-            "docs/authoring.md for both forms."
+            "\nA document becomes memory from its list items, `Key: Value` lines,\n"
+            "table rows and the sentences of its paragraphs, or from an authored\n"
+            "`claims:` block. A document marked `prose: off` with none of those\n"
+            "contributes nothing here. See docs/authoring.md."
         )
         lines.append("\nNothing was invented: Verilore records only what was remembered.")
         return "\n".join(lines)
