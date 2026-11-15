@@ -46,6 +46,15 @@ and then a command block, and no command block in the README, the quickstart or
 the PyPI page carries a comment: what was a comment is the prose around it. The
 commands CI runs from the README are unchanged, in the same order.
 
+**Strict mode: nothing is approved unless it says so.** With
+`VERILORE_DEFAULT_STATE=draft` a document with no `status`, and a `remember`
+call with no `state`, is a draft: stored with its evidence, counted in
+`withheld_counts`, and withheld from `brief`, `current`, `pack` and search. The
+default is unchanged. A value that is neither `approved` nor `draft` is read as
+`draft`, so a typo cannot approve a corpus. `status: accepted` and `active` now
+mean approved, and `proposed`, `pending` and `in review` mean draft, so an ADR's
+own words are understood instead of warned about.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
@@ -84,6 +93,14 @@ is no longer cut in half and read as a `Key: Value` field.
 **Upgrading:** re-ingesting a document adds a claim for each sentence in its
 paragraphs. Keys of unchanged lines are kept. To keep a document as it was,
 give it `prose: off`, or `prose: rules` if it was prose only.
+
+**What an agent saves over MCP is a draft.** `memory_remember` wrote approved
+memory unless told otherwise, so a model could put a line into the next prompt,
+including one handed to it by the text it was reading. Without `state` the tool
+now saves a draft and its result says so; `state="approved"` still approves.
+The SDK, the CLI and the HTTP route are called by a person or an application
+and keep the server's default. **Upgrading:** an agent that must write approved
+memory has to pass `state="approved"`.
 
 ### Removed
 

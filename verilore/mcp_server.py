@@ -195,10 +195,13 @@ def memory_remember(
     exactly one live claim, and a phrase that matches two is refused with their
     ids in the message.
 
-    ``state`` is the decision state of the claim: "approved" (default), "draft" or
-    "rejected". With ``state="rejected"`` the same key can be withdrawn without a
-    replacement statement; draft and rejected claims are withheld from current and
-    pack by default, and history keeps both versions.
+    ``state`` is the decision state of the claim: "draft" (the default here),
+    "approved" or "rejected". A statement you save is a proposal: it is stored
+    with its evidence and is NOT served by brief, current or pack until a person
+    approves it. Pass ``state="approved"`` only when the person you are working
+    for told you to record this as approved. With ``state="rejected"`` the same
+    key can be withdrawn without a replacement statement; history keeps every
+    version.
 
     ``scope`` is an optional relative folder the document is filed under, e.g.
     "campaigns/spring". With scope the stored claim key is ``"<scope>/<key>"``; the
@@ -235,6 +238,13 @@ def memory_remember(
             "path on this machine. Read the file and send its content as the "
             "statement.",
         )
+
+    # An agent's write is a proposal until a person approves it. The SDK and the
+    # CLI default to the server's setting because a person or an application
+    # decided to call them; this tool is called by a model, on text it may have
+    # been handed by anyone. `file=` carries its own status in its frontmatter.
+    if state is None and file is None:
+        state = "draft"
 
     try:
         # `_caller()` resolves the credential on entry, so the authorization
@@ -273,9 +283,15 @@ def memory_remember(
         return _refusal("invalid_evidence", str(exc))
     except MemoryClientError as exc:
         return _refusal(getattr(exc, "code", "remember_failed"), str(exc))
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(_result_dict(written), indent=2))]
-    )
+    payload = _result_dict(written)
+    if state is not None:
+        payload["state"] = state
+    if state == "draft":
+        payload["note"] = (
+            "Saved as a draft. It is not served by brief, current or pack until a "
+            'person approves it: call again with state="approved" when they do.'
+        )
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(payload, indent=2))])
 
 
 def _checked_file(statement: str, file: str | None, require_permitted) -> str | None:

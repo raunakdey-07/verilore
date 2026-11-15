@@ -1089,8 +1089,18 @@ def _most_restrictive(*states: str) -> str:
 #: Only `status`, `state` and `tags` are consulted; `title` and every other key
 #: are silent, and body text never sets state.
 _FRONTMATTER_STATE_VALUES = {
-    "approved": {"approved", "final", "published", "live", "current"},
-    "draft": {"draft", "wip", "work in progress", "brainstorm", "unapproved"},
+    "approved": {"approved", "accepted", "final", "published", "live", "current", "active"},
+    "draft": {
+        "draft",
+        "wip",
+        "work in progress",
+        "brainstorm",
+        "unapproved",
+        "proposed",
+        "pending",
+        "in review",
+        "review",
+    },
     "rejected": {"rejected"},
     "superseded": {"superseded", "deprecated", "obsolete", "archived"},
     "historical_observation": {"historical", "past campaign"},
@@ -1104,6 +1114,23 @@ _HEADING_STATE_WORDS = {
     "superseded": {"superseded", "deprecated", "obsolete", "archive", "archived"},
     "historical_observation": {"past campaigns", "lessons learned", "performance report"},
 }
+
+
+#: What a document, or a remembered statement, is when it declares no state.
+#: Unset or `approved` is the default: what is written counts. `draft` is strict
+#: mode: nothing reaches a brief, a pack or a search until someone says
+#: `status: approved`.
+DEFAULT_STATE_ENV = "VERILORE_DEFAULT_STATE"
+
+
+def default_state() -> str:
+    """The state of anything that declares none: `approved`, or `draft` in strict mode.
+
+    A value that is neither is read as `draft`. Whoever set the variable wanted
+    review before use, and a typo must not quietly approve a whole corpus.
+    """
+    raw = os.getenv(DEFAULT_STATE_ENV, "").strip().lower()
+    return "approved" if raw in ("", "approved") else "draft"
 
 
 def _state_for_value(low: str) -> str | None:
@@ -1139,9 +1166,9 @@ def document_state(metadata: dict) -> tuple[str, list[str]]:
     """The authority state a document declares in its frontmatter, and warnings.
 
     Only `status`, `state` and `tags` count; `title` and every other key are
-    silent. An unknown `status`/`state` value falls back to approved and warns
-    `unknown_status:<value>`. Body text never sets state, and no frontmatter
-    means approved.
+    silent. An unknown `status`/`state` value warns `unknown_status:<value>` and
+    counts as no status. Body text never sets state. A document with no status
+    is `default_state()`: approved, or a draft when `VERILORE_DEFAULT_STATE=draft`.
     """
     metadata = metadata or {}
     warnings: list[str] = []
@@ -1171,7 +1198,7 @@ def document_state(metadata: dict) -> tuple[str, list[str]]:
                 candidates.append(state)
 
     if not candidates:
-        return "approved", warnings
+        return default_state(), warnings
     return _most_restrictive(*candidates), warnings
 
 

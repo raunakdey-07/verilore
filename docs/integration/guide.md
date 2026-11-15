@@ -341,9 +341,23 @@ assert any(c.id == voice_id for c in ev.historical_memories), (
 ## 6. State: how claims gain and lose authority
 
 Claim state comes from frontmatter `status`/`state`/`tags`, or from heading words;
-the most restrictive wins. A document with `status: approved` in frontmatter is
-the default. A document under `## Brainstorming` is a `draft` and is withheld
-from `pack`/`current` by default.
+the most restrictive wins. A document under `## Brainstorming` is a `draft` and
+is withheld from `brief`, `pack` and `current` by default.
+
+**Strict mode.** By default a document with no status is approved, which suits
+a folder only reviewed files are put into. Set `VERILORE_DEFAULT_STATE=draft` on
+the server and it is the other way round: a document, or a `remember` call,
+that does not say `approved` is a draft, counted in `withheld_counts` and never
+quoted. A reviewer approving a line is then the only way it reaches a prompt.
+Nothing already stored changes until its document is ingested again.
+
+| Who wrote it | Default mode | `VERILORE_DEFAULT_STATE=draft` |
+|---|---|---|
+| A document with `status: approved` | approved | approved |
+| A document with no status | approved | draft |
+| `remember(...)` from the SDK, the CLI or HTTP, no `state` | approved | draft |
+| `memory_remember` over MCP, no `state` | draft | draft |
+| Anything with `state="approved"` | approved | approved |
 
 `include_states` names states the caller wants to see anyway. `withheld_counts`
 reports how many were held back, per state.

@@ -333,9 +333,15 @@ _SCOPE_SEGMENT = re.compile(r"[A-Za-z0-9._-]+")
 
 
 def check_state(state: str | None) -> str:
-    """Validate and normalise a decision state. None means approved."""
+    """Validate and normalise a decision state.
+
+    None means the server's default: approved, or draft in strict mode
+    (`VERILORE_DEFAULT_STATE=draft`), where a write counts only when it says so.
+    """
     if state is None:
-        return "approved"
+        from verilore.api.services.markdown_claims import default_state
+
+        return default_state()
     if state not in DECISION_STATES:
         raise DecisionError(
             "invalid_state",
@@ -392,6 +398,11 @@ def render_statement(statement: str, key: str, state: str = "approved") -> str:
     decisions existed, so an approved remembered claim is indistinguishable from
     one written on main.
     """
+    from verilore.api.services.markdown_claims import default_state
+
+    # In strict mode a document with no status is a draft, so an approved
+    # statement has to say that it is approved.
+    explicit = state != "approved" or default_state() != "approved"
     title = _title(statement)
     lines = [
         "---\n",
@@ -399,7 +410,7 @@ def render_statement(statement: str, key: str, state: str = "approved") -> str:
         f"date: {date.today().isoformat()}\n",
         "document_type: note\n",
     ]
-    if state != "approved":
+    if explicit:
         lines.append(f"status: {state}\n")
     lines.extend(
         [
@@ -410,7 +421,7 @@ def render_statement(statement: str, key: str, state: str = "approved") -> str:
             f"    evidence: {_yaml_scalar(statement)}\n",
         ]
     )
-    if state != "approved":
+    if explicit:
         lines.append(f"    info_state: {state}\n")
     lines.extend(["---\n\n", f"# {title}\n\n", f"{statement}\n"])
     return "".join(lines)

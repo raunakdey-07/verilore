@@ -107,7 +107,14 @@ already holds claims that read like the one being written. Each row carries
 `channel`, which is `vector` for a cosine over the whole corpus or `lexical` for
 token overlap. A lexical row is noisier; a vector row is not.
 
-`memory_remember` also accepts `state` ("approved", "draft" or "rejected") and
+**What an agent saves is a draft.** `memory_remember` stores the statement with
+its evidence and marks it `draft`, so it is withheld from `memory_brief`,
+`memory_current` and `memory_pack` until a person approves it; the result says
+so in `state` and `note`. An agent passes `state="approved"` only when the
+person it works for told it to. The SDK's and the CLI's `remember` are called
+by an application or a person and keep the server's default.
+
+`memory_remember` also accepts `state` ("draft", "approved" or "rejected") and
 `scope` (a relative folder such as "campaigns/spring"). With `scope`, the stored
 claim key is `"<scope>/<key>"`, so the same key in two campaigns is two memories
 that never supersede or conflict. A `state` or `scope` that the SDK refuses
