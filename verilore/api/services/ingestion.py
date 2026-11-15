@@ -139,7 +139,11 @@ EMBEDDING_UNAVAILABLE = "embedding_unavailable"
 
 #: Warnings that explain a document rather than say something went wrong with it.
 _INFORMATIONAL_WARNINGS = frozenset(
-    {markdown_claims.ExtractionWarning.PROSE_NOT_EXTRACTED, EMBEDDING_UNAVAILABLE}
+    {
+        markdown_claims.ExtractionWarning.PROSE_NOT_EXTRACTED,
+        markdown_claims.ExtractionWarning.UNKNOWN_PROSE_MODE,
+        EMBEDDING_UNAVAILABLE,
+    }
 )
 
 
@@ -266,7 +270,12 @@ class IngestionService:
         them.
         """
         wanted = self.embed_chunks if embed_chunks is None else embed_chunks
-        if not (wanted or not claims):
+        # A document read only from its paragraphs keeps its chunk vectors.
+        # Before v0.12 it produced no claims and the chunk index was how it was
+        # found; its sentences are claims now, and a chunk search over it must
+        # go on answering.
+        structured = [claim for claim in claims if claim.get("extraction_mode") != "prose"]
+        if not (wanted or not structured):
             return None, None
         return self._embed_records(records)
 
@@ -302,7 +311,7 @@ class IngestionService:
                 self.memory_enabled
                 or "claims" in metadata
                 or await memory.enabled(db, corpus_id)
-                or markdown_claims.has_claims(body)
+                or markdown_claims.has_claims(body, metadata.get("prose"))
             )
             if use_memory:
                 result = await self._ingest_memory_content(

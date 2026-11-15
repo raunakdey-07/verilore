@@ -20,10 +20,12 @@ that corpus.
 | Plain Markdown, no frontmatter | **0** | **0** | **abstains** |
 | A conversation transcript, five sessions | **0** | **0** | **abstains** |
 
-**Unstructured prose is now extracted, not just stored.** Verilore reads
-ordinary paragraphs for normative and declarative sentences (modal signals such
-as must/avoid/never/should, plus declarative entity-attribute statements) and
-records them as claims with exact verbatim evidence spans. Each extracted
+**Unstructured prose is extracted, not just stored.** Verilore reads ordinary
+paragraphs in every document, one sentence at a time, and records each sentence
+that states something as a claim whose evidence is the sentence itself. A
+question, a lead-in ending in a colon and a one- or two-word line are left out.
+`prose: rules` in a document's frontmatter keeps only sentences with a word such
+as must/avoid/never/should, and `prose: off` reads no paragraphs at all. Each extracted
 record carries a provenance state — `direct_claim` when the sentence is a
 verbatim normative statement, `candidate_interpretation` when an external
 semantic provider proposes it — so unverified inference never masquerades as an
@@ -574,16 +576,15 @@ inferred: if the two ever differ, the ingest is rejected and the document is
 stored but answers nothing. An agent that generates a claim and its document
 separately will produce an almost-substring and hit exactly that.
 
-The abstention, which is what a document whose prose has no list items, numbered
-entries or `Key: Value` lines gives:
+The abstention, which is what a question no document answers gives:
 
 ```console
 $ verilore recall "What is our incident response SLA?" --corpus agentdemo
 No memory matched that question.
   NO_RELEVANT_MEMORY
 
-A document becomes memory from its headings, list items and
-`Key: Value` lines, or from an authored `claims:` block. A file
-with prose and no such lines contributes nothing here. See
-docs/authoring.md for both forms.
+A document becomes memory from its list items, `Key: Value` lines,
+table rows and the sentences of its paragraphs, or from an authored
+`claims:` block. A document marked `prose: off` with none of those
+contributes nothing here. See docs/authoring.md.
 ```

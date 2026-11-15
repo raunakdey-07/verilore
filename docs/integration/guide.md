@@ -395,17 +395,27 @@ assert found.info_state == "rejected", found.info_state
 
 ### Writing a brand kit Verilore can read
 
-Write rules and facts as bullets or `Field: value` lines, one per line. A
-wrapped bullet is one statement and is read whole, from its first line to the
-last line of the wrap; the break is preserved in the evidence.
+Write it the way you already do. Bullets, `Field: value` lines and table rows
+are each one statement; a wrapped bullet is read whole, from its first line to
+the last line of the wrap, and the break is preserved in the evidence.
 
-In a document that has bullets, prose paragraphs are ignored and not reported;
-put every rule and fact in a bullet. A document with no bullets at all is read
-for rule-like sentences — only sentences with words like *must*, *never*,
-*always* or *should* — and the ingest response warns `prose_not_extracted`
-when it skipped any.
+Paragraphs are read too, in every document, one sentence at a time. A voice
+guide written as prose and the message paragraph under a campaign's bullets
+both become memory. A question, a lead-in that ends in a colon and a line of
+one or two words state nothing and are left out. A paragraph under a heading
+such as `## Draft` or `## Rejected` takes that state, like the bullets beside it.
 
-The ingest response's `warnings` lists what was skipped.
+Every sentence counts, so narrative notes add lines nobody meant as rules. A
+document can say how its prose is read, in its frontmatter:
+
+| `prose:` | What is read from paragraphs |
+|---|---|
+| `all` (default) | Every sentence that states something. |
+| `rules` | Only sentences with a word such as *must*, *never*, *always*, *should*, *avoid* or *do not*. The ingest warns `prose_not_extracted` with the number it skipped. |
+| `off` | Nothing. Only bullets, fields and tables are read. |
+
+`VERILORE_PROSE` sets the same thing for a whole server; a document's own
+`prose:` wins. The ingest response's `warnings` lists what was skipped.
 
 ```markdown
 # Spring 2027 brand kit
@@ -534,12 +544,9 @@ magnitude below the bound.
   `/api/context` and the MCP `search`/`context` tools; its claims stay reachable
   through `current`, `pack` and `query` with `include_states`. A `## Brainstorm`
   section inside an approved document is indexed with the rest of it (#138).
-- **Prose beside bullets is not read.** A document with bullets is read as
-  bullets, `Field: value` lines and tables; its prose paragraphs are not read
-  and not reported. Put every rule and fact in a bullet (#158).
-- **Prose without rule-like sentences produces no claims.** A document with no
-  list items and no must/never/always/should sentences is stored as text only,
-  and the ingest warns `prose_not_extracted` (#158).
+- **Every sentence in a paragraph becomes a claim.** Prose is read sentence by
+  sentence, and Verilore cannot tell a rule from a remark. Give narrative notes
+  `prose: rules` or `prose: off`, or keep them outside the folders a brief reads.
 - **Without the model, a text-only document is found by keyword only.** Under
   `VERILORE_LEXICAL=1`, or when the model is not installed (the ingest then warns
   `embedding_unavailable`), its text is stored without a vector until

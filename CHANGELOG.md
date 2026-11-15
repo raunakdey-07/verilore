@@ -66,6 +66,25 @@ corpus with a scope: a 16,000-character pack went from 680 ms to 428 ms and a
 128,000-character pack from 2,300 ms to 765 ms; on 20,000 claims, 9,308 ms to
 2,396 ms. What remains is loading and projecting the corpus (#112).
 
+**Paragraphs are memory, in every document (#158).** A paragraph was read only
+when the document had no bullet at all, and then only for sentences holding a
+word such as "must" or "never"; beside one bullet, every paragraph was dropped
+without a warning. Verilore now reads the paragraphs of every document, one
+sentence at a time: each sentence that states something is a claim whose
+evidence is the sentence itself, and it takes the state its heading declares.
+A question, a lead-in ending in a colon and a one- or two-word line state
+nothing and are left out. A run of more than sixty words is not one statement
+and is counted in `prose_not_extracted`. A document read only from its
+paragraphs keeps its chunk vectors, so a chunk search still finds it. `prose: rules` in a document's frontmatter keeps
+only rule-like sentences and `prose: off` reads no paragraphs; `VERILORE_PROSE`
+sets either for a whole server. In `rules` mode "do not" is matched as a
+phrase: "do" and "not" used to be two separate signals, which made a sentence
+about what customers are *not* into a rule. A sentence that wraps past a colon
+is no longer cut in half and read as a `Key: Value` field.
+**Upgrading:** re-ingesting a document adds a claim for each sentence in its
+paragraphs. Keys of unchanged lines are kept. To keep a document as it was,
+give it `prose: off`, or `prose: rules` if it was prose only.
+
 ### Removed
 
 **The `verilore_sdk` and `verilore_errors` shims.** v0.11 kept them for one

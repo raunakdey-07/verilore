@@ -251,9 +251,10 @@ print(f"{memory.claim}  [{memory.status}]")
   same key; the archive is append-only.
 - **No comparative benchmark result.** No number in this repository is evidence
   of generalisation.
-- **Prose without rule-like sentences produces no claims.** A document with no
-  list items and no must/never/always/should sentences is stored as text only,
-  and the ingest warns `prose_not_extracted` (#158).
+- **Every sentence in a paragraph becomes a claim.** Verilore reads prose
+  sentence by sentence and cannot tell a rule from a remark. Notes written as
+  narrative will add lines nobody meant as rules; give such a document
+  `prose: rules` or `prose: off` in its frontmatter.
 - **Without the model, a text-only document is found by keyword only.** Under
   `VERILORE_LEXICAL=1`, or when the model is not installed (the ingest then warns
   `embedding_unavailable`), its text is stored without a vector until

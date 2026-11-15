@@ -94,6 +94,7 @@ decision the tool has no business second-guessing.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from typing import Any
 
@@ -104,6 +105,14 @@ QUOTE_LIMIT = 240
 #: What an author should do when a document carried prose that produced no
 #: claim. Stated as an instruction, not as an apology.
 _PROSE_NOT_EXTRACTED_HINT = "write rules and facts as bullets or 'Field: value' lines"
+_PROSE_RULES_HINT = (
+    "this document reads prose in `rules` mode, which keeps only sentences with a "
+    "word such as must, never or always; remove `prose: rules` to keep every sentence"
+)
+_PROSE_UNQUOTABLE_HINT = (
+    "a sentence was too long to be one statement, or could not be found whole in "
+    "one archived chunk; shorten it or write it as a bullet"
+)
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 _BULLET = re.compile(r"^[-*+]\s+(?!\[[ xX]\])(.+)$")
@@ -280,6 +289,7 @@ class ExtractionWarning:
 
     NO_QUOTE = "claim_extraction_no_quote"
     PROSE_NOT_EXTRACTED = "prose_not_extracted"
+    UNKNOWN_PROSE_MODE = "unknown_prose_mode"
     __slots__ = ("path", "line", "field", "code", "count", "hint")
 
     def __init__(
@@ -440,6 +450,19 @@ def _starts_statement(line: str, current: list[tuple[int, str]] | None) -> bool:
     if current and _is_list_item(current) and line[:1].isspace():
         return False
     return True
+
+
+def _is_list_line(line: str) -> bool:
+    """Whether this line is a bullet or a numbered item."""
+    return bool(_BULLET.match(line) or _NUMBERED.match(line))
+
+
+def _closes_a_sentence(line: str) -> bool:
+    """Whether a paragraph line ends where a sentence does, or on a lead-in colon."""
+    stripped = line.rstrip()
+    return bool(_TERMINATED.search(stripped) or _QUESTION_END.search(stripped)) or (
+        stripped.rstrip("*_ ").endswith(":")
+    )
 
 
 def _is_list_item(lines: list[tuple[int, str]]) -> bool:
@@ -667,36 +690,53 @@ def _paragraph_line(raw: str) -> bool:
     return True
 
 
-def _paragraph_groups(body: str) -> list[list[str]]:
-    """Group the body's prose lines into paragraphs.
+#: How a document's ordinary paragraphs are read.
+#:   all    every declarative sentence becomes a claim (the default)
+#:   rules  only sentences with a word such as must, never or always
+#:   off    paragraphs are not read; only bullets, fields and tables are
+PROSE_MODES = ("all", "rules", "off")
+PROSE_ENV = "VERILORE_PROSE"
 
-    A paragraph is a run of consecutive non-blank prose lines with nothing
-    structural between them. The lines are kept exactly as written, internal
-    line breaks included, because a sentence sliced out of the paragraph has
-    to be findable byte for byte in the archived chunks.
+
+def prose_mode(value: Any = None) -> tuple[str, str | None]:
+    """Resolve the prose mode: `(mode, value that was not understood or None)`.
+
+    A document's own `prose:` frontmatter wins; without one, `VERILORE_PROSE`
+    sets it for the whole server; without either it is `all`. YAML reads a bare
+    `off` as False and `on` as True, so both spellings mean what they say.
     """
-    groups: list[list[str]] = []
-    current: list[str] = []
-    for _number, raw, kind in _scan(_HTML_COMMENT.sub("", body)):
-        if kind == "prose" and _paragraph_line(raw):
-            current.append(raw)
-            continue
-        if current:
-            groups.append(current)
-            current = []
-    if current:
-        groups.append(current)
-    return groups
+    if value is None or value == "":
+        value = os.getenv(PROSE_ENV, "")
+    if value is False:
+        return "off", None
+    if value is True:
+        return "all", None
+    low = str(value).strip().lower()
+    if not low:
+        return "all", None
+    if low in PROSE_MODES:
+        return low, None
+    return "all", low
 
 
-def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict], list[dict]]:
+def extract(
+    body: str, chunks: list[dict], *, path: str = "", prose: Any = None
+) -> tuple[list[dict], list[dict]]:
     """Return `(claims, warnings)` for a Markdown body.
 
     `chunks` are the archived chunks, in order. Each claim is verified to be
     quotable from one of them before it is returned, because a claim whose
     evidence does not resolve is not a claim: the archive rejects it, and a
     rejection at this point is silent, which is the failure this exists to avoid.
+
+    Bullets, numbered items, `Key: Value` fields and table rows are read as
+    they always were. Ordinary paragraphs are read too, in every document: a
+    brand's voice and a campaign's message are written as sentences, and a
+    reader that keeps only the bullets beside them loses the lines that matter
+    most without saying so. `prose` is the document's own `prose:` frontmatter
+    value; see `prose_mode`.
     """
+    mode, unknown_mode = prose_mode(prose)
     haystacks = [c.get("text") or "" for c in chunks]
     claims: list[dict] = []
     warnings: list[ExtractionWarning] = []
@@ -707,6 +747,17 @@ def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict
 
     pending: list[tuple[int, str]] = []
     pending_path = ""
+    # Paragraphs: runs of prose lines that no statement claimed, each with the
+    # heading path it sits under, so a paragraph below "## Draft" is a draft.
+    paragraphs: list[tuple[str, list[str]]] = []
+    paragraph: list[str] = []
+    paragraph_path = ""
+
+    def close_paragraph() -> None:
+        nonlocal paragraph
+        if paragraph:
+            paragraphs.append((paragraph_path, paragraph))
+            paragraph = []
 
     def close() -> None:
         """Turn the statement that just ended into a claim, if it is one."""
@@ -759,6 +810,14 @@ def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict
         claims.append(claim)
 
     for number, raw, kind in _scan(_HTML_COMMENT.sub("", body)):
+        opens = kind == "prose" and bool(raw.strip()) and _starts_statement(raw, pending)
+        if opens and paragraph and not _is_list_line(raw) and not _closes_a_sentence(paragraph[-1]):
+            # A `word: rest` line in the middle of a sentence is the sentence
+            # wrapping past a colon, not a field. Reading it as one cut the
+            # sentence in half and kept the second half as the claim.
+            opens = False
+        if kind != "prose" or not raw.strip() or opens:
+            close_paragraph()
         if kind == "heading":
             close()
             heading = _HEADING.match(raw)
@@ -796,7 +855,7 @@ def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict
         if not raw.strip():
             close()
             continue
-        if _starts_statement(raw, pending):
+        if opens:
             close()
             pending = [(number, raw)]
             pending_path = " > ".join(title for _level, title in headings)
@@ -815,30 +874,47 @@ def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict
                 # completes it is not the next statement even when it opens
                 # with a capital.
                 close()
+            else:
+                # A wrapped continuation of the statement above it.
+                pending.append((number, raw))
                 continue
-            # A wrapped continuation of the statement above it.
-            pending.append((number, raw))
+        # A prose line no statement claimed: part of a paragraph. A quote is
+        # somebody else's words, so it ends a paragraph and joins none.
+        if _paragraph_line(raw):
+            if not paragraph:
+                paragraph_path = " > ".join(title for _level, title in headings)
+            paragraph.append(raw)
+        else:
+            close_paragraph()
     close()
+    close_paragraph()
 
-    # Prose path: when the structural reader found nothing, fall back to
-    # extracting normative/declarative sentences from ordinary paragraphs.
-    # Every claim still carries an exact verbatim evidence span.
-    #
-    # The warning is tied to the fallback running. A document whose structural
-    # reader found a claim never produces it: its prose paragraphs are
-    # ignored, not reported. The count is what the fallback skipped, and the
-    # warning fires only when at least one sentence or paragraph was skipped.
-    if not claims:
-        unextracted = _prose_extract(
-            body, chunks, path, claims, warnings, seen_claims, seen_quotes, ordinals
+    if unknown_mode is not None:
+        warnings.append(
+            ExtractionWarning(ExtractionWarning.UNKNOWN_PROSE_MODE, path=path, field="prose")
         )
-        if unextracted:
+    if mode != "off":
+        skipped, unquotable = _prose_claims(
+            paragraphs, haystacks, mode, claims, seen_claims, seen_quotes, ordinals
+        )
+        # Every sentence either became a claim or is counted here. In `all`
+        # mode that is only a sentence with no evidence anybody could check;
+        # in `rules` mode it is also every sentence without a rule word.
+        if skipped or unquotable:
+            if mode == "rules" and skipped:
+                hint = (
+                    _PROSE_RULES_HINT
+                    if any(c.get("extraction_mode") != "prose" for c in claims)
+                    else _PROSE_NOT_EXTRACTED_HINT
+                )
+            else:
+                hint = _PROSE_UNQUOTABLE_HINT
             warnings.append(
                 ExtractionWarning(
                     ExtractionWarning.PROSE_NOT_EXTRACTED,
                     path=path,
-                    count=unextracted,
-                    hint=_PROSE_NOT_EXTRACTED_HINT,
+                    count=skipped + unquotable,
+                    hint=hint,
                 )
             )
 
@@ -846,67 +922,150 @@ def extract(body: str, chunks: list[dict], *, path: str = "") -> tuple[list[dict
     return claims, warnings
 
 
-#: Modal/normative signals that mark a sentence as a policy/constraint/fact.
-_PROSE_SIGNALS = frozenset(
-    "must avoid never should believes prefers positions targets prohibit require "
-    "cannot can't won't don't do not always never".split()
+#: Words and phrases that mark a sentence as a rule, for `prose: rules`.
+#: Phrases are matched whole: "do not" is one signal, and neither "do" nor
+#: "not" is one by itself, which is how a sentence about what customers are not
+#: used to become a rule.
+_PROSE_SIGNALS = (
+    "must",
+    "must not",
+    "never",
+    "always",
+    "should",
+    "should not",
+    "avoid",
+    "do not",
+    "don't",
+    "cannot",
+    "can't",
+    "won't",
+    "prohibit",
+    "prohibited",
+    "require",
+    "requires",
+    "required",
+    "prefers",
+    "believes",
+    "positions",
+    "targets",
+)
+_PROSE_SIGNAL = re.compile(
+    r"(?<![\w'])(?:" + "|".join(re.escape(s) for s in _PROSE_SIGNALS) + r")(?![\w'])",
+    re.IGNORECASE,
 )
 
+#: Where a sentence ends: a full stop, an exclamation or question mark (ASCII
+#: or full-width) or a danda, then any closing quote or bracket, then space.
+_SENTENCE_END = re.compile(r"([.!?\u0964\uff01\uff1f]+[\"'\u201d\u2019)\]]*)(\s+)")
+_QUESTION_END = re.compile(r"[?\uff1f][\"'\u201d\u2019)\]*_]*$")
+_TERMINATED = re.compile(r"[.!\u0964\uff01][\"'\u201d\u2019)\]*_]*$")
+#: A full stop after one of these does not end a sentence.
+_ABBREVIATIONS = frozenset("e.g i.e etc vs mr mrs ms dr prof no approx inc ltd co st fig".split())
+#: A sentence shorter than this is a fragment: a label, a caption, a sign-off.
+MIN_PROSE_WORDS = 3
+#: A paragraph with no closing punctuation is read only when it is this long.
+MIN_UNTERMINATED_WORDS = 6
+#: Longer than this is not one statement: it is a run-on, a pasted block or text
+#: with no punctuation, and a claim that long is a paragraph nobody can check
+#: at a glance. It is counted and reported instead.
+MAX_PROSE_WORDS = 60
 
-def _prose_extract(body, chunks, path, claims, warnings, seen_claims, seen_quotes, ordinals):
-    """Read ordinary paragraphs for normative sentences. Returns the count skipped.
 
-    Paragraphs are runs of consecutive non-blank prose lines; each is joined
-    with newlines and split into sentences with the same regex the per-line
-    reader used, whose `\\s+` also splits at a newline that follows `. ! ?`.
-    A sentence keeps its exact original text, internal line breaks included,
-    because the archive checks evidence as an exact slice of the document.
+def _sentences(paragraph: str) -> list[str]:
+    """Split a paragraph into sentences, each an exact slice of the paragraph.
 
-    Every sentence either becomes a claim or is accounted for in the number
-    this function returns: a sentence with no signal word, or one that could
-    not be located in any archived chunk. Sentences below MIN_CLAIM_CHARS
-    are fragments and are ignored, as they always were.
+    Exact, because a sentence is its own evidence: it has to be found byte for
+    byte in an archived chunk, internal line breaks included.
     """
-    haystacks = [c.get("text") or "" for c in chunks]
-    unextracted = 0
-    for group in _paragraph_groups(body):
-        joined = "\n".join(group)
-        for part in re.split(r"(?<=[.!?])\s+", joined):
-            sent = part
-            if len(sent.strip()) < MIN_CLAIM_CHARS:
+    out: list[str] = []
+    start = 0
+    for match in _SENTENCE_END.finditer(paragraph):
+        following = paragraph[match.end() : match.end() + 1]
+        if following.islower():
+            # "e.g. the", "approx. two": the sentence has not ended.
+            continue
+        if match.group(1).startswith("."):
+            before = paragraph[start : match.start()].split()
+            word = before[-1].lower().strip("(\"'") if before else ""
+            if word in _ABBREVIATIONS or (len(word) == 1 and word.isalpha()):
                 continue
-            low = sent.lower()
-            if not any(re.search(r"\b" + re.escape(sig) + r"\b", low) for sig in _PROSE_SIGNALS):
-                unextracted += 1
+        out.append(paragraph[start : match.end(1)])
+        start = match.end()
+    if paragraph[start:].strip():
+        out.append(paragraph[start:])
+    return [sentence.strip() for sentence in out if sentence.strip()]
+
+
+def _reads_as_statement(sentence: str) -> bool:
+    """Whether a prose sentence states something, rather than asking or labelling."""
+    words = sentence.split()
+    if len(sentence) < MIN_CLAIM_CHARS or len(words) < MIN_PROSE_WORDS:
+        return False
+    if _QUESTION_END.search(sentence):
+        # A question states nothing. "What do our customers want most?" is not
+        # a rule, whatever words it contains.
+        return False
+    if sentence.rstrip("*_ ").endswith(":"):
+        # A lead-in: "The following apply to every channel:".
+        return False
+    if not _TERMINATED.search(sentence) and len(words) < MIN_UNTERMINATED_WORDS:
+        return False
+    return _declarative(sentence)
+
+
+def _prose_claims(paragraphs, haystacks, mode, claims, seen_claims, seen_quotes, ordinals):
+    """Turn paragraphs into claims. Returns `(skipped, unquotable)`.
+
+    `paragraphs` are `(heading path, raw lines)`: the lines exactly as written.
+    Each sentence that states something becomes a claim whose evidence is the
+    sentence itself, and it takes the state its heading declares, so prose
+    under "## Draft" is a draft like the bullets beside it.
+
+    `skipped` counts sentences `rules` mode left out for having no rule word.
+    `unquotable` counts sentences longer than `MAX_PROSE_WORDS`, and sentences
+    not found whole in one archived chunk.
+    Questions, lead-ins and fragments are neither: nothing was lost.
+    """
+    skipped = unquotable = 0
+    for heading_path, lines in paragraphs:
+        for sentence in _sentences("\n".join(lines)):
+            if not _reads_as_statement(sentence):
                 continue
-            if not any(sent in hay for hay in haystacks):
-                unextracted += 1
+            if mode == "rules" and not _PROSE_SIGNAL.search(sentence):
+                skipped += 1
                 continue
-            sig = ("prose", sent)
-            if sig in seen_quotes:
+            if len(sentence.split()) > MAX_PROSE_WORDS or not any(
+                sentence in hay for hay in haystacks
+            ):
+                unquotable += 1
                 continue
-            seen_quotes.add(sig)
+            text = " ".join(sentence.split())
+            signature = ("prose", text)
+            if signature in seen_quotes:
+                continue
+            seen_quotes.add(signature)
             key_base = "md:prose"
             ordinal = ordinals.get(key_base, 0)
             ordinals[key_base] = ordinal + 1
-            key = "%s:%d" % (key_base, ordinal)
+            key = f"{key_base}:{ordinal}"
             if key in seen_claims:
                 continue
             seen_claims.add(key)
-            claims.append(
-                {
-                    "key": key,
-                    "claim": sent,
-                    "value": sent,
-                    "evidence": _limit_quote(sent),
-                    "extraction_mode": "prose",
-                    "provenance_state": "direct_claim",
-                }
-            )
-    return unextracted
+            claim = {
+                "key": key,
+                "claim": text,
+                "value": text,
+                "evidence": _limit_quote(sentence),
+                "extraction_mode": "prose",
+                "provenance_state": "direct_claim",
+            }
+            state = _heading_path_state(heading_path)
+            if state is not None:
+                claim["info_state"] = state
+            claims.append(claim)
+    return skipped, unquotable
 
 
-#: Authority states from most to least restrictive.
 _STATE_RANK = {
     "rejected": 5,
     "superseded": 4,
@@ -1114,7 +1273,7 @@ def claims_for(metadata: dict, body: str, chunks: list[dict], *, path: str = "")
     """
     if "claims" in metadata:
         return None
-    claims, warnings = extract(body, chunks, path=path)
+    claims, warnings = extract(body, chunks, path=path, prose=metadata.get("prose"))
     return {"claims": claims}, warnings
 
 
@@ -1239,7 +1398,7 @@ def align_keys(
     return aligned
 
 
-def has_claims(body: str) -> bool:
+def has_claims(body: str, prose: Any = None) -> bool:
     """Whether this body has any claim-shaped structure, without building them.
 
     Used to decide whether a document takes the memory path at all. That decision
@@ -1251,7 +1410,7 @@ def has_claims(body: str) -> bool:
     Cheap on purpose, and only reached while the corpus holds no memory: once one
     claim lands, `memory.enabled()` is true and this is not called again.
     """
-    return bool(extract(body, _chunks(body))[0])
+    return bool(extract(body, _chunks(body), prose=prose)[0])
 
 
 def _chunks(body: str) -> list[dict]:
