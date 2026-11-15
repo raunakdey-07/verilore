@@ -472,31 +472,38 @@ def fail(what, got):
     print(f"!! {what}: {got}", file=sys.stderr)
     sys.exit(3)
 
-# memory_remember: the one MCP tool that writes memory.
+# memory_remember: the one MCP tool that writes memory. What an agent saves is
+# a draft until a person approves it, so the first write must NOT be recalled.
 MCP_KEY = "mcp.datastore"
+ROTA = "The support rota runs weekly."
+ROTA_Q = "How often does the support rota run?"
 first = json.loads(rpc(2, "memory_remember",
-                       {"statement": "The support rota runs weekly.",
-                        "corpus": "default", "key": MCP_KEY}))
-if first.get("event") != "NEW":
-    fail("a new memory_remember should report NEW", first)
+                       {"statement": ROTA, "corpus": "default", "key": MCP_KEY}))
+if first.get("event") != "NEW" or first.get("state") != "draft":
+    fail("a new memory_remember should report NEW, saved as a draft", first)
 
 # Idempotent: the identical call again must not write a second version.
 again = json.loads(rpc(3, "memory_remember",
-                       {"statement": "The support rota runs weekly.",
-                        "corpus": "default", "key": MCP_KEY}))
+                       {"statement": ROTA, "corpus": "default", "key": MCP_KEY}))
 if again.get("event") != "UNCHANGED" or again.get("version_id") != first.get("version_id"):
     fail("an identical memory_remember must be idempotent", again)
 
-# It comes back through recall.
-ROTA_Q = "How often does the support rota run?"
-if "weekly" not in current(rpc(4, "memory_recall",
+# A draft is withheld: recall does not answer with it.
+if "weekly" in current(rpc(4, "memory_recall",
+                           {"request": {"corpus": "default", "query": ROTA_Q}})):
+    fail("memory_recall answered with a draft an agent wrote", "")
+
+# Approved, it comes back through recall.
+rpc(41, "memory_remember",
+    {"statement": ROTA, "corpus": "default", "key": MCP_KEY, "state": "approved"})
+if "weekly" not in current(rpc(42, "memory_recall",
                                {"request": {"corpus": "default", "query": ROTA_Q}})):
-    fail("memory_recall did not return what memory_remember wrote", "")
+    fail("memory_recall did not return what memory_remember approved", "")
 
 # A changed value on the same key supersedes the old one.
 rpc(5, "memory_remember",
     {"statement": "The support rota now runs fortnightly.",
-     "corpus": "default", "key": MCP_KEY})
+     "corpus": "default", "key": MCP_KEY, "state": "approved"})
 if "fortnightly" not in current(rpc(6, "memory_recall",
                                     {"request": {"corpus": "default", "query": ROTA_Q}})):
     fail("a changed value did not supersede the old one", "")
@@ -508,10 +515,10 @@ if "fortnightly" not in current(rpc(6, "memory_recall",
 # corpus and failing for a reason that had nothing to do with MCP.
 rpc(7, "memory_remember",
     {"statement": "The datastore is distributed PostgreSQL.",
-     "corpus": "default", "key": "datastore"})
+     "corpus": "default", "key": "datastore", "state": "approved"})
 rpc(8, "memory_remember",
     {"statement": "The datastore is now distributed CockroachDB.",
-     "corpus": "default", "key": "datastore"})
+     "corpus": "default", "key": "datastore", "state": "approved"})
 QUERY = "What datastore does production use?"
 if "CockroachDB" not in current(rpc(9, "memory_recall",
                                     {"request": {"corpus": "default", "query": QUERY}})):
@@ -523,7 +530,8 @@ sys.exit(0)
         result = runner.python(mcp, label="mcp")
         checks.append(
             (
-                "MCP memory_remember writes, is idempotent, supersedes, and is recalled",
+                "MCP memory_remember writes a draft, is idempotent, is recalled once "
+                "approved, and supersedes",
                 result.returncode == 0,
                 (result.stderr or "")[:300],
             )
