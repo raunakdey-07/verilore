@@ -77,7 +77,17 @@ class SyncSummary:
     #: report that counts only chunks cannot say so.
     claim_count: int = 0
     duration_ms: int = 0
+    #: Everything worth a look, one `path: code` line each: warnings, documents
+    #: that declared no claims, and the reason for each failure.
     errors: list[str] = field(default_factory=list)
+    #: Only the warnings, as `path: code`. A document with a warning was still
+    #: ingested; `failed` counts the ones that were not.
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        """Every document landed. Warnings do not change this; `success` is stricter."""
+        return self.failed == 0
 
 
 class CorpusNotFoundError(Exception):
@@ -1343,6 +1353,10 @@ class Verilore:
             claim_count=result.get("claim_count", 0),
             duration_ms=result["duration_ms"],
             errors=result.get("errors", []),
+            warnings=[
+                f"{warning.get('path', '')}: {warning.get('code', '')}"
+                for warning in result.get("warnings", [])
+            ],
         )
 
     def remember(
