@@ -266,10 +266,12 @@ print(f"{memory.claim}  [{memory.status}]")
 - **A `claims:` block is YAML, and YAML is strict.** A backtick, a colon-space or
   a leading `@` in an evidence quote discards the whole block. Quote the value.
   The ingest now says `frontmatter_unparseable` instead of `no_claims_declared`.
-- **An agent can write memory, and that is a risk.** `memory_remember` is one
-  of 18 MCP tools and the first that writes. Without `file=` the evidence for the
-  claim is the statement itself, so it proves what the agent was told and not that
-  it is true ([why, and the review it needs](docs/authoring.md#memory_remember)).
+- **An agent can write memory, as a draft.** `memory_remember` is one of 18 MCP
+  tools and the first that writes. What it saves is a draft: stored with its
+  evidence and withheld from `brief`, `current` and `pack` until a person
+  approves it. Without `file=` the evidence for the claim is the statement
+  itself, so it proves what the agent was told and not that it is true
+  ([why, and the review it needs](docs/authoring.md#memory_remember)).
 - **The install is 216 MB, not gigabytes**, unless you ask. Every latency and size
   figure recorded up to v0.9.1 measured a `sentence-transformers` import, because
   that was the default then; those figures describe the opt-in `[torch]` stack, not

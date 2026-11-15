@@ -467,7 +467,10 @@ memory_remember(statement: str, corpus: str, key: str | None = None,
 ```
 
 The arguments and the code path are the SDK's `remember()`, so an agent and a
-script cannot write memory differently. Idempotent: the identical call again
+script cannot write memory differently, with one exception: since v0.12 a
+statement saved through this tool is a `draft` unless the call passes
+`state="approved"`. A model can be handed text by anyone, so what it writes is a
+proposal until a person approves it. Idempotent: the identical call again
 returns the same `version_id` and `event: UNCHANGED`. A changed value on the same
 `key` supersedes the old one, and `supersedes_claim_id` / `topic_key` do the same
 across files.
