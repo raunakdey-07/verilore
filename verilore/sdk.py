@@ -226,7 +226,36 @@ def _as_client_error(exc: Exception) -> Exception:
             retryable=getattr(exc, "retryable", None),
             request_id=getattr(exc, "request_id", None),
         )
-    return exc
+    return _database_unavailable(exc) or exc
+
+
+def _database_unavailable(exc: Exception) -> MemoryClientError | None:
+    """A database that could not be reached, as the SDK's own error with the fix.
+
+    A refused connection or a rejected password is not a defect in the caller's
+    code, and it is the first thing a new user meets: `Verilore("name")` on a
+    machine where the database is not where the client looked. Left as the
+    driver raised it, that is a traceback through SQLAlchemy and asyncpg with
+    no word about what to do. The message here is the CLI's own advice, so the
+    two surfaces cannot drift, and the driver's exception stays as `__cause__`.
+
+    Returns None for anything else. A genuine defect must stay what it is.
+    """
+    from verilore.cli.errors import (
+        _is_authentication_error,
+        _is_database_connection_error,
+        explain,
+    )
+
+    if isinstance(exc, MemoryClientError):
+        return None
+    if not (_is_authentication_error(exc) or _is_database_connection_error(exc)):
+        return None
+    advice = explain(exc)
+    fix = f" Fix: {advice.do}" if advice.do else ""
+    return MemoryClientError(
+        advice.code, f"{advice.what} {advice.why}{fix}", advice.status, retryable=True
+    )
 
 
 def _remote_error(response, default_message: str, attempts: int = 1) -> MemoryClientError:
@@ -1127,6 +1156,15 @@ class Verilore:
     ):
         self.name = name
         self.base_url = base_url.rstrip("/") if base_url is not None else None
+        if self.base_url is None:
+            # A local client uses the database `verilore init` recorded, exactly
+            # as the CLI and `verilore-mcp` do. It has to happen here, before
+            # anything imports the database module, which reads DATABASE_URL
+            # once. An exported variable still wins, and a server deployment
+            # never reads the file.
+            from verilore.cli.config import apply_to_environ
+
+            apply_to_environ()
         self.headers = dict(headers or {})
         if api_key is not None:
             # A convenience over `headers`, so a credential is one argument
@@ -1245,6 +1283,11 @@ class Verilore:
         logging.getLogger("sqlalchemy.pool.impl.AsyncAdaptedQueuePool").setLevel(logging.CRITICAL)
         try:
             return asyncio.run(coro)
+        except Exception as exc:  # noqa: BLE001 - re-raised unless the database is down
+            unavailable = _database_unavailable(exc)
+            if unavailable is None:
+                raise
+            raise unavailable from exc
         finally:
             try:
                 asyncio.run(async_engine.dispose())

@@ -732,7 +732,9 @@ class IngestionService:
         from vectors it has already computed, so a corpus authored without
         embeddings is encoded once rather than on every query.
         """
-        if not self.require_embeddings:
+        if not self.require_embeddings or lexical_requested():
+            # `VERILORE_LEXICAL=1` is a choice not to load the model. Trying
+            # anyway cost a download attempt and a warning per document.
             return 0
         try:
             from verilore.api.services.claim_embeddings import embed_representations, pending, store

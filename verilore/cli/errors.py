@@ -170,6 +170,17 @@ def explain(exc: Exception) -> Advice:
         return _validation_advice(exc)
 
     code = getattr(exc, "code", None)
+    # The SDK presents a database it could not reach as its own error, built
+    # from this function's advice, with the driver's exception as its cause.
+    # Explaining that error again must give the same advice, and the driver's
+    # exception is what tells a missing container runtime from a closed port.
+    cause = exc.__cause__
+    if (
+        code in {"database_unavailable", "authentication_failed"}
+        and isinstance(cause, Exception)
+        and getattr(cause, "code", None) is None
+    ):
+        return explain(cause)
     status = int(getattr(exc, "status_code", 1) or 1)
     detail = str(getattr(exc, "message", None) or exc)
 
