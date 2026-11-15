@@ -178,7 +178,11 @@ async def test_sync_flags_documents_that_declare_no_claims(tmp_path):
     from verilore.api.services.corpora import corpus_id_for_name
     from verilore.api.services.ingestion import IngestionService
 
-    (tmp_path / "prose.md").write_text("---\ntitle: prose.md\n---\n\nSome notes, no claims.\n")
+    # `prose: off`: since v0.12 a paragraph is read, and this is the document
+    # that asks not to be.
+    (tmp_path / "prose.md").write_text(
+        "---\ntitle: prose.md\nprose: off\n---\n\nSome notes, no claims.\n"
+    )
     corpus_id = corpus_id_for_name("test_no_claims_sync")
     async with db_module.admin_session_scope() as db:
         with db_module.principal_scope(authz.ADMIN_PRINCIPAL):

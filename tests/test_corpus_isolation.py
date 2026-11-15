@@ -309,7 +309,13 @@ async def test_failed_ingestion_leaves_no_success_state(tmp_path):
     """If embedding fails mid-sync, the file must not be marked ingested."""
     d = tmp_path / "test"
     d.mkdir()
-    (d / "doomed.md").write_text(DOC_A.replace("Corpus A Doc", "Doomed Doc"))
+    # `prose: off`: a document that declares no claims is the one whose chunks
+    # are embedded at ingest, and that is the path this failure is about.
+    doomed = DOC_A.replace("Corpus A Doc", "Doomed Doc").replace(
+        'document_type: "note"', 'document_type: "note"\nprose: off'
+    )
+    assert "prose: off" in doomed
+    (d / "doomed.md").write_text(doomed)
 
     from verilore.api.services.ingestion import IngestionService
 

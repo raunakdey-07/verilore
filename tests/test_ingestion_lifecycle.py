@@ -109,12 +109,16 @@ def _fresh_engine_per_test():
         pass
 
 
+# `prose: off` in both documents: this file is about a document that declares no
+# claims, the path that embeds chunks at ingest and hashes only the body. Since
+# v0.12 a paragraph is read, so a document has to ask not to be.
 DOC_V1 = """---
 title: "Lifecycle Test Doc"
 date: 2024-05-01
 tags: ["lifecycle", "test"]
 document_type: "project"
 summary: "First version"
+prose: off
 ---
 
 # Intro
@@ -132,6 +136,7 @@ date: 2024-05-01
 tags: ["lifecycle", "test"]
 document_type: "project"
 summary: "Second version"
+prose: off
 ---
 
 # Intro

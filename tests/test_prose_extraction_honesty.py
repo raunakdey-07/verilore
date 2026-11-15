@@ -12,10 +12,13 @@ What is asserted here:
 
 * a sentence wrapped over two physical lines extracts as ONE claim whose text
   is the whole sentence, with the internal line break kept verbatim;
-* in a document whose prose no claim was read from, skipped sentences are
-  reported once with the code `prose_not_extracted`, a count and a hint,
-  through the same warning list the frontmatter warnings use;
-* in a document with claims, prose paragraphs are ignored and not reported;
+* a paragraph is read in every document, beside bullets or alone: each
+  sentence that states something is a claim (#158);
+* a sentence that was left out is reported once with the code
+  `prose_not_extracted`, a count and a hint, through the same warning list the
+  frontmatter warnings use. In the default mode that is only a sentence with
+  no checkable evidence; in `prose: rules` it is every sentence with no rule
+  word;
 * the ingest HTTP response carries those warnings, and carries nothing at all
   when there is nothing to say;
 * bullet, field and table extraction is unchanged, byte for byte.
@@ -115,25 +118,34 @@ def test_a_wrapped_sentence_extracts_whole():
 
 
 # ---------------------------------------------------------------------------
-# 2: prose beside a claim is not reported yet
+# 2: prose beside a bullet is extracted, and nothing is left to report
 # ---------------------------------------------------------------------------
 
 
-def test_prose_beside_bullets_is_not_reported_yet():
-    """No prose_not_extracted while a document has any structural claim; see #158."""
+def test_prose_beside_bullets_is_extracted():
+    """The second case in #158: the paragraph under the bullet is memory too."""
     claims, warnings = extract(BULLET_AND_PROSE, chunks_for(BULLET_AND_PROSE), path="guide.md")
-    bullet = [claim for claim in claims if claim["claim"] == "Our voice is warm."]
-    assert len(bullet) == 1, claims
+    texts = [claim["claim"] for claim in claims]
+    assert texts.count("Our voice is warm.") == 1, claims
+    assert "This is a prose sentence that must be extracted too." in texts, claims
     assert prose_warnings(warnings) == []
 
 
 # ---------------------------------------------------------------------------
-# 3: prose with no claim-shaped value is reported, not silent
+# 3: a plain fact in a paragraph is a claim; `rules` mode still reports it
 # ---------------------------------------------------------------------------
 
 
-def test_prose_with_no_signal_sentence_is_reported_once():
+def test_a_fact_with_no_rule_word_is_a_claim():
+    """The first case in #158: a sentence needs no must/never/always to count."""
     claims, warnings = extract(PROSE_ONLY, chunks_for(PROSE_ONLY), path="specs.md")
+    assert [claim["claim"] for claim in claims] == ["The Trailhead 2 bike weighs 9.8 kilograms."]
+    assert claims[0]["evidence"] in PROSE_ONLY
+    assert warnings == []
+
+
+def test_rules_mode_keeps_the_old_reading_and_reports_what_it_skipped():
+    claims, warnings = extract(PROSE_ONLY, chunks_for(PROSE_ONLY), path="specs.md", prose="rules")
     assert claims == [], claims
     skipped = prose_warnings(warnings)
     assert len(skipped) == 1
@@ -165,7 +177,8 @@ async def test_ingest_response_carries_prose_warnings():
         # brand corpus looks like after its first memory lands.
         seed = await ingest(client, corpus, WRAPPED_BULLET, "brand/seed.md")
         assert seed.status_code == 200, seed.text
-        response = await ingest(client, corpus, PROSE_ONLY, "brand/specs.md")
+        rules_only = "---\nprose: rules\n---\n\n" + PROSE_ONLY
+        response = await ingest(client, corpus, rules_only, "brand/specs.md")
     assert response.status_code == 200, response.text
     warnings = response.json().get("warnings", [])
     assert any(w.get("code") == "prose_not_extracted" for w in warnings), response.text

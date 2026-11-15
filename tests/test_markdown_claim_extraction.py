@@ -197,12 +197,27 @@ def test_an_authored_claims_block_is_never_second_guessed():
     assert claims_for(metadata, "- a bullet", []) is None
 
 
-def test_prose_with_no_structure_produces_nothing_and_says_so():
+def test_prose_with_no_structure_is_read_sentence_by_sentence():
+    """Since #158 a paragraph is read: each sentence is a claim and its own evidence."""
     body = "Just a paragraph. No list, no heading, no field."
     found, warnings = extract(body, chunks_for(body))
-    assert found == []
-    assert [w.code for w in warnings] == ["prose_not_extracted"]
-    assert has_claims(body) is False
+    assert [claim["claim"] for claim in found] == [
+        "Just a paragraph.",
+        "No list, no heading, no field.",
+    ]
+    assert all(claim["extraction_mode"] == "prose" for claim in found)
+    assert all(claim["evidence"] in body for claim in found)
+    assert warnings == []
+    assert has_claims(body) is True
+
+
+def test_prose_off_restores_a_document_that_declares_nothing():
+    body = "Just a paragraph. No list, no heading, no field."
+    found, warnings = extract(body, chunks_for(body), prose="off")
+    assert found == [] and warnings == []
+    assert has_claims(body, "off") is False
+    # YAML reads a bare `off` as False; it means the same thing.
+    assert extract(body, chunks_for(body), prose=False) == ([], [])
 
 
 def test_a_line_that_cannot_be_quoted_is_dropped_and_named():

@@ -115,21 +115,22 @@ async def test_a_document_that_produced_claims_is_not_embedded_again(store):
     ), "the chunk vectors of a claim-bearing document were computed anyway"
 
 
-async def test_a_document_with_no_claims_keeps_its_vectors(store):
+async def test_a_document_of_paragraphs_keeps_its_vectors(store):
     """The other case, and it is not the same case.
 
-    A document with no claims contributes no claim, so the chunk index is the
-    only index it has. A vector is the only way anything can find it.
+    A document with no bullet, field or table was found only through the chunk
+    index before v0.12. Its sentences are claims now, but a caller who searched
+    it by chunk must still find it, so it keeps the vectors it always had.
     """
     result = await _ingest(store, PROSE_ONLY, "chunk-vectors/prose.md")
     assert result["success"] is True
-    assert result["claim_count"] == 0, "the document produced a claim after all"
+    assert result["claim_count"] == 1, "the paragraph was not read"
 
     vectors = await _chunk_vectors(store, "chunk-vectors/prose.md")
     assert vectors, "the document produced no chunks at all"
     assert all(
         vector is not None for vector in vectors
-    ), "a document with no claims lost its only index"
+    ), "a document of paragraphs lost its chunk index"
 
 
 async def test_embed_chunks_asks_for_the_vectors_anyway(store):
