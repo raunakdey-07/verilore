@@ -74,6 +74,25 @@ release and warned "removed in v0.12" on import. The wheel now installs the
 `from verilore import Verilore` (or `import verilore.sdk`), and
 `import verilore_errors` to `import verilore.errors`.
 
+### Fixed
+
+**The Python client uses the database `verilore init` recorded.** `Verilore("name")`
+read `DATABASE_URL` or the built-in default and never `config.toml`, so after
+`verilore init --database-url ...` every CLI command worked and the README's own
+Python example did not. A local client now loads the file as the CLI and
+`verilore-mcp` do: an exported variable still wins, and a server deployment never
+reads it.
+
+**A database that cannot be reached is one error with the fix.** A refused
+connection or a rejected password reached an SDK caller as the driver's own
+exception. It is now a `VeriloreError` (`MemoryClientError`, code
+`database_unavailable` or `authentication_failed`, retryable) whose message is
+the CLI's advice, with the driver's exception as its cause.
+
+**`VERILORE_LEXICAL=1` no longer tries to load the model at ingest.** The chunk
+vectors were skipped but the claim-vector cache was still attempted, which cost a
+download attempt and one warning per document on a machine with no network.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
