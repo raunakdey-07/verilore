@@ -1,12 +1,17 @@
 Approved memory for "trailhead", scope brand + campaigns/spring.
 Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
 
-- Never use the word "curated" in copy. [brand/guide.md]
-- Never promise free shipping in ads. [brand/guide.md]
-- Our voice is warm, plain and direct. [brand/guide.md]
-- The Trailhead 2 bike weighs 9.8 kilograms. [brand/specs.md]
-- The Trailhead 2 frame has a five-year warranty. [brand/specs.md]
-- The spring launch date is 14 March 2027. [campaigns/spring/brief.md]
-- The spring offer is a free helmet with every Trailhead 2. [campaigns/spring/brief.md]
+brand/guide.md
+- Never use the word "curated" in copy.
+- Never promise free shipping in ads.
+- Our voice is warm, plain and direct.
+
+brand/specs.md
+- The Trailhead 2 bike weighs 9.8 kilograms.
+- The Trailhead 2 frame has a five-year warranty.
+
+campaigns/spring/brief.md
+- The spring launch date is 14 March 2027.
+- The spring offer is a free helmet with every Trailhead 2.
 
 Not included: 2 draft, 2 rejected.

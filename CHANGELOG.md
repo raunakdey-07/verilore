@@ -55,6 +55,25 @@ default is unchanged. A value that is neither `approved` nor `draft` is read as
 mean approved, and `proposed`, `pending` and `in review` mean draft, so an ADR's
 own words are understood instead of warned about.
 
+**A brief that chooses what to keep (#107).** When a scope holds more than
+fits, `brief` used to keep lines in path order until the room ran out. It now
+keeps rules first: a line that says never, must, always or do not, a line under
+a heading such as "Never" or "Legal", and every line under a path named in
+`must`. With `task`, a few words on what is being written, the remaining lines
+are ranked by the words they share with it, their heading and their file, and
+the least related are left out; an Instagram task keeps the Instagram line and
+drops the blog line. `max_tokens` sets the limit in estimated model tokens with
+no tokenizer to install, and `Brief.approx_tokens` reports the estimate.
+`Brief.omitted_rules` says how many rules did not fit, and a line whose
+`valid_until` has passed is left out and counted in `Brief.expired`. The CLI
+has `--task`, `--must` and `--max-tokens`; the MCP tool takes `task` and `must`.
+
+**A brief names each document once.** Every line carried its source path, which
+was 44% of a brief that mixed documents and remembered statements. Lines are
+now grouped under the document they come from, and remembered statements under
+"Saved decisions" instead of a generated file name. `claim_ids` still names
+every claim.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing

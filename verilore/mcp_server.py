@@ -525,16 +525,25 @@ async def memory_pack(request: MemoryRequest) -> MemoryToolResult:
 
 @mcp.tool(annotations=_READ_MEMORY)
 async def memory_brief(
-    corpus: str, path_prefix: str | list[str] | None = None, max_chars: int = 6000
+    corpus: str,
+    path_prefix: str | list[str] | None = None,
+    max_chars: int = 6000,
+    task: str | None = None,
+    must: str | list[str] | None = None,
 ) -> str:
     """Approved memory as plain text lines. Call this first, before answering or writing.
 
     Returns every current, approved statement in the corpus (or only those from
     documents under `path_prefix`, e.g. ["brand", "campaigns/spring"]), one per
-    line with its source file. It takes no question, so it cannot miss because of
-    wording. Drafts, rejected and replaced statements are left out. Treat the
-    lines as true and do not contradict them. If the last line says lines were
-    left out for length, call again with a narrower `path_prefix`.
+    line under the file it comes from. It takes no question, so it cannot miss
+    because of wording. Drafts, rejected and replaced statements are left out.
+    Treat the lines as true and do not contradict them.
+
+    Pass `task`, a few words on what you are about to write (e.g. "Instagram
+    caption for the spring launch"): when not everything fits in `max_chars`,
+    rules are kept first and then the lines closest to the task. `must` names
+    folders or files whose lines are always kept. If the last line says lines
+    were left out for length, call again with a narrower `path_prefix`.
     """
     from verilore.brief import render_brief
 
@@ -544,7 +553,11 @@ async def memory_brief(
         return result.content[0].text
     try:
         return render_brief(
-            result.structured_content, path_prefix=path_prefix, max_chars=max_chars
+            result.structured_content,
+            path_prefix=path_prefix,
+            max_chars=max_chars,
+            task=task,
+            must=must,
         ).text
     except ValueError as exc:
         return json.dumps({"detail": {"code": "invalid_request", "message": str(exc)}})
