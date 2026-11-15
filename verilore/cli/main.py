@@ -1684,10 +1684,26 @@ def ingest_repo(
             ),
         ),
     ] = False,
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help=(
+                "Exit 1 when any document produced a warning. Without it a "
+                "warning is printed and the exit code is 0, because the "
+                "documents were ingested."
+            ),
+        ),
+    ] = False,
     verbose: State = False,
     debug: Debug = False,
 ) -> None:
     """Batch ingest all Markdown files from a repository.
+
+    The exit code says whether the documents landed: 0 when every one did,
+    1 when any failed. A warning is printed as `[WARN]` and still exits 0,
+    so a sync job does not treat an ingested kit as a failed one; `--strict`
+    makes warnings exit 1.
 
     Runs in-process, like every other command here. It used to be an HTTP
     client to a hard-coded http://localhost:8000, which meant the one command
@@ -1741,15 +1757,29 @@ def ingest_repo(
     except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
         _fail(exc, verbose, debug)
         return
+    # Three outcomes, not two. A document that failed is a failure. A warning
+    # is something to read about a document that was ingested: reporting that
+    # as [FAIL] with exit 1 made a sync job treat a normal kit as broken.
+    failed = summary.failed > 0
+    warned = not failed and not summary.success
+    label = "FAIL" if failed else "WARN" if warned else "OK"
+    count = len(getattr(summary, "warnings", []) or [])
+    noun = "warning" if count == 1 else "warnings"
     typer.echo(
-        f"[{'OK' if summary.success else 'FAIL'}] sync: +{summary.added} "
+        f"[{label}] sync: +{summary.added} "
         f"~{summary.changed} ={summary.unchanged} -{summary.deleted} "
         f"!{summary.failed}, {summary.chunk_count} chunks, "
-        f"{summary.claim_count} claims"
+        f"{summary.claim_count} claims" + (f", {count} {noun}" if warned and count else "")
     )
     for error in summary.errors:
         typer.echo(f"  - {error}", err=True)
-    if not summary.success:
+    if warned:
+        typer.echo(
+            "  Every document was ingested; the lines above are warnings."
+            + ("" if strict else " Use --strict to exit 1 on warnings."),
+            err=True,
+        )
+    if failed or (warned and strict):
         raise typer.Exit(code=1)
 
 

@@ -93,6 +93,14 @@ the CLI's advice, with the driver's exception as its cause.
 vectors were skipped but the claim-vector cache was still attempted, which cost a
 download attempt and one warning per document on a machine with no network.
 
+**`verilore ingest-repo` exits 0 when the documents landed.** Any warning made
+the whole sync `[FAIL]` with exit code 1, although every claim was stored, so a
+sync job treated a normal kit as broken. A sync now has three outcomes: `[OK]`,
+`[WARN]` (documents ingested, warnings listed, exit 0) and `[FAIL]` (a document
+was not ingested, exit 1). `--strict` makes warnings exit 1. In the SDK,
+`SyncSummary.warnings` lists them and `SyncSummary.ok` is true when nothing
+failed; `success` keeps its stricter meaning.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
