@@ -175,7 +175,7 @@ def test_the_message_reaches_the_brief_and_a_new_sentence_keeps_every_other_key(
     brief = vl.memory.brief(path_prefix="campaigns/diwali")
     assert (
         "- We are selling the ritual of brewing together, and the discount is not the "
-        "headline. [campaigns/diwali/brief.md]" in brief.text
+        "headline." in brief.text.splitlines()
     )
     before = {claim.claim: claim.key for claim in vl.memory.current().current_memories}
 

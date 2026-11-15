@@ -898,8 +898,9 @@ def brief(
         ),
     ] = None,
     max_chars: Annotated[
-        int, typer.Option("--max-chars", help="The most text to return, in characters.")
-    ] = 6000,
+        int | None,
+        typer.Option("--max-chars", help="The most text to return, in characters. Default 6000."),
+    ] = None,
     base_url: BaseURL = None,
     json_out: Annotated[
         bool,
@@ -907,12 +908,39 @@ def brief(
     ] = False,
     verbose: State = False,
     debug: Debug = False,
+    max_tokens: Annotated[
+        int | None,
+        typer.Option(
+            "--max-tokens",
+            help="The most text to return, in estimated model tokens. Instead of --max-chars.",
+        ),
+    ] = None,
+    task: Annotated[
+        str | None,
+        typer.Option(
+            "--task",
+            help=(
+                "What is being written, e.g. 'Instagram caption for the spring "
+                "launch'. When not everything fits, the lines least related to "
+                "it are the ones left out."
+            ),
+        ),
+    ] = None,
+    must: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--must",
+            help="A folder or file whose lines are always kept first. Repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Print approved memory as plain lines, ready to paste into a model's prompt.
 
     No question is asked, so no wording can miss: it is everything current and
     approved in the scope you name. Drafts, rejected and replaced statements are
-    left out, and the last line says how many.
+    left out, and the last line says how many. When the scope holds more than
+    fits, rules (never, must, always, do not, and everything under --must) are
+    kept first, then the lines closest to --task.
     """
     try:
         client = _client(base_url, runtime=True)
@@ -925,6 +953,9 @@ def brief(
             corpus,
             path_prefix=path_prefix or None,
             max_chars=max_chars,
+            max_tokens=max_tokens,
+            task=task,
+            must=must or None,
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
@@ -941,8 +972,11 @@ def brief(
                     "scope": list(result.scope),
                     "claim_ids": list(result.claim_ids),
                     "omitted": result.omitted,
+                    "omitted_rules": result.omitted_rules,
                     "withheld": result.withheld,
                     "conflicts": result.conflicts,
+                    "expired": result.expired,
+                    "approx_tokens": result.approx_tokens,
                 },
                 ensure_ascii=False,
                 indent=2,

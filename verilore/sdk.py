@@ -1128,8 +1128,11 @@ class MemoryClient:
         corpus: str | None = None,
         *,
         path_prefix: str | list[str] | None = None,
-        max_chars: int = 6000,
+        max_chars: int | None = None,
         valid_at: datetime | str | None = None,
+        max_tokens: int | None = None,
+        task: str | None = None,
+        must: str | list[str] | None = None,
     ):
         """Approved memory in scope, as a few plain lines for a model's prompt.
 
@@ -1138,6 +1141,14 @@ class MemoryClient:
         Returns a `verilore.brief.Brief`; `str()` of it, or `.text`, is the
         block to put in the prompt, and `.claim_ids` names what it carries.
 
+        The size limit is `max_chars` (6,000 by default) or `max_tokens`, an
+        estimate that needs no tokenizer; give one. When the scope holds more
+        than fits, rules are kept first: lines that say never, must, always or
+        do not, and every line under a path in `must`. With `task`, a short
+        description of what is being written, the remaining lines are ranked by
+        how much they share with it and the least related are left out.
+        `brief.omitted` and `brief.omitted_rules` say what did not fit.
+
         A pack of the same claims is about twenty times longer, because a pack
         also carries the proof. Use `pack` to hand memory to another system, and
         `brief` to hand it to a model.
@@ -1145,7 +1156,14 @@ class MemoryClient:
         from verilore.brief import render_brief
 
         response = self.current(corpus, "", valid_at=valid_at, path_prefix=path_prefix)
-        return render_brief(response, path_prefix=path_prefix, max_chars=max_chars)
+        return render_brief(
+            response,
+            path_prefix=path_prefix,
+            max_chars=max_chars,
+            max_tokens=max_tokens,
+            task=task,
+            must=must,
+        )
 
 
 class Verilore:

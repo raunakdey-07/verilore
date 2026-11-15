@@ -259,14 +259,15 @@ assert any("14 March 2027" in c for c in current_claims), current_claims
 ### Brief for the prompt
 
 `brief(path_prefix=[...])` is the same approved claims as one plain line each,
-with the source path, and nothing else. It is what goes into the model's prompt;
+under the document they come from, and nothing else. It is what goes into the model's prompt;
 the pack above is what you store next to the generated draft as its proof. A
 brief asks no question, so there is no wording to get wrong, and its last line
 counts what was withheld.
 
 ```python
 brief = mp.memory.brief(path_prefix=["brand", "campaigns/spring"])
-assert "- Our voice is warm, plain and confident. [brand/guide.md]" in brief.text
+assert "- Our voice is warm, plain and confident." in brief.text.splitlines()
+assert "brand/guide.md" in brief.text.splitlines()
 assert "14 March 2027" in brief.text
 assert "autumn" not in brief.text.lower()
 assert set(brief.claim_ids) == {c.id for c in pack.current_memories}
@@ -274,9 +275,36 @@ prompt = f"{brief.text}\n\nWrite an Instagram caption for the spring launch."
 print(f"brief chars: {len(brief.text)}, pack chars: {len(pack.canonical_json())}")
 ```
 
-`max_chars` (6,000 by default, about sixty rules) bounds the text. When a scope
-holds more, the brief stops at a whole line and `brief.omitted` says how many
-lines were left out: narrow the `path_prefix` instead of raising the number.
+`max_chars` (6,000 by default, about sixty rules) bounds the text;
+`max_tokens` does the same in estimated model tokens, with no tokenizer to
+install. When a scope holds more than fits, the brief decides what to keep in
+an order you can predict, stops at a whole line, and says what it left out:
+
+1. **Rules first.** A line that says never, must, always or do not, a line
+   under a heading such as `## Never` or `## Legal`, and every line under a
+   path you name in `must`.
+2. **Then what the task is about.** `task` is a few words on what is being
+   written. The remaining lines are ranked by the words they share with it,
+   their heading and their file, and the least related are left out.
+3. Without a task, document order.
+
+```python
+tight = mp.memory.brief(
+    path_prefix=["brand", "campaigns/spring"],
+    must=["brand/guide.md"],
+    task="Instagram caption for the spring launch",
+    max_tokens=120,
+)
+assert tight.approx_tokens <= 120
+assert "- Our voice is warm, plain and confident." in tight.text.splitlines()
+assert tight.omitted_rules == 0, "a rule was cut: narrow the scope or raise the limit"
+```
+
+`brief.omitted` counts the lines left out and `brief.omitted_rules` how many of
+them were rules; the second should be zero. The ranking shares words, not
+meaning: "tweet" does not find a line about "X posts". Put what must always be
+there under `must`, and name the channel in the task the way the kit names it.
+A line whose `valid_until` has passed is left out and counted in `brief.expired`.
 
 ### Remember decisions and corrections
 
