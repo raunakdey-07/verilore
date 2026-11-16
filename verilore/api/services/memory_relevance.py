@@ -657,7 +657,15 @@ def relevance(
     # between candidates, so ranking is computed on documents with them removed.
     # They are not evidence that the question is off-topic, so the acceptance gate
     # still sees the full documents -- see `overlap` below.
-    common = frozenset.intersection(*documents) if len(documents) > 1 else frozenset()
+    #
+    # "Every candidate" has to mean every live subject. The candidates include the
+    # lines a decision replaced, and a replaced line shares its subject with its
+    # replacement by design: in a corpus whose only live line was a replacement,
+    # the subject was dropped as common, every score was zero, and lexical recall
+    # answered that nothing matched. With fewer than two live lines nothing can
+    # be common to the corpus. Only the lexical score reads `common`.
+    live = sum(1 for cid in ids if claims[cid].status in ("CURRENT", "CONFLICTING"))
+    common = frozenset.intersection(*documents) if len(documents) > 1 and live > 1 else frozenset()
     # Depends on neither the topic nor the gate, so it is computed once. Rebuilding
     # this per candidate and per topic was the dominant cost at scale.
     reduced = [document - common for document in documents]
