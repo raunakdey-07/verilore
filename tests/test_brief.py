@@ -393,6 +393,7 @@ def test_the_cli_prints_the_text_and_json_carries_the_ids(monkeypatch):
         "conflicts",
         "expired",
         "approx_tokens",
+        "possible_conflicts",
     }
     assert body["claim_ids"] == ["c1"] and body["withheld"] == {"draft": 1}
     assert body["text"] + "\n" == plain.output
