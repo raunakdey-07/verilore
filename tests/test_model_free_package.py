@@ -90,8 +90,11 @@ def _run(argv: list[str], lexical: bool = False) -> tuple[int, str, str]:
         + "captured = getattr(result, 'stderr', '')\n"
         + "if not captured:\n"
         + "    captured = result.output\n"
-        + "print('STDERR=' + (captured or '')[:4000])\n"
-        + "print('OUTPUT=' + result.output[:4000])\n"
+        # Bounded so a runaway command cannot flood the log, and well past the
+        # length of `--help`: at 4,000 characters, each new command pushed the
+        # names this file asserts on past the cut on CI's wider rendering.
+        + "print('STDERR=' + (captured or '')[:20000])\n"
+        + "print('OUTPUT=' + result.output[:20000])\n"
         + "print('HEAVY=' + repr(heavy))\n"
         + "sys.exit(result.exit_code)\n"
     )
