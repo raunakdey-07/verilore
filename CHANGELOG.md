@@ -118,6 +118,16 @@ model number keeps the Trail 2 apart from the Trail 3. A rule stated in two
 documents is one finding naming both. The CLI exits 1 on a finding. MCP now
 advertises nineteen tools.
 
+- **A folder of Word, PowerPoint and PDF files syncs like Markdown.**
+  `verilore ingest-repo`, `Verilore.sync()`, `POST /api/corpora/{name}/sync` and the
+  MCP `sync` tool read `.docx`, `.pptx` and `.pdf` beside `.md` by default, and
+  `.txt` with `--formats md,txt` (`formats=` in the SDK, HTTP and MCP). A converted
+  file's claims quote its converted text. A sidecar (`rules.pdf.yaml`) gives a file
+  frontmatter: `status`, `valid_until`, `prose`. A PDF with no text layer, a broken
+  file or an unreadable sidecar fails alone and says why. Word's `~$` lock files
+  and macOS `._` files are skipped. A sync removes only documents of the formats it
+  read. An unsupported format is refused before anything is read (exit 2, or 422).
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
@@ -164,6 +174,15 @@ now saves a draft and its result says so; `state="approved"` still approves.
 The SDK, the CLI and the HTTP route are called by a person or an application
 and keep the server's default. **Upgrading:** an agent that must write approved
 memory has to pass `state="approved"`.
+
+- **Word and PDF conversion keeps more structure.** A bulleted or numbered Word
+  paragraph is now a list item, and every other Word paragraph its own paragraph,
+  so a label such as "Tagline" is no longer read as the first word of the sentence
+  after it. A PDF page is split at bullet glyphs and short labels, and a sentence
+  wrapped across lines stays whole. PDF text is read with `pypdf`, now a dependency
+  (pure Python, small), before `pdftotext`, so the same file reads to the same text
+  on every machine. A `.docx` or `.pdf` ingested before this reads differently
+  now, and its next ingest records a new version.
 
 ### Removed
 

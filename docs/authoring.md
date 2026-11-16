@@ -290,6 +290,29 @@ date and syncing again brings it back. `remember` takes the same two bounds:
 `--valid-until 2026-11-06` in the CLI, `valid_until=` in the SDK, the HTTP
 route and the MCP tool.
 
+## Word, PowerPoint and PDF files
+
+`ingest-repo` reads `.docx`, `.pptx` and `.pdf` files beside the Markdown, so a
+brand kit can be synced as it arrived. Each is converted to Markdown first, and
+the claims quote the converted text:
+
+| File | What becomes a line |
+|---|---|
+| Word | Headings stay headings, bulleted and numbered paragraphs are a list, tables are tables, and each other paragraph is prose. |
+| PowerPoint | Each slide is a heading with its text as a list. Speaker notes are kept as a quote, which is not read as a line. |
+| PDF | The text layer, page by page. A bullet glyph starts a list item, a short line with no punctuation is a label, and a sentence wrapped across lines stays one sentence. Tables come out as loose text: for a table that matters, sync the Word file instead. |
+
+A file cannot carry frontmatter, so a sidecar beside it does: `rules.pdf.yaml`
+holding `status: draft`, `valid_until: 2026-11-06` or `prose: rules` applies to
+`rules.pdf`. A PDF with no text layer (a scan) is refused with the reason, and the
+rest of the folder still syncs. Word's `~$` lock files and macOS `._` files are
+skipped.
+
+`--formats md,docx,pptx,pdf` is the default. Plain text is read only when asked
+for, `--formats md,txt`, because a code repository's `.txt` files are licences and
+requirements. A sync removes only documents of the formats it read, so syncing
+once with fewer formats does not delete the others.
+
 ## Quote your evidence: YAML will try to read it
 
 A `claims:` block is YAML. Four characters will silently discard the **entire**

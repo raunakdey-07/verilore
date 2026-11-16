@@ -514,6 +514,12 @@ document can say how its prose is read, in its frontmatter:
 `VERILORE_PROSE` sets the same thing for a whole server; a document's own
 `prose:` wins. The ingest response's `warnings` lists what was skipped.
 
+A kit that arrives as Word, PowerPoint or PDF files does not need converting by
+hand: `verilore ingest-repo ./kit` and `vl.sync("./kit")` read them beside the
+Markdown, and a sidecar such as `rules.pdf.yaml` gives a file the frontmatter it
+cannot carry (`status: draft`, `valid_until`). A scanned PDF is reported, not
+stored empty. See [authoring](../authoring.md#word-powerpoint-and-pdf-files).
+
 ```markdown
 # Spring 2027 brand kit
 

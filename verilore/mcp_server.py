@@ -145,10 +145,15 @@ def search(query: str, corpus: str, k: int = 5) -> str:
 
 
 @mcp.tool()
-def sync(corpus: str, path: str) -> str:
-    """Synchronize a corpus with a directory of Markdown documents."""
+def sync(corpus: str, path: str, formats: str | None = None) -> str:
+    """Synchronize a corpus with a folder of documents.
+
+    Reads Markdown, Word (.docx), PowerPoint (.pptx) and PDF files by default;
+    `formats` ("md,txt") chooses. A file named like `guide.pdf.yaml` beside a
+    converted file gives it frontmatter, such as `status: draft` or `valid_until`.
+    """
     with _caller():
-        summary = _client(corpus).sync(path)
+        summary = _client(corpus).sync(path, formats=formats)
     return json.dumps(summary.__dict__, indent=2)
 
 

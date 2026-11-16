@@ -1899,8 +1899,19 @@ def ingest_repo(
     ] = False,
     verbose: State = False,
     debug: Debug = False,
+    formats: Annotated[
+        str | None,
+        typer.Option(
+            "--formats",
+            help=(
+                "Which files to read, comma-separated: md, docx, pptx, pdf, txt. "
+                "Default md,docx,pptx,pdf. A file beside one, named like "
+                "guide.pdf.yaml, gives it frontmatter (status, valid_until)."
+            ),
+        ),
+    ] = None,
 ) -> None:
-    """Batch ingest all Markdown files from a repository.
+    """Ingest a folder: Markdown, Word, PowerPoint and PDF files.
 
     The exit code says whether the documents landed: 0 when every one did,
     1 when any failed. A warning is printed as `[WARN]` and still exits 0,
@@ -1940,6 +1951,14 @@ def ingest_repo(
         typer.echo(f"[ERROR] Path not found: {resolved}", err=True)
         raise typer.Exit(code=1)
 
+    from verilore.api.services.ingestion import sync_formats
+
+    try:
+        sync_formats(formats)
+    except ValueError as exc:
+        typer.echo(f"[ERROR] --formats: {exc}", err=True)
+        raise typer.Exit(code=2)
+
     try:
         from verilore.cli.postgres import ensure_local_postgres
 
@@ -1954,7 +1973,10 @@ def ingest_repo(
         return
     try:
         summary = client.sync(
-            str(resolved), delete_removed=delete_removed, embed_chunks=embed_chunks
+            str(resolved),
+            delete_removed=delete_removed,
+            embed_chunks=embed_chunks,
+            formats=formats,
         )
     except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
         _fail(exc, verbose, debug)

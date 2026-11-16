@@ -93,6 +93,108 @@ def _reference_targets(rels: list[str], reference: str) -> str | None:
     return suffixed[0] if len(suffixed) == 1 else None
 
 
+#: What `sync` reads by default: Markdown, and the formats a brand kit arrives
+#: in. Plain text is opt-in, because a code repository is full of `.txt` files
+#: (licences, requirements) that are not memory.
+SYNC_FORMATS = (".md", ".markdown", ".docx", ".pptx", ".pdf")
+SYNC_FORMATS_OPTIONAL = (".txt",)
+_MARKDOWN = (".md", ".markdown")
+
+
+def sync_formats(formats=None) -> tuple[str, ...]:
+    """Normalise a `formats` choice ("md,docx", [".pdf"], None) to a tuple of suffixes."""
+    if formats is None:
+        return SYNC_FORMATS
+    if isinstance(formats, str):
+        formats = formats.split(",")
+    chosen = []
+    for item in formats:
+        suffix = "." + str(item).strip().lower().lstrip(".")
+        if suffix == ".":
+            continue
+        if suffix not in SYNC_FORMATS + SYNC_FORMATS_OPTIONAL:
+            supported = ", ".join(s.lstrip(".") for s in SYNC_FORMATS + SYNC_FORMATS_OPTIONAL)
+            raise ValueError(f"unsupported format {suffix.lstrip('.')!r}; use {supported}")
+        if suffix == ".md":
+            chosen.append(".markdown")
+        chosen.append(suffix)
+    return tuple(dict.fromkeys(chosen))
+
+
+def _is_source(path: Path, suffixes: tuple[str, ...]) -> bool:
+    """Whether `sync` reads this file.
+
+    Word writes `~$guide.docx` beside a document while it is open, and macOS
+    writes `._guide.docx` on drives that cannot hold its metadata. Neither is a
+    document, and each would fail to convert, so neither is read.
+    """
+    return (
+        path.is_file()
+        and path.suffix.lower() in suffixes
+        and not path.name.startswith(("~$", "._"))
+    )
+
+
+def _sidecar_metadata(path: Path) -> dict:
+    """The frontmatter a sidecar (`guide.pdf.yaml`) gives a non-Markdown file.
+
+    Raises `ValueError` with the reason when the sidecar cannot be used.
+    """
+    import yaml
+
+    sidecar = path.with_name(path.name + ".yaml")
+    if not sidecar.is_file():
+        return {}
+    try:
+        extra = yaml.safe_load(sidecar.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
+        raise ValueError(f"{sidecar.name} is not valid YAML ({exc})") from None
+    if not isinstance(extra, dict):
+        raise ValueError(f"{sidecar.name} must be a mapping of fields")
+    return extra
+
+
+def _source_text(path: Path, rel_path: str) -> str:
+    """A source file as the Markdown the archive stores.
+
+    Markdown is read as it is. Word, PowerPoint, PDF and text files are
+    converted by `source_formats.parse_file`, and the claims' evidence quotes
+    the converted text. A file cannot carry frontmatter, so an optional sidecar
+    beside it (`guide.pdf.yaml`) supplies it: `status`, `valid_until`, `prose`,
+    `title`. A file that converts to no text at all (a scanned PDF) is refused
+    with the reason, rather than stored as an empty document.
+    """
+    if path.suffix.lower() in _MARKDOWN:
+        return path.read_text(encoding="utf-8")
+    import yaml
+
+    from verilore.api.services import memory
+    from verilore.api.services.source_formats import parse_file
+
+    try:
+        metadata, body = parse_file(path)
+    except (ValueError, KeyError, OSError) as exc:
+        raise memory.ClaimValidationError(
+            rel_path, "-", f"unreadable_source: {path.suffix.lstrip('.')} could not be read ({exc})"
+        ) from None
+    text = "\n".join(line for line in body.splitlines()[1:] if line.strip())
+    if not text.strip() or all(line.startswith("## Page") for line in text.splitlines()):
+        raise memory.ClaimValidationError(
+            rel_path,
+            "-",
+            "no_text: no text could be read from this file. A scanned PDF has none; "
+            "export it with its text, or save the content as Markdown",
+        )
+    try:
+        extra = _sidecar_metadata(path)
+    except ValueError as exc:
+        raise memory.ClaimValidationError(rel_path, "-", f"invalid_sidecar: {exc}") from None
+    metadata = {**metadata, **extra}
+    metadata = {key: value for key, value in metadata.items() if value is not None}
+    front = yaml.safe_dump(metadata, sort_keys=True, allow_unicode=True, default_flow_style=False)
+    return f"---\n{front}---\n\n{body}\n"
+
+
 def _supersession_order(repo_path: Path, md_files: list[Path]) -> list[str]:
     """Order `md_files` so every referenced document is ingested before the one naming it.
 
@@ -123,8 +225,13 @@ def _supersession_order(repo_path: Path, md_files: list[Path]) -> list[str]:
     indegree: dict[str, int] = {rel: 0 for rel in rels}
     for rel in rels:
         try:
-            metadata, body = parse_markdown(by_rel[rel].read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError):
+            if by_rel[rel].suffix.lower() in _MARKDOWN:
+                metadata, body = parse_markdown(by_rel[rel].read_text(encoding="utf-8"))
+            else:
+                # A converted file declares through its sidecar; its body is not
+                # read twice for a reference it cannot hold.
+                metadata, body = _sidecar_metadata(by_rel[rel]), ""
+        except (OSError, UnicodeDecodeError, ValueError):
             # Unreadable here and unreadable below; the loop records the failure
             # for this path, and a file with no visible body declares nothing.
             continue
@@ -847,8 +954,14 @@ class IngestionService:
         corpus_id: str = DEFAULT_CORPUS_ID,
         delete_removed: bool = True,
         embed_chunks: bool = False,
+        formats=None,
     ) -> dict:
         """Synchronize a corpus with a source directory.
+
+        `formats` chooses what is read (see `sync_formats`): by default Markdown,
+        Word, PowerPoint and PDF. Only documents of those formats are removed
+        when their file is gone, so syncing once with fewer formats does not
+        delete what an earlier sync read.
 
         Reconciles indexed state against the source snapshot:
 
@@ -897,7 +1010,8 @@ class IngestionService:
         # asks after a sync that reported success.
         documents: list[dict] = []
         errors: list[str] = []
-        md_files = sorted(repo_path.rglob("*.md"))
+        suffixes = sync_formats(formats)
+        md_files = sorted(path for path in repo_path.rglob("*") if _is_source(path, suffixes))
         source_paths: set[str] = set()
 
         # One connection for the whole run.
@@ -919,7 +1033,7 @@ class IngestionService:
             for rel_path in _supersession_order(repo_path, md_files):
                 source_paths.add(rel_path)
                 try:
-                    content = (repo_path / rel_path).read_text(encoding="utf-8")
+                    content = _source_text(repo_path / rel_path, rel_path)
                     async with db.begin():
                         known = await self._path_known(db, corpus_id, rel_path)
 
@@ -1028,7 +1142,11 @@ class IngestionService:
                     await memory.lock_corpus(db, corpus_id)
                     use_memory = self.memory_enabled or await memory.enabled(db, corpus_id)
                     removed = await self._delete_stale_paths(
-                        db, corpus_id, source_paths, memory_enabled=use_memory
+                        db,
+                        corpus_id,
+                        source_paths,
+                        memory_enabled=use_memory,
+                        suffixes=suffixes,
                     )
                 deleted = removed
 
@@ -1144,7 +1262,12 @@ class IngestionService:
 
     @staticmethod
     async def _delete_stale_paths(
-        db, corpus_id: str, keep_paths: set[str], *, memory_enabled: bool = False
+        db,
+        corpus_id: str,
+        keep_paths: set[str],
+        *,
+        memory_enabled: bool = False,
+        suffixes: tuple[str, ...] | None = None,
     ) -> int:
         """Delete indexed documents, chunks, and manifest entries whose source
         paths no longer exist in the source directory.
@@ -1157,7 +1280,12 @@ class IngestionService:
             text("SELECT id, path FROM documents WHERE corpus_id = :c"),
             {"c": corpus_id},
         )
-        stale = [(row[0], row[1]) for row in result.fetchall() if row[1] not in keep_paths]
+        stale = [
+            (row[0], row[1])
+            for row in result.fetchall()
+            if row[1] not in keep_paths
+            and (suffixes is None or Path(row[1]).suffix.lower() in suffixes)
+        ]
         for doc_id, path in stale:
             if memory_enabled:
                 from verilore.api.services import memory

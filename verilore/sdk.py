@@ -1422,9 +1422,21 @@ class Verilore:
             await get_or_create_corpus(db, self.name)
 
     def sync(
-        self, path: str, *, delete_removed: bool = True, embed_chunks: bool = False
+        self,
+        path: str,
+        *,
+        delete_removed: bool = True,
+        embed_chunks: bool = False,
+        formats: "str | list[str] | None" = None,
     ) -> SyncSummary:
         """Synchronize the corpus with a source directory.
+
+        ``formats`` chooses which files are read: by default Markdown, Word
+        (``.docx``), PowerPoint (``.pptx``) and PDF; ``"md,txt"`` or
+        ``["md", "pdf"]`` to choose. A converted file's claims quote its
+        converted text. A sidecar ``guide.pdf.yaml`` gives a file frontmatter
+        (``status``, ``valid_until``, ``prose``). A PDF with no text layer is
+        reported, not stored empty.
 
         Added files are ingested; changed files are reprocessed; files removed
         from the source are dropped from the index (when ``delete_removed``).
@@ -1438,10 +1450,17 @@ class Verilore:
         needs a vector when it runs.
         """
         corpus_id = self._corpus_id(write=True)
+        # `formats` is passed only when chosen, so the call is the one it always
+        # was for a caller that never names one.
+        chosen = {} if formats is None else {"formats": formats}
         with self._as_caller():
             result = self._run(
                 self._ingestion.sync_repo(
-                    path, corpus_id, delete_removed=delete_removed, embed_chunks=embed_chunks
+                    path,
+                    corpus_id,
+                    delete_removed=delete_removed,
+                    embed_chunks=embed_chunks,
+                    **chosen,
                 )
             )
         return SyncSummary(
