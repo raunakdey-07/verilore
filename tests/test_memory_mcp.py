@@ -58,7 +58,7 @@ async def test_tools_are_async_typed_and_preserve_legacy_tools():
     # be dropped, and so that a new tool still fails here. `memory_brief` is flat
     # for a different reason: it returns text for a prompt, not the response
     # object, so it takes the two things a brief needs and nothing else.
-    flat_writes = {"memory_remember", "memory_revalidate", "memory_brief"}
+    flat_writes = {"memory_remember", "memory_revalidate", "memory_brief", "memory_check"}
     family = {name for name in tools if name.startswith("memory_")} - flat_writes
     assert family == {tool_name(operation) for operation in explained}
     assert flat_writes <= tools.keys()
