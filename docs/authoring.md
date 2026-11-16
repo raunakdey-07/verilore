@@ -229,6 +229,14 @@ inserting, moving or deleting a bullet leaves the history of the others alone
 (#160). A bullet moved to a different heading gets a new key, because the heading
 is part of what it says.
 
+**A heading is a subject; a position is not.** Two documents with the same heading
+path share keys, so `- Our voice is warm.` under `# Voice` in `brand/voice.md` and
+`- Our voice is loud.` under `# Voice` in `old/voice.md` are a conflict, and
+neither is served as current until a person settles it. Prose sentences, and lines
+in a document with no heading at all, name no subject but their own document, so
+they are keyed by that document and never paired with another's:
+`md:file-<path>:prose:<ordinal>` and `md:file-<path>:<ordinal>`.
+
 **An authored `claims:` block wins outright.** The reader does not run on a
 document that has one. An author's key is a decision, and the tool does not
 produce a second opinion beside it.
