@@ -211,7 +211,11 @@ chunk, with real character offsets. Nothing is summarised, reworded or merged.
 Status: Accepted
 ```
 
-**Not extracted:** fenced and indented code, tables, HTML comments, link reference
+A table row is one claim per row, read against its header: `| Instagram | 150
+characters | 3 |` under `| Channel | Length | Hashtags |` is "Instagram: Length:
+150 characters; Hashtags: 3".
+
+**Not extracted:** fenced and indented code, HTML comments, link reference
 definitions, horizontal rules, block quotes, and a document's own `# title`. A
 code block holds example commands, which are not decisions.
 
@@ -248,6 +252,35 @@ repository partway through a migration, so refusing the whole document over it
 would throw away the readable part over an edge that cannot be drawn yet. An
 *ambiguous* reference — two documents the name could mean — is refused instead,
 because retiring either on a coin flip would put a live fact into history.
+
+## When a line stops being true
+
+A document can say when its lines are true, in its frontmatter. Every line in
+it gets the window, unless an authored claim sets its own.
+
+```markdown
+---
+status: approved
+valid_until: 2026-11-06
+---
+
+# Diwali brief
+
+- Orders close on 5 November 2026.
+```
+
+`valid_until` is the first moment a line is no longer true: an offer that ends on
+5 November is `valid_until: 2026-11-06`. A date is midnight UTC; for another
+zone write the time with it, `2026-11-06T00:00:00+05:30`. A time with no zone is
+refused, as is anything that is not a date, and the document is not ingested:
+an expiry that cannot be read would otherwise be served forever. `valid_from` is
+when the lines start being true.
+
+Past its end a line is history. `brief`, `current` and `pack` do not serve it,
+and count it instead (`Not included: 1 expired.`, `expired_count`). Moving the
+date and syncing again brings it back. `remember` takes the same two bounds:
+`--valid-until 2026-11-06` in the CLI, `valid_until=` in the SDK, the HTTP
+route and the MCP tool.
 
 ## Quote your evidence: YAML will try to read it
 

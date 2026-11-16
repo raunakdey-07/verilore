@@ -394,6 +394,18 @@ def project(
         setattr(
             response, field, [claims[c["id"]] for c in matched[field] if c["id"] in matched_ids]
         )
+    if operation in {"current", "pack"}:
+        # Approved claims whose window has closed are not current, so nothing
+        # above returns them. Count them, so a reader can be told they exist.
+        at = state.valid_at or state.as_of or datetime.now(timezone.utc)
+        response.expired_count = sum(
+            1
+            for c in matched["uncertain_memories"]
+            if c["id"] in matched_ids
+            and claims[c["id"]].valid_until is not None
+            and claims[c["id"]].valid_until <= at
+            and claims[c["id"]].info_state not in _WITHHELD_STATES
+        )
     if operation == "evidence":
         # A conflicting claim belongs in its conflict group, not in CURRENT.
         for field in ("current_memories", "historical_memories", "uncertain_memories"):
@@ -509,6 +521,7 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
         # "nothing relevant" from "nothing sent".
         constraints=list(full.constraints),
         withheld_counts=full.withheld_counts,
+        expired_count=full.expired_count,
         # The ranking that produced this selection, not the pack that survived
         # it. Truncating the shortlist would hide exactly the near-misses the
         # caller needs in order to notice that the budget cost them the answer.

@@ -46,7 +46,7 @@ import asyncio
 import contextlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Literal
 
 from verilore.errors import VeriloreError
@@ -237,6 +237,19 @@ def _as_client_error(exc: Exception) -> Exception:
             request_id=getattr(exc, "request_id", None),
         )
     return _database_unavailable(exc) or exc
+
+
+def _iso_bound(value) -> str | None:
+    """A validity bound as the text the write path reads: a date or a zoned time.
+
+    A `date` or `datetime` is sent as its ISO text. The service checks it, so a
+    datetime without a zone is refused with the fix rather than guessed at.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 def _database_unavailable(exc: Exception) -> MemoryClientError | None:
@@ -520,6 +533,8 @@ class MemoryClient:
         topic_key: str | None = None,
         state: str | None = None,
         scope: str | None = None,
+        valid_from: "datetime | date | str | None" = None,
+        valid_until: "datetime | date | str | None" = None,
     ) -> MemoryResult:
         """Record a fact as authoritative memory, and return what was written.
 
@@ -544,6 +559,12 @@ class MemoryClient:
         the same way. ``file=`` reads a local path, so state and scope are not
         supported with it -- read the file and send its content as the statement.
 
+        ``valid_from`` / ``valid_until`` bound when the fact is true: a date, a
+        datetime with its zone, or the ISO text of either. ``valid_until`` is the
+        first moment it is no longer true, so an offer ending on 5 November is
+        ``valid_until="2026-11-06"``; past it the claim is not current and no
+        brief, pack or recall serves it. Not accepted with ``file=``.
+
         ``supersedes_claim_id`` retires a named claim in this corpus and
         ``topic_key`` retires whatever is active under that key, both from any
         document -- so a newer ADR supersedes an older one without either file
@@ -562,6 +583,13 @@ class MemoryClient:
                 "local path on this machine. Read the file and send its content "
                 "as the statement."
             )
+        if file is not None and (valid_from is not None or valid_until is not None):
+            raise ValueError(
+                "valid_from and valid_until are not supported with file=; put them "
+                "in the file's frontmatter, where they apply to every line in it."
+            )
+        valid_from = _iso_bound(valid_from)
+        valid_until = _iso_bound(valid_until)
         name = self._corpus_name(corpus)
         if self._client.base_url is None:
             _require_sync()
@@ -577,6 +605,8 @@ class MemoryClient:
                     topic_key=topic_key,
                     state=state,
                     scope=scope,
+                    valid_from=valid_from,
+                    valid_until=valid_until,
                 )
                 return MemoryResult.from_write(written, name, statement)
 
@@ -598,6 +628,8 @@ class MemoryClient:
                             topic_key,
                             state=state,
                             scope=scope,
+                            valid_from=valid_from,
+                            valid_until=valid_until,
                         )
                         if remote is not None:
                             return remote
@@ -628,6 +660,8 @@ class MemoryClient:
                 "topic_key": topic_key,
                 "state": state,
                 "scope": scope,
+                "valid_from": valid_from,
+                "valid_until": valid_until,
             }.items()
             if v is not None
         }
@@ -807,6 +841,8 @@ class MemoryClient:
         topic_key: str | None = None,
         state: str | None = None,
         scope: str | None = None,
+        valid_from: str | None = None,
+        valid_until: str | None = None,
     ) -> "MemoryResult | None":
         """One write through a running runtime, or None if there is not one."""
         if not getattr(self._client, "use_runtime", False):
@@ -828,6 +864,8 @@ class MemoryClient:
                     "topic_key": topic_key,
                     "state": state,
                     "scope": scope,
+                    "valid_from": valid_from,
+                    "valid_until": valid_until,
                 },
                 timeout=self._client.timeout,
             )
@@ -1388,6 +1426,8 @@ class Verilore:
         topic_key: str | None = None,
         state: str | None = None,
         scope: str | None = None,
+        valid_from: "datetime | date | str | None" = None,
+        valid_until: "datetime | date | str | None" = None,
     ) -> MemoryResult:
         """Record a fact as authoritative memory, and return what was written.
 
@@ -1427,6 +1467,8 @@ class Verilore:
             topic_key=topic_key,
             state=state,
             scope=scope,
+            valid_from=valid_from,
+            valid_until=valid_until,
         )
 
     def revalidate(

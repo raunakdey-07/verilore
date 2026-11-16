@@ -666,6 +666,23 @@ def remember(
     ] = False,
     verbose: State = False,
     debug: Debug = False,
+    valid_from: Annotated[
+        str | None,
+        typer.Option(
+            "--valid-from",
+            help="When the fact starts being true: a date (2026-11-01) or a time with its zone.",
+        ),
+    ] = None,
+    valid_until: Annotated[
+        str | None,
+        typer.Option(
+            "--valid-until",
+            help=(
+                "The first moment the fact is no longer true, e.g. 2026-11-06 for an "
+                "offer that ends on 5 November. After it the fact is not served."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Record a fact. It becomes memory with evidence, not a search index entry.
 
@@ -697,6 +714,8 @@ def remember(
             topic_key=topic_key,
             state=state,
             scope=scope,
+            valid_from=valid_from,
+            valid_until=valid_until,
         )
     except Exception as exc:  # noqa: BLE001 - every failure becomes guidance
         _fail(exc, verbose, debug)
@@ -718,6 +737,16 @@ def remember(
             corpus=corpus,
         )
     )
+    from verilore.api.services.markdown_claims import has_ended, validity_value
+
+    if valid_until and has_ended(validity_value(valid_until, "valid_until")):
+        # Recorded, as history may want, but it will never be served. Saying so
+        # here is the difference between a typo in the year and a silent loss.
+        typer.echo(
+            f"Note: --valid-until {valid_until} has already passed, so this is "
+            "history: brief, current and pack will not serve it.",
+            err=True,
+        )
     _warm_runtime()
 
 

@@ -382,7 +382,22 @@ def scoped_key(scope: str | None, key: str) -> str:
     return f"{scope}/{key}"
 
 
-def render_statement(statement: str, key: str, state: str = "approved") -> str:
+def check_validity(valid_from=None, valid_until=None) -> dict[str, str]:
+    """Validate a write's validity window. Returns the bounds that were given, as text."""
+    from verilore.api.services.markdown_claims import document_validity
+
+    try:
+        return document_validity({"valid_from": valid_from, "valid_until": valid_until})
+    except ValueError as exc:
+        raise DecisionError("invalid_validity", str(exc)) from None
+
+
+def render_statement(
+    statement: str,
+    key: str,
+    state: str = "approved",
+    validity: dict[str, str] | None = None,
+) -> str:
     """Render a statement as a memory document with exactly one authored claim.
 
     The claim text is the statement, and the evidence quote is the same text: the
@@ -423,6 +438,10 @@ def render_statement(statement: str, key: str, state: str = "approved") -> str:
     )
     if explicit:
         lines.append(f"    info_state: {state}\n")
+    # Only when given, so a statement with no window renders byte for byte as
+    # it did before windows could be set on a write.
+    for field, value in (validity or {}).items():
+        lines.append(f"    {field}: {_yaml_scalar(value)}\n")
     lines.extend(["---\n\n", f"# {title}\n\n", f"{statement}\n"])
     return "".join(lines)
 
@@ -503,6 +522,8 @@ async def remember(
     topic_key: str | None = None,
     state: str | None = None,
     scope: str | None = None,
+    valid_from=None,
+    valid_until=None,
 ) -> dict:
     """Record one statement as authoritative memory. Returns the write result.
 
@@ -526,10 +547,23 @@ async def remember(
     that key instead, which is how `adr-002.md` retires `adr-001.md` without
     either file being edited.
 
+    `valid_from` / `valid_until` bound when the statement is true: a date, a
+    datetime with a zone, or the ISO text of either. `valid_until` is the first
+    moment it is no longer true; past it the claim is not current and is not
+    served by brief, current or pack. Not accepted with `file`, whose
+    frontmatter carries its own window.
+
     `corpus_id` lets a caller that already resolved the corpus skip the lookup.
     """
     state = check_state(state)
     scope = check_scope(scope)
+    validity = check_validity(valid_from, valid_until)
+    if file is not None and validity:
+        raise DecisionError(
+            "invalid_validity",
+            "valid_from and valid_until are not accepted with file=; put them in "
+            "the file's frontmatter, where they apply to every line in it",
+        )
     from verilore.api.services import telemetry
 
     # One recorder, so every surface that calls `remember` is logged without each
@@ -620,7 +654,7 @@ async def remember(
         else:
             topic_key_for_write = topic_key or key
         written = await _write(
-            render_statement(statement, resolved_key, state),
+            render_statement(statement, resolved_key, state, validity),
             path,
             corpus_id,
             resolved_key,

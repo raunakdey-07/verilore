@@ -168,6 +168,8 @@ def memory_remember(
     topic_key: str | None = None,
     state: str | None = None,
     scope: str | None = None,
+    valid_from: str | None = None,
+    valid_until: str | None = None,
 ) -> CallToolResult:
     """Record one statement as authoritative memory, with exact-substring evidence.
 
@@ -194,6 +196,11 @@ def memory_remember(
     edited. Either argument is refused, not guessed at, when it does not resolve to
     exactly one live claim, and a phrase that matches two is refused with their
     ids in the message.
+
+    ``valid_until`` is the first moment the statement stops being true, as a
+    date ("2026-11-06") or an ISO time with its zone; after it the statement is
+    not served. Set it for anything that ends: an offer, a deadline, a price
+    for a season. ``valid_from`` is when it starts.
 
     ``state`` is the decision state of the claim: "draft" (the default here),
     "approved" or "rejected". A statement you save is a proposal: it is stored
@@ -260,6 +267,8 @@ def memory_remember(
                 topic_key=topic_key,
                 state=state,
                 scope=scope,
+                valid_from=valid_from,
+                valid_until=valid_until,
             )
     except AuthorizationError as exc:
         # Caught like `_execute_memory` catches it. Anything else escapes as a
@@ -291,6 +300,12 @@ def memory_remember(
             "Saved as a draft. It is not served by brief, current or pack until a "
             'person approves it: call again with state="approved" when they do.'
         )
+    from verilore.api.services.markdown_claims import has_ended, validity_value
+
+    if valid_until and has_ended(validity_value(valid_until, "valid_until")):
+        payload["note"] = (
+            payload.get("note", "") + " " if payload.get("note") else ""
+        ) + f"valid_until {valid_until} has already passed, so this will not be served."
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(payload, indent=2))])
 
 

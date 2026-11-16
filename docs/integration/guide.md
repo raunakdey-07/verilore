@@ -390,6 +390,13 @@ Nothing already stored changes until its document is ingested again.
 `include_states` names states the caller wants to see anyway. `withheld_counts`
 reports how many were held back, per state.
 
+**Lines that end.** A campaign's offer and deadline stop being true on a date.
+Put `valid_until: 2026-11-06` in the brief's frontmatter, or pass
+`valid_until="2026-11-06"` to `remember`, and from that moment the line is not
+served; `expired_count` and the brief's last line count it. `valid_until` is
+the first moment the line is no longer true, as a date (midnight UTC) or a time
+with its zone ([details](../authoring.md#when-a-line-stops-being-true)).
+
 ```python
 default_pack = mp.memory.pack(query="", budget=16000, path_prefix=["brand", "campaigns/spring"])
 assert (default_pack.withheld_counts or {}).get("draft", 0) >= 1, default_pack.withheld_counts

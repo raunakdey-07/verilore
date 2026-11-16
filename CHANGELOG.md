@@ -74,6 +74,19 @@ now grouped under the document they come from, and remembered statements under
 "Saved decisions" instead of a generated file name. `claim_ids` still names
 every claim.
 
+**Lines that end (TIME-1).** "Orders close on 5 November" was still served on
+16 November, because only an authored `claims:` block could say when a line
+stops being true. A document's frontmatter can now: `valid_from` and
+`valid_until` apply to every line in it that does not set its own. `remember`
+takes both on every surface (`--valid-from` / `--valid-until`, `valid_from=` /
+`valid_until=`, and the MCP tool). `valid_until` is the first moment a line is
+no longer true; a date is midnight UTC, a time needs its zone, and a value that
+cannot be read refuses the document instead of serving it forever. Past its end
+a line is not served by `brief`, `current` or `pack`, and is counted in a new
+`expired_count` diagnostic, which the brief's last line reports; the answered
+bytes, and every receipt over them, are unchanged. The CLI and MCP say so when a
+write's `valid_until` has already passed.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
@@ -155,6 +168,13 @@ sync job treated a normal kit as broken. A sync now has three outcomes: `[OK]`,
 was not ingested, exit 1). `--strict` makes warnings exit 1. In the SDK,
 `SyncSummary.warnings` lists them and `SyncSummary.ok` is true when nothing
 failed; `success` keeps its stricter meaning.
+
+**A document the archive refuses is a 422, not "Semantic model unavailable".**
+`POST /api/ingest/file` caught every `ValueError` as a model failure, so an
+authored claim whose evidence was not in the text came back as a 503 that named
+the wrong cause. It is now 422 `invalid_document` with the archive's reason.
+`docs/authoring.md` no longer says tables are not extracted: each row has been
+a claim since v0.11.
 
 ## [v0.11.0] - 2026-11-10
 

@@ -1291,6 +1291,106 @@ def detect_info_state(metadata: dict, body: str = "") -> str:
     return document_state(metadata)[0]
 
 
+#: The two validity fields, in a document's frontmatter or on one claim.
+VALIDITY_FIELDS = ("valid_from", "valid_until")
+
+
+def validity_value(value: Any, field: str) -> str | None:
+    """One validity bound as an ISO string, or None. Raises ValueError with the fix.
+
+    Accepts what YAML and a caller give: a date (`2026-11-06`), a datetime with a
+    time zone, or the ISO text of either. A date is midnight UTC at the start of
+    that day. `valid_until` is the first moment the line is no longer true, so a
+    sale that ends on 5 November is `valid_until: 2026-11-06`.
+
+    A time with no zone is refused rather than guessed: whether "midnight" means
+    UTC or India decides five and a half hours of an offer being served.
+    """
+    from datetime import date, datetime
+
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    original = value
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            if len(text) == 10:
+                value = date.fromisoformat(text)
+            else:
+                value = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError(
+                f"{field} {original!r} is not a date or a time; write a date such as "
+                f"2026-11-06, or a time with its zone such as 2026-11-06T00:00:00+05:30"
+            ) from None
+    if isinstance(value, datetime):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                f"{field} {original!s} has no time zone; add one, such as "
+                f"{value.date().isoformat()}T{value.time().isoformat()}+05:30, or write "
+                f"only the date"
+            )
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    raise ValueError(f"{field} {original!r} is not a date or a time")
+
+
+def document_validity(metadata: dict) -> dict[str, str]:
+    """The `valid_from` / `valid_until` a document's frontmatter declares, checked.
+
+    Applies to every claim in the document that does not set its own. Raises
+    ValueError when a value cannot be read, or when the window ends before it
+    begins: a document whose expiry cannot be read must not be served forever.
+    """
+    found = {
+        field: validity_value(metadata.get(field), field)
+        for field in VALIDITY_FIELDS
+        if metadata.get(field) is not None
+    }
+    found = {field: value for field, value in found.items() if value is not None}
+    if len(found) == 2 and _instant(found["valid_until"]) < _instant(found["valid_from"]):
+        raise ValueError("valid_until must not be before valid_from")
+    return found
+
+
+def has_ended(valid_until: str | None, now=None) -> bool:
+    """Whether a `valid_until` from `validity_value` is at or before now."""
+    from datetime import datetime, timezone
+
+    if not valid_until:
+        return False
+    return _instant(valid_until) <= (now or datetime.now(timezone.utc))
+
+
+def _instant(value: str):
+    from datetime import date, datetime, timezone
+
+    if len(value) == 10:
+        return datetime.combine(date.fromisoformat(value), datetime.min.time(), timezone.utc)
+    return datetime.fromisoformat(value)
+
+
+def apply_document_validity(claims: list[dict], metadata: dict) -> list[dict]:
+    """Give every claim the document's validity window, unless it sets its own.
+
+    A claim that names either bound keeps both of its own: an authored claim's
+    window is a decision about that claim, and mixing its start with the
+    document's end would build a window nobody wrote.
+    """
+    window = document_validity(metadata)
+    if not window:
+        return claims
+    return [
+        (
+            claim
+            if any(claim.get(field) is not None for field in VALIDITY_FIELDS)
+            else {**claim, **window}
+        )
+        for claim in claims
+    ]
+
+
 def claims_for(metadata: dict, body: str, chunks: list[dict], *, path: str = ""):
     """The claims a document should archive: its own, or the ones its structure gives.
 

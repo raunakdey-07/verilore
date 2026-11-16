@@ -776,6 +776,8 @@ async def _dispatch_scoped(operation: str, request: dict, runtime: _Runtime) -> 
             topic_key=request.get("topic_key"),
             state=request.get("state"),
             scope=request.get("scope"),
+            valid_from=request.get("valid_from"),
+            valid_until=request.get("valid_until"),
         )
         return RememberResult(
             corpus=name,
