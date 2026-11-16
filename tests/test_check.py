@@ -227,6 +227,30 @@ def test_the_cli_reads_a_file_or_stdin_and_exits_one_on_a_finding(monkeypatch, t
     assert json.loads(good.output)["ok"] is True
 
 
+def test_the_cli_refuses_a_draft_it_should_not_read(monkeypatch, tmp_path):
+    """A draft is a post or a page: over 1 MB is refused before anything is
+    asked of memory, and so is a file that is not text."""
+    import verilore.cli.main as cli
+
+    def unreachable(*_args, **_kwargs):
+        raise AssertionError("memory was asked about a draft that was refused")
+
+    monkeypatch.setattr(cli, "_client", unreachable)
+    runner = CliRunner()
+    big = tmp_path / "book.txt"
+    big.write_bytes(b"word " * 200_001)
+    refused = runner.invoke(cli.app, ["check", str(big)])
+    assert refused.exit_code == 2
+    assert "over 1 MB" in refused.output
+    binary = tmp_path / "photo.txt"
+    binary.write_bytes(b"\xff\xd8\xff\xe0 not text")
+    refused = runner.invoke(cli.app, ["check", str(binary)])
+    assert refused.exit_code == 2
+    assert "not UTF-8" in refused.output
+    piped = runner.invoke(cli.app, ["check", "-"], input="x" * 1_000_001)
+    assert piped.exit_code == 2
+
+
 @pytest.fixture
 def service(monkeypatch):
     """The MCP adapter's service, replaced: no database."""

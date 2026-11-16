@@ -1029,11 +1029,17 @@ def brief(
         )
 
 
+#: The largest draft `verilore check` reads.
+_MAX_DRAFT_BYTES = 1_000_000
+
+
 @app.command()
 def check(
     draft: Annotated[
         str,
-        typer.Argument(help="A file holding the draft, or - to read it from standard input."),
+        typer.Argument(
+            help="A file holding the draft (at most 1 MB), or - to read it from standard input."
+        ),
     ],
     corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
     path_prefix: Annotated[
@@ -1059,11 +1065,31 @@ def check(
     """
     from verilore.check import render_check
 
+    # The draft is read here, by the person running the command, as they could
+    # read it with `cat`: it is compared and never stored, and a finding quotes
+    # only the banned word or the number it found. It is bounded because a draft
+    # is a post or a page, and a check of a whole book is a mistake.
+    limit = _MAX_DRAFT_BYTES
     try:
-        text = sys.stdin.read() if draft == "-" else Path(draft).read_text(encoding="utf-8")
+        if draft == "-":
+            raw = sys.stdin.buffer.read(limit + 1)
+        else:
+            with Path(draft).open("rb") as handle:
+                raw = handle.read(limit + 1)
     except OSError as exc:
         _fail(exc, verbose, debug)
         return
+    if len(raw) > limit:
+        typer.echo(
+            f"[ERROR] The draft is over {limit // 1_000_000} MB. Check a post or a page at a time.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        typer.echo("[ERROR] The draft is not UTF-8 text.", err=True)
+        raise typer.Exit(code=2)
     try:
         client = _client(base_url, runtime=True)
         result = _run(
