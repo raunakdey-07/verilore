@@ -337,6 +337,31 @@ def _slug(heading_path: str) -> str:
     return f"{stem or 'section'}-{digest}"
 
 
+def _key_stem(heading_path: str, path: str) -> str:
+    """The subject part of a derived key: what a line is about.
+
+    A heading names a subject, so lines under the same heading path in two
+    documents share a key, and a difference between them is a conflict a person
+    should see. A line under no heading names no subject but its own document:
+    without one, every heading-less note in a corpus shared one key, and two
+    unrelated notes were paired line by line as conflicts.
+    """
+    if heading_path or not path:
+        return _slug(heading_path)
+    return f"file-{_slug(path)}"
+
+
+def _prose_key_base(path: str) -> str:
+    """The key base for a document's prose sentences.
+
+    Prose is never paired with another document's prose by position: the first
+    sentence of a voice guide and the first sentence of an FAQ are not about the
+    same thing. Keyed `md:prose` in every document, they were, and both were
+    served as a conflict instead of as current.
+    """
+    return f"md:file-{_slug(path)}:prose" if path else "md:prose"
+
+
 def _declarative(text: str) -> bool:
     """Whether a line reads as a statement rather than as structure."""
     stripped = text.strip()
@@ -656,7 +681,7 @@ def _table_claims(
             )
             continue
         seen_quotes.add(signature)
-        key_base = f"md:{_slug(heading_path)}:table"
+        key_base = f"md:{_key_stem(heading_path, path)}:table"
         ordinal = ordinals.get(key_base, 0)
         ordinals[key_base] = ordinal + 1
         key = f"{key_base}:{ordinal}"
@@ -789,7 +814,7 @@ def extract(
             return
         seen_quotes.add(signature)
 
-        key_base = f"md:{_slug(pending_path)}"
+        key_base = f"md:{_key_stem(pending_path, path)}"
         ordinal = ordinals.get(key_base, 0)
         ordinals[key_base] = ordinal + 1
         key = f"{key_base}:{ordinal}"
@@ -895,7 +920,14 @@ def extract(
         )
     if mode != "off":
         skipped, unquotable = _prose_claims(
-            paragraphs, haystacks, mode, claims, seen_claims, seen_quotes, ordinals
+            paragraphs,
+            haystacks,
+            mode,
+            claims,
+            seen_claims,
+            seen_quotes,
+            ordinals,
+            _prose_key_base(path),
         )
         # Every sentence either became a claim or is counted here. In `all`
         # mode that is only a sentence with no evidence anybody could check;
@@ -1013,7 +1045,9 @@ def _reads_as_statement(sentence: str) -> bool:
     return _declarative(sentence)
 
 
-def _prose_claims(paragraphs, haystacks, mode, claims, seen_claims, seen_quotes, ordinals):
+def _prose_claims(
+    paragraphs, haystacks, mode, claims, seen_claims, seen_quotes, ordinals, key_base="md:prose"
+):
     """Turn paragraphs into claims. Returns `(skipped, unquotable)`.
 
     `paragraphs` are `(heading path, raw lines)`: the lines exactly as written.
@@ -1044,7 +1078,6 @@ def _prose_claims(paragraphs, haystacks, mode, claims, seen_claims, seen_quotes,
             if signature in seen_quotes:
                 continue
             seen_quotes.add(signature)
-            key_base = "md:prose"
             ordinal = ordinals.get(key_base, 0)
             ordinals[key_base] = ordinal + 1
             key = f"{key_base}:{ordinal}"

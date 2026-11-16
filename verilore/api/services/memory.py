@@ -125,6 +125,15 @@ def _vector_literal(values) -> str:
     return "[" + ",".join(repr(float(x)) for x in values) + "]"
 
 
+#: Derived keys that name no subject, as an archive written before v0.12.0 holds
+#: them: every prose sentence was `md:prose:<n>` and every line under no heading
+#: was `md:section-e3b0c442:<n>` (the slug of an empty heading path), in every
+#: document. The same position in two unrelated documents is not the same
+#: subject, so these never conflict across documents. New archives key such lines
+#: by their own document and never produce these.
+_SUBJECTLESS_KEY = re.compile(r"md:(?:prose|section-e3b0c442(?::table)?):\d+")
+
+
 def _canonical(value) -> str:
     return json.dumps(_json_value(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -1546,6 +1555,7 @@ def _query_result(versions, query_text, valid_at=None, *, lineage: bool = False)
         for left, right in combinations(key_claims, 2):
             if (
                 left["memory_document_id"] != right["memory_document_id"]
+                and not _SUBJECTLESS_KEY.fullmatch(left["key"])
                 and _canonical(left["value"]) != _canonical(right["value"])
                 and (matches(left) or matches(right))
             ):

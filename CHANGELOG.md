@@ -207,6 +207,17 @@ the wrong cause. It is now 422 `invalid_document` with the archive's reason.
 `docs/authoring.md` no longer says tables are not extracted: each row has been
 a claim since v0.11.
 
+- **Prose and heading-less lines are no longer paired with other documents as
+  conflicts.** Every prose sentence was keyed `md:prose:<n>`, and every line in a
+  document with no heading `md:section-e3b0c442:<n>`, in every document. So the
+  first sentence of a voice guide and the first sentence of an FAQ shared a key:
+  both were reported as a conflict and neither was served as current, and a brief
+  told the model that they disagree. Such lines are now keyed by their own document
+  (`md:file-<path>:prose:<n>`, `md:file-<path>:<n>`), and an archive that already
+  holds the old keys is read without the false conflicts, with nothing to
+  re-ingest. Lines under the same heading in two documents still share a key, and
+  still conflict when they differ.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
