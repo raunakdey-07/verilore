@@ -102,6 +102,8 @@ async def remember(request: RememberRequest) -> RememberResult:
             topic_key=request.topic_key,
             state=request.state,
             scope=request.scope,
+            valid_from=request.valid_from,
+            valid_until=request.valid_until,
         )
     except (RememberError, ClaimValidationError) as exc:
         # The two places a statement is rejected: the service's own validation, and

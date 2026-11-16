@@ -324,7 +324,9 @@ def render_brief(
     # One entry per distinct sentence, in first-seen order.
     entries: list[dict[str, Any]] = []
     by_sentence: dict[str, dict[str, Any]] = {}
-    expired = 0
+    # The service leaves out what had expired when it answered and counts it;
+    # anything that expired between then and now is counted here.
+    expired = int(_get(response, "expired_count", 0) or 0)
     for claim in _get(response, "current_memories", []) or []:
         claim_id = str(_get(claim, "id"))
         if claim_id in disputed:

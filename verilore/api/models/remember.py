@@ -83,8 +83,15 @@ class RememberRequest(BaseModel):
     stored claim key is f"{scope}/{key}"; the response's key is that full key,
     so sending it back as key with the same scope is the same memory, and
     topic_key is scoped the same way."""
+    valid_from: str | None = None
+    """When the statement starts being true: a date ("2026-11-01") or an ISO
+    time with its zone. Omitted means it has always been true."""
+    valid_until: str | None = None
+    """The first moment the statement is no longer true, e.g. "2026-11-06" for
+    an offer that ends on 5 November. Past it the claim is not current and is
+    not served. A time with no zone is 422 `invalid_validity`."""
 
-    @field_validator("statement", "key", "topic_key", mode="before")
+    @field_validator("statement", "key", "topic_key", "valid_from", "valid_until", mode="before")
     @classmethod
     def blank_to_none(cls, value):
         """Treat a blank string as absent, so `key=""` is not a silent error."""

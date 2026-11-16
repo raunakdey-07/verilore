@@ -45,6 +45,23 @@ MAX_SYNC_ERRORS = 50
 STATISTICS_REFRESH_MINIMUM = 200
 
 
+def _with_document_validity(claims: list[dict], metadata: dict, path: str) -> list[dict]:
+    """`apply_document_validity`, with a value it cannot read named in the sync report.
+
+    A document whose expiry cannot be read is refused rather than ingested
+    without one: served past its end date is the failure the field prevents.
+    `ClaimValidationError` carries a `reason`, which is what `sync` prints, so
+    the author reads "valid_until 'next friday' is not a date" instead of
+    "ValueError".
+    """
+    from verilore.api.services import memory
+
+    try:
+        return markdown_claims.apply_document_validity(claims, metadata)
+    except ValueError as exc:
+        raise memory.ClaimValidationError(path, "-", f"invalid_validity: {exc}") from None
+
+
 def _sync_error(path: str, exc: Exception) -> str:
     """Return a bounded, non-sensitive sync failure description."""
     reason = getattr(exc, "reason", None) or type(exc).__name__
@@ -554,6 +571,8 @@ class IngestionService:
             authored, state_warnings = markdown_claims.apply_document_state(
                 metadata["claims"], metadata
             )
+            # And its validity window, for claims that do not set their own.
+            authored = _with_document_validity(authored, metadata, path)
             for state_warning in state_warnings:
                 code, _, value = state_warning.partition(":")
                 frontmatter_warnings.append(FrontmatterWarning(code, path=path, field=value))
@@ -597,6 +616,10 @@ class IngestionService:
                     db, corpus_id, path, derived["claims"]
                 )
                 _warnings = _mc.assign_states(derived["claims"], metadata)
+                # A document's `valid_from` / `valid_until` frontmatter is the
+                # window of every line in it: a campaign brief that ends on
+                # 5 November stops being served on the 6th.
+                derived["claims"] = _with_document_validity(derived["claims"], metadata, path)
                 for _warning in _warnings:
                     # `unknown_status:<value>`: report it like any other
                     # frontmatter warning, code first, the value in `field`.

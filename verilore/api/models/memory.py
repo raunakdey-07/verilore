@@ -216,6 +216,10 @@ class MemoryResponse(Contract):
     #: Derived from the ranking, like the other diagnostics; excluded from the
     #: digest for the same reason.
     unmatched_subparts: list[str] = Field(default_factory=list, exclude=True)
+    #: Approved claims in scope that `current` and `pack` left out because their
+    #: `valid_until` has passed. A diagnostic like the others: it lets a brief
+    #: say "2 expired" without changing a byte of what was answered.
+    expired_count: int = Field(default=0, exclude=True)
     #: Distinct withheld claim ids per withheld state, for current and pack.
     #: Present only when at least one claim was withheld; a response with nothing
     #: withheld is byte-identical to a response without this field.
@@ -227,6 +231,7 @@ class MemoryResponse(Contract):
         "match_margin",
         "candidates",
         "unmatched_subparts",
+        "expired_count",
     )
 
     def canonical_json(self) -> str:
@@ -265,6 +270,7 @@ class MemoryResponse(Contract):
             "match_margin": self.match_margin,
             "candidates": [c.model_dump(mode="json") for c in self.candidates],
             "unmatched_subparts": list(self.unmatched_subparts),
+            "expired_count": self.expired_count,
         }
 
     def public_dict(self) -> dict[str, Any]:
@@ -294,6 +300,7 @@ class MemoryWire(MemoryResponse):
     match_margin: float | None = None
     candidates: list[Candidate] = Field(default_factory=list)
     unmatched_subparts: list[str] = Field(default_factory=list)
+    expired_count: int = 0
 
     def canonical_json(self) -> str:
         """The budget applies to this complete compact JSON, including escaped content.

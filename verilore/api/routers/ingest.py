@@ -55,11 +55,21 @@ async def _writable_corpus(db: AsyncSession | None, name: str) -> str:
 @router.post("/file", response_model=IngestResponse)
 async def ingest_file(request: IngestFileRequest, db: DbSession = None) -> IngestResponse:
     """Ingest a single Markdown file into a named corpus."""
+    from verilore.api.services.memory import ClaimValidationError
+
     corpus_id = await _writable_corpus(db, request.corpus)
     try:
         result = await ingestion_service.ingest_file(
             request.content, request.path, corpus_id=corpus_id
         )
+    except ClaimValidationError as exc:
+        # A document the archive refused: an authored claim whose evidence is not
+        # in the text, an expiry that cannot be read. It is a `ValueError`, and
+        # was caught below as one, so the author was told the semantic model was
+        # unavailable. It is an input problem, with a reason that names the fix.
+        raise HTTPException(
+            status_code=422, detail={"code": "invalid_document", "message": exc.reason}
+        ) from exc
     except SEMANTIC_DEPENDENCY_ERRORS as exc:
         raise HTTPException(status_code=503, detail="Semantic model unavailable") from exc
     if not result["success"]:
