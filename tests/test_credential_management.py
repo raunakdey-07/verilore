@@ -1047,6 +1047,11 @@ def test_no_request_serving_surface_reads_a_raw_file():
             "reads a caller-supplied receipt or Memory Pack artifact, like the "
             "CLI revalidate exception"
         ),
+        ("verilore/cli/main.py", "check"): (
+            "reads the draft the person running `verilore check` names, as `cat` "
+            "would: it is compared and never stored, a finding quotes only the "
+            "banned word or number found, and the read is bounded at 1 MB"
+        ),
     }
     #: Files that are not request-serving paths at all.
     OFF_SURFACE = {

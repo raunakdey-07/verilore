@@ -1203,6 +1203,28 @@ class MemoryClient:
             must=must,
         )
 
+    def check(
+        self,
+        draft: str,
+        corpus=None,
+        *,
+        path_prefix: str | list[str] | None = None,
+        channel: str | None = None,
+    ):
+        """Check a draft against approved memory. Returns a `verilore.check.Check`.
+
+        Each finding names the approved claim it breaks: text a rule bans,
+        emojis, exclamation marks or hashtags a rule forbids, or a price, date,
+        weight, percentage or duration that differs from an approved fact about
+        the same thing. `check.ok` is true when there are none. Only exact
+        checks: tone and voice stay with the reviewer. `channel` skips bans
+        written for another channel ("Never use hashtags on LinkedIn").
+        """
+        from verilore.check import check_draft
+
+        current = self.current(corpus, "", path_prefix=path_prefix)
+        return check_draft(draft, current, channel=channel)
+
     def review(
         self,
         corpus=None,

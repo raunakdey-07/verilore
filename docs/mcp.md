@@ -76,8 +76,8 @@ whether it connected. `opencode mcp list` in OpenCode, or Settings, AI, MCP
 Servers in Zed, and a failed server usually means a `command` that is not on the
 path the client sees.
 
-Eighteen tools are advertised. `memory_brief`, `memory_recall`, `memory_query`,
-`memory_explain`, `memory_current`, `memory_history`, `memory_changes`,
+Nineteen tools are advertised. `memory_brief`, `memory_check`, `memory_recall`,
+`memory_query`, `memory_explain`, `memory_current`, `memory_history`, `memory_changes`,
 `memory_evidence`, `memory_as_of`, `memory_replay`, `memory_pack`, `memory_snapshot`,
 `memory_remember`, `memory_revalidate`, `list_corpora`, `search`, `sync` and `context`.
 
@@ -88,6 +88,13 @@ plain text lines under the file they come from, sized for a prompt (`max_chars`,
 when not everything fits it keeps rules first and then the lines closest to the task;
 `must` names folders or files that are always kept. Drafts, rejected and replaced statements are counted in its last line and
 never quoted. Use `memory_recall` when you need one fact and its evidence.
+
+`memory_check` is the one to call after writing. Give it the draft, and it returns
+each exact problem with the approved rule it breaks: text a rule bans, emojis,
+exclamation marks or hashtags a rule forbids, and a price, date, weight,
+percentage or duration that differs from an approved fact about the same thing.
+An agent fixes each one and checks again. "No problems found" covers only these
+exact checks; tone and voice are a reviewer's.
 
 ## What comes back
 

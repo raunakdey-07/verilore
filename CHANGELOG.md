@@ -103,6 +103,21 @@ the brand kit from the v0.12 review it flags exactly the four pairs a person
 would, and not two campaigns' dates, two table rows or two facts about one
 product; on the 1,413 claims of `content_eval/` it flags 8.
 
+**Check a draft against approved memory (CHECK-1).** A brief controls what a
+model is given; nothing controlled what it wrote. `vl.memory.check(draft)`,
+`verilore check draft.txt` (or `-` for standard input) and the MCP tool
+`memory_check` report each exact problem with the approved claim it breaks:
+text a rule bans (quoted, or "the word X"), emojis, exclamation marks and
+hashtags a rule forbids, and a price, date, weight, percentage or duration that
+differs from an approved fact about the same thing. Every finding quotes the
+draft. Rules that name an action rather than a word ("Never discount the house
+blend") and limits ("Do not promise delivery in under 48 hours") are not
+guessed at, and a ban for one channel is skipped when `channel` names another.
+A price is matched to the product it names ("Trail 2, now Rs 22,999"), and a
+model number keeps the Trail 2 apart from the Trail 3. A rule stated in two
+documents is one finding naming both. The CLI exits 1 on a finding. MCP now
+advertises nineteen tools.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing

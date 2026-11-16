@@ -424,6 +424,27 @@ told "these may disagree" hedges on rules that are fine. Settle a pair by
 rejecting or superseding the wrong line; a pair that agrees can be passed back
 by its id in `review(settled=[...])`.
 
+**Check the draft before a person reads it.** The brief controls what a model
+is given; `check` looks at what it wrote. It reports each exact problem with the
+approved rule it breaks: text a rule bans (`Never use the word "premium"`),
+emojis, exclamation marks or hashtags a rule forbids, and a price, date, weight,
+percentage or duration that differs from an approved fact about the same thing.
+
+```python
+draft = "Ride into spring with free shipping on every order!"
+result = mp.memory.check(draft, path_prefix=["brand", "campaigns/spring"], channel="Instagram")
+for finding in result.findings:
+    print(finding.detail, "->", finding.claim_id)
+assert result.checked >= 1
+```
+
+`result.ok` is true when there is nothing to report, which covers only these
+exact checks: tone, voice and what a line implies stay with the reviewer. A ban
+written for one channel ("Never use hashtags on LinkedIn") is skipped when
+`channel` names another. `verilore check draft.txt` does the same from a file or
+from standard input (`-`) and exits 1 on a finding, so it can gate a pipeline;
+over MCP, `memory_check` lets an agent fix its own draft before anyone sees it.
+
 ```python
 default_pack = mp.memory.pack(query="", budget=16000, path_prefix=["brand", "campaigns/spring"])
 assert (default_pack.withheld_counts or {}).get("draft", 0) >= 1, default_pack.withheld_counts

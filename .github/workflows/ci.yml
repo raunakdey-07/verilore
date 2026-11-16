@@ -1029,8 +1029,8 @@ jobs:
           assert init["serverInfo"]["name"] == "verilore", init
           tools = replies[2]["result"]["tools"]
           names = sorted(tool["name"] for tool in tools)
-          assert len(tools) == 18, names
-          for required in ("memory_brief", "memory_recall", "memory_explain",
+          assert len(tools) == 19, names
+          for required in ("memory_brief", "memory_check", "memory_recall", "memory_explain",
                            "memory_evidence", "memory_replay", "memory_pack"):
               assert required in names, f"{required} missing from tools/list"
           undocumented = [t["name"] for t in tools if not t.get("description")]
