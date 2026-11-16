@@ -1006,6 +1006,10 @@ def brief(
                     "conflicts": result.conflicts,
                     "expired": result.expired,
                     "approx_tokens": result.approx_tokens,
+                    "possible_conflicts": [
+                        {"id": p.id, "reasons": list(p.reasons), "left": p.left, "right": p.right}
+                        for p in result.possible_conflicts
+                    ],
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -1013,6 +1017,63 @@ def brief(
         )
         return
     typer.echo(result.text)
+    if result.possible_conflicts:
+        # To the terminal, not into the prompt: the text above is what a model
+        # reads, and a flag is for the person running this.
+        count = len(result.possible_conflicts)
+        typer.echo(
+            f"\n{count} pair{'s' if count != 1 else ''} of lines above may disagree. "
+            "`verilore review` lists them.",
+            err=True,
+        )
+
+
+@app.command()
+def review(
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    path_prefix: Annotated[
+        list[str] | None,
+        typer.Option("--path-prefix", help="Only documents under this folder. Repeatable."),
+    ] = None,
+    html_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--html",
+            help="Also write the review as one page a brand owner can open, to this file.",
+        ),
+    ] = None,
+    json_out: Annotated[bool, typer.Option("--json", help="Print the review as JSON.")] = False,
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Exit 1 when anything needs a person's attention."),
+    ] = False,
+    base_url: BaseURL = None,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """List what a person should settle before memory reaches a model.
+
+    Conflicts on one key, drafts waiting for approval, and approved lines from
+    different documents that may disagree. Nothing is changed or resolved.
+    """
+    from verilore.review import render_review, render_review_html
+
+    try:
+        client = _client(base_url, runtime=True)
+        result = _run(client.memory.review, corpus, path_prefix=path_prefix or None)
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if html_out is not None:
+        html_out.write_text(render_review_html(result), encoding="utf-8")
+    if json_out:
+        typer.echo(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(render_review(result))
+        if html_out is not None:
+            typer.echo(f"\nWrote {html_out}.")
+    if strict and result.open_items:
+        raise typer.Exit(code=1)
 
 
 @app.command()

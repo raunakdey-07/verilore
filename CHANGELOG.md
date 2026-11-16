@@ -87,6 +87,22 @@ a line is not served by `brief`, `current` or `pack`, and is counted in a new
 bytes, and every receipt over them, are unchanged. The CLI and MCP say so when a
 write's `valid_until` has already passed.
 
+**Review: what a person should settle before memory reaches a model
+(REVIEW-1).** Conflicts are detected only between claims sharing a key, and
+lines from two documents never share one, so "Use Indian English spelling" and
+"Use American spelling in all copy" were both served as approved. `verilore
+review`, `vl.memory.review()` and `verilore.review` list the keyed conflicts,
+the drafts waiting for approval, and pairs of approved lines from different
+documents that may disagree: two numbers for one fact, one saying "not", the
+same instruction with different details, or nearly the same words. Each pair
+says why. Nothing is resolved and the brief's text is unchanged;
+`brief.possible_conflicts` lists the pairs inside a brief and the CLI notes
+them on stderr. `--html` writes one self-contained page a brand owner can open,
+and `--strict` exits 1 while anything is open. Lexical and deterministic: on
+the brand kit from the v0.12 review it flags exactly the four pairs a person
+would, and not two campaigns' dates, two table rows or two facts about one
+product; on the 1,413 claims of `content_eval/` it flags 8.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
