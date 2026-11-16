@@ -90,6 +90,11 @@ class Brief:
     expired: int = 0
     #: What the brief was ranked for, when a task was given.
     task: str | None = None
+    #: Pairs of lines in this brief, from different documents, that may disagree
+    #: (`verilore.review.likely_pairs`). Not in the text: a flag is for a person
+    #: to settle, and a model told "these may disagree" would hedge on rules
+    #: that are fine. `verilore review` lists them.
+    possible_conflicts: tuple = ()
 
     @property
     def kept(self) -> int:
@@ -435,6 +440,13 @@ def render_brief(
     kept_ids = [
         claim_id for members in order.values() for entry in members for claim_id in entry["ids"]
     ]
+    from verilore.review import likely_pairs
+
+    pairs, _settled = likely_pairs(
+        {"id": entry["ids"][0], "claim": entry["sentence"], "path": path}
+        for entry in printed
+        for path in entry["paths"][:1]
+    )
     return Brief(
         text=render(kept),
         corpus=corpus,
@@ -446,4 +458,5 @@ def render_brief(
         conflicts=len(conflicts),
         expired=expired,
         task=task or None,
+        possible_conflicts=tuple(pairs),
     )

@@ -1203,6 +1203,30 @@ class MemoryClient:
             must=must,
         )
 
+    def review(
+        self,
+        corpus=None,
+        *,
+        path_prefix: str | list[str] | None = None,
+        settled: "list[str] | tuple[str, ...]" = (),
+    ):
+        """What a person should look at before this memory reaches a model.
+
+        Returns a `verilore.review.Review`: keyed conflicts, drafts waiting for
+        approval, and pairs of approved lines from different documents that may
+        disagree (two numbers for one fact, one saying "not", the same
+        instruction with different details, or nearly the same words). Nothing
+        is resolved: a person rejects or replaces the wrong line. `settled`
+        names pair ids (`Pair.id`) already judged to agree, so they are not
+        listed again. `verilore.review.render_review_html(review)` is the same
+        as one page a brand owner can open.
+        """
+        from verilore.review import build_review
+
+        current = self.current(corpus, "", path_prefix=path_prefix)
+        with_drafts = self.current(corpus, "", path_prefix=path_prefix, include_states=["draft"])
+        return build_review(current, with_drafts, path_prefix=path_prefix, settled=settled)
+
 
 class Verilore:
     """Local corpus client or remote memory client (when base_url is supplied)."""

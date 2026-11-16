@@ -397,6 +397,33 @@ served; `expired_count` and the brief's last line count it. `valid_until` is
 the first moment the line is no longer true, as a date (midnight UTC) or a time
 with its zone ([details](../authoring.md#when-a-line-stops-being-true)).
 
+**Review before a model reads it.** Verilore detects a conflict only when two
+claims share a key, and lines from two documents never do: "Use Indian English
+spelling" in the rules and "Use American spelling" in old notes are both served.
+`review` finds such pairs for a person, with the drafts waiting for approval and
+the keyed conflicts, and resolves nothing. A pair is two approved lines from
+different documents that share a subject and differ in a way it can name: two
+numbers for one fact, one saying "not", the same instruction with different
+details, or nearly the same words. It is lexical, so two lines that share no
+word are not paired.
+
+```python
+from verilore.review import render_review, render_review_html
+
+review = mp.memory.review(path_prefix=["brand", "campaigns/spring"])
+print(render_review(review))
+assert review.open_items == len(review.pairs) + len(review.drafts) + len(review.conflicts)
+page = render_review_html(review)  # one self-contained page for a brand owner
+```
+
+From the command line, `verilore review --corpus <name> --html review.html`
+prints the same list and writes the page; `--strict` exits 1 while anything is
+open, for a sync job. `brief.possible_conflicts` lists the pairs inside one
+brief, without putting them in its text: a flag is for a person, and a model
+told "these may disagree" hedges on rules that are fine. Settle a pair by
+rejecting or superseding the wrong line; a pair that agrees can be passed back
+by its id in `review(settled=[...])`.
+
 ```python
 default_pack = mp.memory.pack(query="", budget=16000, path_prefix=["brand", "campaigns/spring"])
 assert (default_pack.withheld_counts or {}).get("draft", 0) >= 1, default_pack.withheld_counts
