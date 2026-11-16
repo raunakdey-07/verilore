@@ -661,6 +661,10 @@ async def remember(
             supersedes_claim_id=supersedes_claim_id,
             topic_key=topic_key_for_write,
         )
+        if topic_key_for_write is not None:
+            # This write retired whatever was active under its topic key, so a
+            # line under that key is history now, not a neighbour to replace.
+            related = [item for item in related if item.get("key") != topic_key_for_write]
         if related:
             written["related_active_claims"] = related
         call.log(

@@ -237,6 +237,18 @@ a claim since v0.11.
   re-ingest. Lines under the same heading in two documents still share a key, and
   still conflict when they differ.
 
+- **Lexical recall answers about a decision that was replaced.** Lexical relevance
+  drops the words every candidate shares, and the candidates include the lines a
+  decision replaced. In a corpus whose only live line was a replacement, its subject
+  was dropped and `recall "How often does the support rota run?"` answered that no
+  memory matched "The support rota now runs fortnightly." Words are now dropped as
+  common only when at least two lines are live. Lexical relevance is what runs when
+  the model cannot load, and with `VERILORE_LEXICAL=1`; the model's ranking is
+  unchanged.
+- **`remember` no longer suggests replacing the line it just replaced.** Remembering
+  under a key that already held a line retires that line, and the reply still listed
+  it as a "live claim that reads like this one", with advice to supersede it.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or
