@@ -578,6 +578,32 @@ async def memory_brief(
         return json.dumps({"detail": {"code": "invalid_request", "message": str(exc)}})
 
 
+@mcp.tool(annotations=_READ_MEMORY)
+async def memory_check(
+    corpus: str,
+    draft: str,
+    path_prefix: str | list[str] | None = None,
+    channel: str | None = None,
+) -> str:
+    """Check a draft you wrote against approved memory, before showing it to anyone.
+
+    Returns every exact problem, each with the approved rule it breaks: a word
+    or phrase a rule bans ("Never use the word 'premium'"), emojis, exclamation
+    marks or hashtags a rule forbids, and a price, date, weight, percentage or
+    duration that differs from an approved fact about the same thing. Fix each
+    one and check again. "No problems found" covers only these exact checks;
+    tone and voice are still the reader's call. `channel` (e.g. "Instagram")
+    skips bans written for another channel.
+    """
+    from verilore.check import check_draft, render_check
+
+    request = MemoryRequest(corpus=corpus, path_prefix=path_prefix)
+    result = await _execute_memory("current", request)
+    if result.is_error:
+        return result.content[0].text
+    return render_check(check_draft(draft, result.structured_content, channel=channel))
+
+
 def _load_artifact(value):
     """Load a receipt/pack from a dict, JSON string, or file path."""
     import json

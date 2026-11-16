@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -1026,6 +1027,57 @@ def brief(
             "`verilore review` lists them.",
             err=True,
         )
+
+
+@app.command()
+def check(
+    draft: Annotated[
+        str,
+        typer.Argument(help="A file holding the draft, or - to read it from standard input."),
+    ],
+    corpus: Annotated[str, typer.Option("--corpus", help="Corpus name.")] = DEFAULT_CORPUS,
+    path_prefix: Annotated[
+        list[str] | None,
+        typer.Option("--path-prefix", help="Only rules from documents under this folder."),
+    ] = None,
+    channel: Annotated[
+        str | None,
+        typer.Option(
+            "--channel",
+            help="Where the draft will appear, e.g. Instagram. Skips bans for other channels.",
+        ),
+    ] = None,
+    json_out: Annotated[bool, typer.Option("--json", help="Print the findings as JSON.")] = False,
+    base_url: BaseURL = None,
+    verbose: State = False,
+    debug: Debug = False,
+) -> None:
+    """Check a draft against approved memory: banned words, and numbers that disagree.
+
+    Exits 1 when it finds a problem, so it can gate a pipeline. Tone and voice
+    are not checked: that is a reviewer's call.
+    """
+    from verilore.check import render_check
+
+    try:
+        text = sys.stdin.read() if draft == "-" else Path(draft).read_text(encoding="utf-8")
+    except OSError as exc:
+        _fail(exc, verbose, debug)
+        return
+    try:
+        client = _client(base_url, runtime=True)
+        result = _run(
+            client.memory.check, text, corpus, path_prefix=path_prefix or None, channel=channel
+        )
+    except Exception as exc:  # noqa: BLE001
+        _fail(exc, verbose, debug)
+        return
+    if json_out:
+        typer.echo(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(render_check(result))
+    if not result.ok:
+        raise typer.Exit(code=1)
 
 
 @app.command()
