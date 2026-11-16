@@ -13,6 +13,7 @@ canonical format; other formats are converted to it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from verilore.api.services.parser import parse_markdown
@@ -139,6 +140,12 @@ SUPPORTED_EXTENSIONS = {
 } | set(_CODE_EXTENSIONS.keys())
 
 
+def _end_block(lines: list) -> None:
+    """End the Markdown block in progress, so the next line starts a new one."""
+    if lines and lines[-1] != "":
+        lines.append("")
+
+
 def _parse_docx(p):
     ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     W = "{%s}" % ns
@@ -159,10 +166,15 @@ def _parse_docx(p):
             if tag == "p":
                 ppr = child.find(W + "pPr")
                 pstyle = None
+                listed = False
                 if ppr is not None:
                     ps = ppr.find(W + "pStyle")
                     if ps is not None:
                         pstyle = ps.get(W + "val")
+                    # A bulleted or numbered paragraph carries numbering
+                    # properties, or a list style ("List Bullet", "ListParagraph").
+                    listed = ppr.find(W + "numPr") is not None
+                listed = listed or bool(pstyle and pstyle.lower().startswith("list"))
                 texts = [t.text or "" for t in child.iter(W + "t")]
                 text = "".join(texts)
                 if not text.strip():
@@ -171,10 +183,21 @@ def _parse_docx(p):
                 if pstyle and pstyle.lower().startswith("heading"):
                     m = _re2.search(r"(\d+)", pstyle)
                     level = min(int(m.group(1)), 6) if m else 1
+                    _end_block(lines)
                     lines.append("#" * level + " " + text.strip())
+                    lines.append("")
+                elif listed:
+                    # Items of one list stay together, as a Markdown list.
+                    lines.append("- " + text.strip())
                 else:
+                    # Each Word paragraph is its own Markdown paragraph: run
+                    # together, "Tagline" and the sentence after it read as
+                    # one sentence.
+                    _end_block(lines)
                     lines.append(text.strip())
+                    lines.append("")
             elif tag == "tbl":
+                _end_block(lines)
                 rows = []
                 for tr in child.findall(W + "tr"):
                     cells = []
@@ -272,10 +295,28 @@ def _parse_pptx(p):
     return meta, body
 
 
-def _parse_pdf(p):
-    text = ""
+def _pypdf_text(p) -> str:
+    """The PDF's text layer, page by page with form feeds between, read by pypdf.
+
+    Tried first because it is a declared dependency: the same file reads to the
+    same text on every machine, so a folder synced from two laptops does not
+    record a new version of every PDF. Empty when pypdf cannot read the file.
+    """
     try:
-        if _shutil.which("pdftotext"):
+        from pypdf import PdfReader
+    except ImportError:
+        return ""
+    try:
+        reader = PdfReader(str(p))
+        return "\f".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:  # noqa: BLE001 - a broken file falls through to the next reader
+        return ""
+
+
+def _parse_pdf(p):
+    text = _pypdf_text(p)
+    try:
+        if not text.strip() and _shutil.which("pdftotext"):
             out = _subprocess.run(
                 ["pdftotext", "-layout", str(p), "-"],
                 capture_output=True,
@@ -293,7 +334,7 @@ def _parse_pdf(p):
     pages = text.split("\f")
     lines = []
     for i, pg in enumerate(pages, start=1):
-        pg = pg.strip()
+        pg = _pdf_blocks(pg)
         if not pg:
             continue
         lines.append("## Page %d" % i)
@@ -303,6 +344,62 @@ def _parse_pdf(p):
     body_text = "\n".join(lines).strip()
     body = "# %s\n\n%s" % (title, body_text) if body_text else "# %s\n" % title
     return meta, body
+
+
+#: A line a PDF draws as a list item: a bullet glyph and a space. `\uf0b7` and
+#: `\uf0a7` are the Symbol and Wingdings bullets Word writes into its PDFs.
+_PDF_BULLET = re.compile(r"^[\u2022\u2023\u2043\u25aa\u25cf\u25e6\u25a0\uf0b7\uf0a7\u2013*-]\s+")
+#: How a sentence, a list item or a label ends.
+_PDF_END = (".", "!", "?", ":", ";", ")", '"', "\u201d")
+
+
+def _pdf_blocks(page: str) -> str:
+    """A page of PDF text as Markdown blocks.
+
+    A PDF keeps lines, not paragraphs, so the structure is recovered from the
+    lines: a bullet glyph starts a list item; a short line that ends in no
+    punctuation is a label or a heading ("Voice", "Never") and stands alone,
+    instead of becoming the first words of the sentence below it; a line that
+    continues a sentence stays with it.
+    """
+    blocks: list[str] = []
+    current: list[str] = []
+    item = False
+
+    def flush():
+        nonlocal current, item
+        if current:
+            blocks.append("\n".join(current))
+        current, item = [], False
+
+    for raw in page.splitlines():
+        line = " ".join(raw.split())
+        if not line:
+            flush()
+            continue
+        bullet = _PDF_BULLET.match(line)
+        if bullet:
+            if not item:
+                flush()
+            item = True
+            current.append("- " + line[bullet.end() :])
+            continue
+        label = len(line.split()) <= 6 and not line.endswith(_PDF_END)
+        continues = bool(current) and not current[-1].endswith(_PDF_END) and line[:1].islower()
+        if continues:
+            current[-1] = current[-1] + " " + line if item else current[-1]
+            if not item:
+                current.append(line)
+            continue
+        if label:
+            flush()
+            blocks.append(line)
+            continue
+        if item:
+            flush()
+        current.append(line)
+    flush()
+    return "\n\n".join(blocks)
 
 
 def _pdf_stdlib_extract(p):

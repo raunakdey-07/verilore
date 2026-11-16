@@ -169,6 +169,15 @@ class SyncRequest(BaseModel):
     """Request body for POST /api/corpora/{name}/sync."""
 
     path: str = Field(..., description="Source directory to synchronize from")
+    formats: list[str] | None = Field(
+        None,
+        max_length=8,
+        description=(
+            "Which files to read: any of md, docx, pptx, pdf, txt. "
+            "Default md, docx, pptx and pdf. Only documents of these formats are "
+            "removed when their file is gone."
+        ),
+    )
 
 
 class SyncResponse(BaseModel):

@@ -22,7 +22,7 @@ from verilore.api.models.schemas import (
 from verilore.api.services import corpora
 from verilore.api.services.db import get_async_db
 from verilore.api.services.ingest_paths import IngestPathRefused, require_permitted
-from verilore.api.services.ingestion import IngestionService
+from verilore.api.services.ingestion import IngestionService, sync_formats
 
 router = APIRouter()
 
@@ -132,9 +132,17 @@ async def sync_corpus(
         source = require_permitted(request.path)
     except IngestPathRefused as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    try:
+        sync_formats(request.formats)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     svc = IngestionService()
     result = await svc.sync_repo(
-        source, corpus["id"], delete_removed=delete_removed, embed_chunks=embed_chunks
+        source,
+        corpus["id"],
+        delete_removed=delete_removed,
+        embed_chunks=embed_chunks,
+        formats=request.formats,
     )
     return SyncResponse(**result)
 

@@ -64,6 +64,10 @@ dependencies = [
     "httpx>=0.27.0",
     "prometheus-fastapi-instrumentator>=7.0.0",
     "pyyaml>=6.0",
+    # Reads the text of a PDF in a synced folder. Pure Python and small, and the
+    # same file reads to the same text on every machine; `pdftotext`, used when
+    # present before, is missing on most laptops and lays text out differently.
+    "pypdf>=4.0",
     "langchain-text-splitters>=1.0.0",
     # Typer is core because `verilore` is an unconditional console script in
     # [project.scripts], and a conditional entry point is not something setuptools

@@ -690,8 +690,9 @@ apart unnoticed.
 `POST /api/ingest/repo` and `POST /api/corpora/{name}/sync` take a path on the
 *server's* filesystem and read it. That is an operator capability, and on a
 shared service it means a caller can ask the service to walk a directory it was
-never given — a narrower exposure than it sounds (`*.md` only, and only what the
-caller could already write) but not one a tenant should have.
+never given — a narrower exposure than it sounds (Markdown, Word, PowerPoint and
+PDF files only, and only what the caller could already write) but not one a tenant
+should have.
 
 `VERILORE_INGEST_ROOTS` is a `:`-separated list of directories a client may
 name. A path that does not resolve inside one of them is refused before a single

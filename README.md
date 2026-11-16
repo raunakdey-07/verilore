@@ -172,9 +172,10 @@ development Postgres, so the suite runs with no `DATABASE_URL`.
 
 ## Documents and claims
 
-`remember` is for facts you have in hand. A directory of Markdown you already have
-goes through `verilore ingest-repo ./docs`, and there are two ways for a document
-to become memory.
+`remember` is for facts you have in hand. A folder you already have goes through
+`verilore ingest-repo ./docs`: Markdown, and Word, PowerPoint and PDF files beside
+it ([authoring](docs/authoring.md#word-powerpoint-and-pdf-files)). There are two
+ways for a document to become memory.
 
 **Plain Markdown needs no annotation.** A heading path scopes what follows it, and
 the claims under it are its list items, its numbered entries and its `Key: Value`
