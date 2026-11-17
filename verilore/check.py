@@ -357,6 +357,7 @@ def _same_date(memory: str, draft: str) -> bool:
 
 
 def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
+    """Values in the draft that differ from the claim's, about the claim's subject."""
     text = claim["claim"]
     if _NEGATION.search(text):
         # "Do not promise delivery in under 48 hours" is a limit, not a value;
@@ -365,7 +366,7 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
     remembered = _values(text)
     if not remembered:
         return []
-    subject = _subject(text, [kind for kind, _v, _t in remembered])
+    subject = _subject(f'{claim.get("section", "")} {text}', [kind for kind, _v, _t in remembered])
     if not subject:
         return []
     findings: list[Finding] = []
@@ -423,11 +424,19 @@ def check_draft(
     for a draft for another one. Without `channel` such a ban is still checked,
     and its finding names the channel so a reviewer can dismiss it.
     """
+    # The section a claim sits under names what it is about when the claim does
+    # not: "Price: Rs 520 for a 250 g tin." under "Products > Assam Gold".
+    sections: dict[str, str] = {}
+    for evidence in _get(current, "evidence", []) or []:
+        parts = str(_get(evidence, "heading", "") or "").split(" > ")
+        if len(parts) > 1:
+            sections.setdefault(str(_get(evidence, "claim_id", "")), " ".join(parts[1:]))
     claims = [
         {
             "id": str(_get(claim, "id", "")),
             "claim": " ".join(str(_get(claim, "claim", "")).split()),
             "path": str(_get(claim, "path", "")),
+            "section": sections.get(str(_get(claim, "id", "")), ""),
         }
         for claim in [*(_get(current, "current_memories", []) or []), *extra_rules]
     ]

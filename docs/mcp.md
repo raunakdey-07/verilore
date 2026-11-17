@@ -85,7 +85,8 @@ Nineteen tools are advertised. `memory_brief`, `memory_check`, `memory_recall`,
 current, approved claim in a corpus, or in the folders named by `path_prefix`, as
 plain text lines under the file they come from, sized for a prompt (`max_chars`,
 6,000 by default). Pass `task`, a few words on what is about to be written, and
-when not everything fits it keeps rules first and then the lines closest to the task;
+when not everything fits it keeps the lines closest to the task, then rules that hold
+for any task;
 `must` names folders or files that are always kept. Drafts, rejected and replaced statements are counted in its last line and
 never quoted. Use `memory_recall` when you need one fact and its evidence.
 
