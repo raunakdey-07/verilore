@@ -182,7 +182,29 @@ def assert_equivalent(full, budget):
         actual = bounded_pack(full, budget)
         assert actual.canonical_json() == expected.canonical_json()
         assert len(actual.canonical_json()) <= budget
-        assert MemoryResponse.model_validate_json(actual.canonical_json()) == actual
+        # The canonical JSON is the whole answer: read back, it is the pack. The
+        # pack also carries diagnostics (`omitted_counts`), which are never part
+        # of the answer, so the comparison is of what the digest covers.
+        assert (
+            MemoryResponse.model_validate_json(actual.canonical_json()).model_dump()
+            == actual.model_dump()
+        )
+        # And what the pack says it left out is what the reference left out.
+        assert actual.omitted_counts == {
+            field: left_out
+            for field in (
+                "current_memories",
+                "changes",
+                "historical_memories",
+                "conflicts",
+                "uncertain_memories",
+            )
+            if (
+                left_out := sum(
+                    1 for item in getattr(full, field) if item not in getattr(expected, field)
+                )
+            )
+        }
         ids = {eid for claim in _claims(actual) for eid in claim.evidence_ids}
         assert [e.id for e in actual.evidence] == sorted(ids)
         assert [s.version_id for s in actual.sources] == sorted(
