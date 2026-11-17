@@ -38,6 +38,36 @@ continues from there the next time you run the same command. Every raw answer
 is in `governed-context-results/results.jsonl`, and `summary.md` beside it holds
 the table: tasks passed, rule violations and context size, by context.
 
+## The hard kit, and two measures that need no model
+
+`hard/` is a second kit, written the way a brand writes one: a voice guide in
+paragraphs, a channel table, product facts under product headings, legal lines,
+a draft proposing another voice, a campaign that has ended (`valid_until`), and
+2025 notes with old prices. `hard/rules.json` marks, by hand, the 47 lines a
+writer needs and the 13 that must never reach a model; `hard/tasks.json` lists
+eight writing tasks and the rules each one needs.
+
+```bash
+DATABASE_URL=... python -m benchmarks.governed_context.measure
+```
+
+syncs the kit into a scratch corpus and reports, with no model and no key:
+
+1. how many marked rules became current, approved lines, and how many lines that
+   must not be served were served;
+2. for each task, how many of its rules three contexts carry when each is cut to
+   the same size (250, 500 and 1,000 tokens): the kit dumped whole, the lines
+   `grep` finds for the task, and `verilore brief --task`; and how many lines
+   that must not be served each lets through.
+
+The result is in `hard/measures.md`, and `tests/test_governed_context_measures.py`
+holds it equal to what the code computes. `hard/briefs/` holds the brief each task
+gets at 500 tokens, which is what a model run sends:
+
+```bash
+python -m benchmarks.governed_context.run --suite hard --model <model id>
+```
+
 ## What it does and does not show
 
 It shows whether a model, given this kit each way, wrote an answer that broke a

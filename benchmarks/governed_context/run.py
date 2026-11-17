@@ -42,6 +42,14 @@ KIT = HERE / "kit"
 TASKS = HERE / "tasks.json"
 BRIEF = HERE / "brief.txt"
 CONDITIONS = ("dump", "grep", "brief")
+#: Two kits. `basic` is eight tasks on a small bike kit with one brief for all
+#: of them. `hard` is eight tasks on a tea brand's kit written the way brands
+#: write (paragraphs, a channel table, an ended campaign, old notes), with the
+#: brief each task gets at 500 tokens; `measure.py` writes and measures those.
+SUITES = {
+    "basic": (KIT, TASKS, BRIEF),
+    "hard": (HERE / "hard" / "kit", HERE / "hard" / "tasks.json", HERE / "hard" / "briefs"),
+}
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
 #: OpenRouter's free tier allows 20 requests a minute. 3.5 s keeps under it.
@@ -82,7 +90,10 @@ def grep_context(keywords: list[str], kit: Path = KIT) -> str:
     return "\n".join(hits) if hits else "(no matching lines)"
 
 
-def brief_context(brief: Path = BRIEF) -> str:
+def brief_context(brief: Path = BRIEF, task: dict | None = None) -> str:
+    """The committed brief: one file for every task, or one file per task in a folder."""
+    if brief.is_dir():
+        brief = brief / f"{task['id']}.txt"
     return brief.read_text(encoding="utf-8").strip()
 
 
@@ -92,7 +103,7 @@ def context_for(condition: str, task: dict, *, kit: Path = KIT, brief: Path = BR
     if condition == "grep":
         return grep_context(task["keywords"], kit)
     if condition == "brief":
-        return brief_context(brief)
+        return brief_context(brief, task)
     raise ValueError(f"unknown condition: {condition}")
 
 
@@ -154,7 +165,12 @@ def summarize(results: Path) -> str:
 
 
 def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
-    spec = load_tasks()
+    suite = getattr(args, "suite", "basic")
+    if suite not in SUITES:
+        print(f"unknown suite: {suite}; choose {', '.join(SUITES)}", file=sys.stderr)
+        return 2
+    kit, tasks_file, brief = SUITES[suite]
+    spec = load_tasks(tasks_file)
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
     unknown = [c for c in conditions if c not in CONDITIONS]
     if unknown:
@@ -165,7 +181,7 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
         print("| Task | " + " | ".join(f"{c} chars" for c in conditions) + " |", file=out)
         print("|---|" + "---|" * len(conditions), file=out)
         for task in spec["tasks"]:
-            sizes = [str(len(context_for(c, task))) for c in conditions]
+            sizes = [str(len(context_for(c, task, kit=kit, brief=brief))) for c in conditions]
             print(f"| {task['id']} | " + " | ".join(sizes) + " |", file=out)
         return 0
 
@@ -194,7 +210,7 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
                     raise Stop("max calls")
                 if calls:
                     sleep(args.delay)
-                context = context_for(condition, task)
+                context = context_for(condition, task, kit=kit, brief=brief)
                 answer = ask(
                     client, args.model, key, messages(spec["system"], context, task["prompt"])
                 )
@@ -226,6 +242,7 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--model", help="an OpenRouter model id, for example one ending in :free")
+    p.add_argument("--suite", default="basic", choices=sorted(SUITES), help="which kit")
     p.add_argument("--conditions", default=",".join(CONDITIONS))
     p.add_argument("--out", default="governed-context-results", help="directory for results")
     p.add_argument("--delay", type=float, default=DEFAULT_DELAY, help="seconds between calls")

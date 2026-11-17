@@ -128,6 +128,17 @@ advertises nineteen tools.
   and macOS `._` files are skipped. A sync removes only documents of the formats it
   read. An unsupported format is refused before anything is read (exit 2, or 422).
 
+- **A hard benchmark kit, and two measures that need no model.**
+  `benchmarks/governed_context/hard/` is a tea brand's kit written the way brands
+  write: paragraphs, a channel table, product facts under headings, a draft, an
+  ended campaign and old notes, with 47 rules and 13 must-not-serve lines marked
+  by hand. `python -m benchmarks.governed_context.measure` reports how many marked
+  rules become approved lines (46 of 47), and how many applicable rules a brief, a
+  `grep` and the kit dumped whole carry at 250, 500 and 1,000 tokens, with the
+  lines each lets through that must not reach a model. The numbers are committed
+  in `hard/measures.md` and held to the code by a test. `run.py --suite hard`
+  runs the same eight tasks through a model on OpenRouter's free tier.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing

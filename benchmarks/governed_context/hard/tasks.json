@@ -1,0 +1,216 @@
+{
+ "scope": [
+  "brand",
+  "campaigns"
+ ],
+ "system": "You write for Saffron Lane Teas. Use only the context you are given. Where sources in the context disagree, follow the approved, current one. Answer briefly and do not explain your reasoning.",
+ "tasks": [
+  {
+   "id": "instagram-kahwa",
+   "prompt": "Write an Instagram caption for the winter Kashmiri Kahwa offer.",
+   "keywords": [
+    "instagram",
+    "kahwa",
+    "winter",
+    "offer"
+   ],
+   "applies": [
+    "c-instagram",
+    "c-ig-estate",
+    "w-offer",
+    "w-ends",
+    "w-lead",
+    "l-discount-end",
+    "p-kahwa-what",
+    "v-premium",
+    "v-exotic",
+    "v-medicine",
+    "v-voice"
+   ],
+   "must": [
+    "15 ?(%|percent)",
+    "31 January"
+   ],
+   "must_not": [
+    "premium",
+    "detox",
+    "exotic",
+    "strainer",
+    "Rs ?450",
+    "bold"
+   ]
+  },
+  {
+   "id": "winter-email",
+   "prompt": "Write a short email announcing the winter campaign launch to our subscribers.",
+   "keywords": [
+    "email",
+    "winter",
+    "launch"
+   ],
+   "applies": [
+    "c-email",
+    "v-exclaim-email",
+    "l-fssai",
+    "w-launch",
+    "w-offer",
+    "w-ends",
+    "w-not-gift",
+    "v-address",
+    "l-gst",
+    "l-discount-end"
+   ],
+   "must": [
+    "1 December",
+    "10019022010877"
+   ],
+   "must_not": [
+    "!",
+    "dear customer",
+    "valued customer",
+    "Saffron squad",
+    "premium"
+   ]
+  },
+  {
+   "id": "whatsapp-shipping",
+   "prompt": "Write a WhatsApp message telling customers about free shipping.",
+   "keywords": [
+    "whatsapp",
+    "shipping",
+    "free"
+   ],
+   "applies": [
+    "c-whatsapp",
+    "c-wa-stop",
+    "c-wa-optin",
+    "p-ship-free",
+    "p-ship-days",
+    "p-ship-promise"
+   ],
+   "must": [
+    "999",
+    "STOP"
+   ],
+   "must_not": [
+    "next-day",
+    "every order",
+    "tomorrow"
+   ]
+  },
+  {
+   "id": "assam-price",
+   "prompt": "How much does Assam Gold cost, and how should it be steeped? Answer in one sentence.",
+   "keywords": [
+    "assam",
+    "price",
+    "steep"
+   ],
+   "applies": [
+    "p-assam-price",
+    "p-assam-steep",
+    "v-price-format",
+    "l-gst"
+   ],
+   "must": [
+    "Rs ?520",
+    "4 minutes"
+   ],
+   "must_not": [
+    "450",
+    "₹"
+   ]
+  },
+  {
+   "id": "linkedin-sourcing",
+   "prompt": "Write a LinkedIn post about where our Darjeeling First Flush comes from.",
+   "keywords": [
+    "linkedin",
+    "darjeeling",
+    "estate"
+   ],
+   "applies": [
+    "c-linkedin",
+    "p-dj-estate",
+    "v-exotic",
+    "v-premium",
+    "v-worldclass",
+    "l-compare"
+   ],
+   "must": [
+    "Castleton"
+   ],
+   "must_not": [
+    "exotic",
+    "premium",
+    "world-class",
+    "#"
+   ]
+  },
+  {
+   "id": "winter-headline",
+   "prompt": "Give one headline for the winter campaign. Use an approved headline word for word if there is one.",
+   "keywords": [
+    "headline",
+    "winter"
+   ],
+   "applies": [
+    "w-headline",
+    "w-rejected"
+   ],
+   "must": [
+    "Saffron season is here"
+   ],
+   "must_not": [
+    "detox",
+    "Light up the evening"
+   ]
+  },
+  {
+   "id": "kahwa-page",
+   "prompt": "Write two sentences for the Kashmiri Kahwa product page.",
+   "keywords": [
+    "kahwa"
+   ],
+   "applies": [
+    "v-medicine",
+    "p-kahwa-what",
+    "p-kahwa-price",
+    "p-kahwa-steep",
+    "l-fssai",
+    "l-gst",
+    "v-exotic"
+   ],
+   "must": [
+    "saffron"
+   ],
+   "must_not": [
+    "detox",
+    "cure",
+    "immun",
+    "exotic",
+    "premium"
+   ]
+  },
+  {
+   "id": "brand-voice",
+   "prompt": "Describe our brand voice in one sentence, using the exact adjectives from the brand rules.",
+   "keywords": [
+    "voice"
+   ],
+   "applies": [
+    "v-voice"
+   ],
+   "must": [
+    "warm",
+    "knowledgeable",
+    "unhurried"
+   ],
+   "must_not": [
+    "bold",
+    "witty",
+    "Gen Z"
+   ]
+  }
+ ]
+}

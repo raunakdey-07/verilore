@@ -1,0 +1,39 @@
+Approved memory for "saffron-lane", scope brand + campaigns.
+Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
+
+brand/channels.md
+- Always end an Instagram caption with the estate name in capitals.
+- Never tag a competitor brand on Instagram.
+- Every WhatsApp message must include the word STOP so a reader can unsubscribe.
+
+brand/legal.md
+- Every product page and every email must show our FSSAI licence number, 10019022010877.
+- Prices include GST, and copy must say so when it states a price.
+- Never compare our prices with a named competitor.
+- Do not use customer photos without written permission.
+- A discount must state its end date.
+
+brand/products.md
+- Price: Rs 520 for a 250 g tin.
+- Assam Gold comes from the Halmari estate in Dibrugarh.
+- Steep Assam Gold for 4 minutes at 95 °C.
+- Steep Darjeeling First Flush for 3 minutes at 85 °C.
+- Steep Kashmiri Kahwa for 3 minutes at 80 °C.
+- Do not promise delivery in under 3 days.
+
+brand/voice.md
+- Saffron Lane writes the way a good host talks: warm, unhurried and specific.
+- We would rather name the estate a tea comes from than call it exotic.
+- Avoid "world-class" and "best-in-class" in all copy.
+- Tea is not medicine.
+- Never claim that a tea cures, treats or prevents any illness, and never use the word "detox".
+- Do not use exclamation marks in emails at all.
+- Spell colour, flavour, favourite and organise the Indian way, and write prices as Rs 520, never as ₹520.00 or INR 520.
+- Address the reader as you, and never as "dear customer" or "valued customer".
+- We never use the word "premium".
+- We do not call any tea "exotic", because the people who grow it do not think of it that way.
+
+campaigns/winter-2026/brief.md
+- The winter offer does not apply to gift boxes.
+
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 28 more approved lines. The lines least related to the task went first.
