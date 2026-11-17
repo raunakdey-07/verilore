@@ -21,7 +21,7 @@ the document behind each one. Drafts, rejected ideas and ended campaigns stay ou
 
 ```text
 brief      the approved lines a writing task needs, sized for a prompt
-check      a draft against them: banned words, wrong prices, wrong dates
+check      a draft against them: banned words, wrong or made-up prices and dates
 review     lines in two documents that disagree, for a person to settle
 recall     one answer, its source, and the time it was true
 history    what changed, and what it replaced

@@ -1211,20 +1211,30 @@ class MemoryClient:
         *,
         path_prefix: str | list[str] | None = None,
         channel: str | None = None,
+        unsupported: bool = True,
+        supported_by: "str | list[str] | tuple[str, ...]" = (),
     ):
         """Check a draft against approved memory. Returns a `verilore.check.Check`.
 
         Each finding names the approved claim it breaks: text a rule bans,
         emojis, exclamation marks or hashtags a rule forbids, or a price, date,
         weight, percentage or duration that differs from an approved fact about
-        the same thing. `check.ok` is true when there are none. Only exact
-        checks: tone and voice stay with the reviewer. `channel` skips bans
-        written for another channel ("Never use hashtags on LinkedIn").
+        the same thing. With `unsupported` (the default), a price, percentage or
+        date that no approved line in scope states is a finding too: the draft
+        made it up. `supported_by` is text whose values count as stated, such
+        as the task a person wrote. `check.ok` is true when there are no
+        findings. Only exact checks: tone and voice stay with the reviewer.
+        `channel` skips bans written for another channel. For a model to fix
+        its own draft, `verilore.check.render_feedback(check)` says exactly what
+        to change.
         """
         from verilore.check import check_draft
 
         current = self.current(corpus, "", path_prefix=path_prefix)
-        return check_draft(draft, current, channel=channel)
+        extra = [supported_by] if isinstance(supported_by, str) else list(supported_by)
+        return check_draft(
+            draft, current, channel=channel, unsupported=unsupported, supported_by=extra
+        )
 
     def review(
         self,

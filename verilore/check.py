@@ -31,14 +31,16 @@ import unicodedata
 from dataclasses import dataclass, replace
 from typing import Any, Iterable
 
-__all__ = ["Finding", "Check", "check_draft", "render_check"]
+__all__ = ["Finding", "Check", "check_draft", "render_check", "render_feedback"]
 
 
 @dataclass(frozen=True)
 class Finding:
     """One way a draft breaks one approved claim."""
 
-    kind: str  # "banned" or "number"
+    #: "banned", "number" (differs from an approved value) or "unsupported"
+    #: (a price, percentage or date no approved line states).
+    kind: str
     claim_id: str
     claim: str
     path: str
@@ -49,6 +51,8 @@ class Finding:
     #: Other documents that state the same rule, word for word. A kit synced as
     #: Word and as PDF states every rule twice; the draft broke it once.
     also: tuple[str, ...] = ()
+    #: For a "number" finding, the value approved memory states, as written there.
+    expected: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +63,7 @@ class Finding:
             "quote": self.quote,
             "detail": self.detail,
             "also": list(self.also),
+            "expected": self.expected,
         }
 
 
@@ -72,6 +77,8 @@ class Check:
     checked: int = 0
     #: Rules that name banned text, among those claims.
     banned_rules: int = 0
+    #: Whether prices, percentages and dates were required to be in memory.
+    unsupported_checked: bool = False
 
     @property
     def ok(self) -> bool:
@@ -83,6 +90,7 @@ class Check:
             "ok": self.ok,
             "checked": self.checked,
             "banned_rules": self.banned_rules,
+            "unsupported_checked": self.unsupported_checked,
             "findings": [finding.as_dict() for finding in self.findings],
         }
 
@@ -162,8 +170,11 @@ def banned_text(rule: str) -> list[tuple[str, str]]:
     return found
 
 
-#: "on LinkedIn", "for Instagram": a rule for one channel, named with a capital.
-_QUALIFIER = re.compile(r"\b(?:on|in|for)\s+([A-Z][\w-]+)")
+#: "on LinkedIn", "for Instagram": a rule for one channel, named with a capital,
+#: or one of the channels a brand writes in lower case ("in emails").
+_QUALIFIER = re.compile(
+    r"\b(?:on|in|for)\s+(?:the\s+)?([A-Z][\w-]+|emails?|newsletters?|blogs?|sms|websites?)\b"
+)
 
 
 def rule_channel(rule: str) -> str | None:
@@ -378,14 +389,19 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
             continue
         written = _values(statement)
         earlier = {k for k, _v, _t in _values(context)}
-        for kind, value, _exact in remembered:
+        # A fact can state two values of one kind ("Orders below Rs 999 pay Rs
+        # 79"): a draft that repeats either one agrees with it.
+        kinds = {
+            kind: [(v, t) for k, v, t in remembered if k == kind] for kind, _v, _t in remembered
+        }
+        for kind, values in kinds.items():
             same_kind = [(v, t) for k, v, t in written if k == kind]
             if not same_kind or kind in earlier:
                 continue
             matches = (
-                any(_same_date(value, v) for v, _t in same_kind)
+                any(_same_date(mine, v) for mine, _t in values for v, _t2 in same_kind)
                 if kind == "date"
-                else any(v == value for v, _t in same_kind)
+                else any(mine == v for mine, _t in values for v, _t2 in same_kind)
             )
             if matches:
                 continue
@@ -393,6 +409,7 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
             if any(f.quote == quote for f in findings):
                 continue
             label = kind.split(":")[0]
+            expected = " or ".join(t for _v, t in values)
             findings.append(
                 Finding(
                     "number",
@@ -400,10 +417,57 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
                     text,
                     claim["path"],
                     quote,
-                    f"The draft says {quote} where approved memory says "
-                    f"{next(t for k, v, t in remembered if k == kind)} ({label}).",
+                    f"The draft says {quote} where approved memory says {expected} ({label}).",
+                    expected=expected,
                 )
             )
+    return findings
+
+
+# ------------------------------------------------------------- unsupported values
+
+#: The kinds of value a draft must not state unless approved memory does. A
+#: made-up price, discount or date is the error a reader acts on, and the one a
+#: model makes most when its context is silent. Weights, durations and lengths
+#: are left out: "a 2-minute read" or "250 g of leaves" are rarely claims.
+UNSUPPORTED_KINDS = ("money", "percent", "date")
+
+
+def _supported(kind: str, value: str, known: list[tuple[str, str]]) -> bool:
+    if kind == "date":
+        return any(k == "date" and (_same_date(v, value) or _same_date(value, v)) for k, v in known)
+    return any(k == kind and v == value for k, v in known)
+
+
+def _unsupported_findings(
+    draft: str, claims: list[dict[str, str]], also: Iterable[str]
+) -> list[Finding]:
+    """Prices, percentages and dates in the draft that no approved line states."""
+    known = [
+        (kind, value)
+        for text in [*(claim["claim"] for claim in claims), *also]
+        for kind, value, _exact in _values(text)
+    ]
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    # In the order the draft says them, so the instructions read top to bottom.
+    for kind, value, exact in sorted(_values(draft), key=lambda found: draft.find(found[2])):
+        if kind not in UNSUPPORTED_KINDS or _supported(kind, value, known):
+            continue
+        if exact.lower() in seen:
+            continue
+        seen.add(exact.lower())
+        label = {"money": "price", "percent": "percentage", "date": "date"}[kind]
+        findings.append(
+            Finding(
+                "unsupported",
+                "",
+                "",
+                "",
+                exact,
+                f"The draft states the {label} {exact}, and no approved line does.",
+            )
+        )
     return findings
 
 
@@ -411,7 +475,13 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
 
 
 def check_draft(
-    draft: str, current: Any, *, channel: str | None = None, extra_rules: Iterable[Any] = ()
+    draft: str,
+    current: Any,
+    *,
+    channel: str | None = None,
+    extra_rules: Iterable[Any] = (),
+    unsupported: bool = True,
+    supported_by: Iterable[str] = (),
 ) -> Check:
     """Check a draft against the approved claims of a `current` response.
 
@@ -423,6 +493,11 @@ def check_draft(
     ban limited to one channel ("Never use hashtags on LinkedIn") is skipped
     for a draft for another one. Without `channel` such a ban is still checked,
     and its finding names the channel so a reviewer can dismiss it.
+
+    With `unsupported` (the default), a price, percentage or date in the draft
+    that no approved line states is a finding too: memory is silent on it, so
+    the draft made it up. `supported_by` adds text whose values count as
+    stated, such as the task a person typed ("announce 20% off").
     """
     # The section a claim sits under names what it is about when the claim does
     # not: "Price: Rs 520 for a 250 g tin." under "Products > Assam Gold".
@@ -463,7 +538,7 @@ def check_draft(
         if banned:
             banned_rules += 1
         limited_to = rule_channel(claim["claim"]) if banned else None
-        if limited_to and channel and limited_to.lower() not in channel.lower():
+        if limited_to and channel and limited_to.lower().rstrip("s") not in channel.lower():
             continue
         for kind, target in banned:
             quote = _find_text(draft, target) if kind == "text" else _find_class(draft, target)
@@ -491,11 +566,19 @@ def check_draft(
             if key not in seen:
                 seen.add(key)
                 add(finding)
+    if unsupported:
+        # A value already shown to differ from an approved one is not reported
+        # twice; the "number" finding says what it should be.
+        differing = {f.quote.lower() for f in findings if f.kind == "number"}
+        for finding in _unsupported_findings(draft, claims, supported_by):
+            if finding.quote.lower() not in differing:
+                add(finding)
     return Check(
         corpus=str(_get(current, "corpus", "")),
         findings=tuple(findings),
         checked=len(claims),
         banned_rules=banned_rules,
+        unsupported_checked=unsupported,
     )
 
 
@@ -508,8 +591,55 @@ def render_check(check: Check) -> str:
     out = [f"{len(check.findings)} problem(s) against {check.checked} approved lines:"]
     for finding in check.findings:
         also = f"; also {', '.join(finding.also)}" if finding.also else ""
-        out += [
-            f"- {finding.detail}",
-            f"    rule: {finding.claim}  [{finding.path}, {finding.claim_id[:12]}{also}]",
-        ]
+        out.append(f"- {finding.detail}")
+        if finding.claim_id:
+            out.append(
+                f"    rule: {finding.claim}  [{finding.path}, {finding.claim_id[:12]}{also}]"
+            )
+        else:
+            out.append("    rule: none; state it only if a person approves it")
     return "\n".join(out)
+
+
+_CLASS_NAMES = {
+    "emoji": "the emoji",
+    "exclamation": "the exclamation mark",
+    "hashtag": "the hashtag",
+}
+
+
+def render_feedback(check: Check) -> str:
+    """The findings as an instruction a model can follow to revise its draft.
+
+    One line per problem, each saying what to change and the approved line that
+    says so, and nothing else: a weak model given a vague "fix the problems"
+    rewrites everything, and a model told exactly what to change mostly changes
+    only that. Empty when the draft has no findings.
+    """
+    if check.ok:
+        return ""
+    lines = [
+        "Revise the draft. Change only what is listed below and keep everything else as it is."
+    ]
+    for finding in check.findings:
+        if finding.kind == "banned":
+            what = f'"{finding.quote}"'
+            if len(finding.quote) == 1 or finding.quote.startswith("#"):
+                kind = (
+                    "exclamation"
+                    if finding.quote == "!"
+                    else ("hashtag" if finding.quote.startswith("#") else "emoji")
+                )
+                what = f"{_CLASS_NAMES[kind]} {finding.quote}"
+            lines.append(f"- Remove {what}. Approved rule: {finding.claim}")
+        elif finding.kind == "number":
+            lines.append(
+                f"- Replace {finding.quote} with {finding.expected}. Approved: {finding.claim}"
+            )
+        else:
+            lines.append(
+                f"- Remove {finding.quote}: no approved line states it. Do not replace it "
+                "with another value unless an approved line states that value."
+            )
+    lines.append("Return only the revised draft.")
+    return "\n".join(lines)

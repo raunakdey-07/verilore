@@ -1053,17 +1053,33 @@ def check(
             help="Where the draft will appear, e.g. Instagram. Skips bans for other channels.",
         ),
     ] = None,
+    allow_unsupported: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unsupported",
+            help="Do not report prices, percentages and dates that no approved line states.",
+        ),
+    ] = False,
+    task: Annotated[
+        str | None,
+        typer.Option("--task", help="The request the draft answers; its values count as stated."),
+    ] = None,
+    feedback: Annotated[
+        bool,
+        typer.Option("--feedback", help="Print what to change, as an instruction for a model."),
+    ] = False,
     json_out: Annotated[bool, typer.Option("--json", help="Print the findings as JSON.")] = False,
     base_url: BaseURL = None,
     verbose: State = False,
     debug: Debug = False,
 ) -> None:
-    """Check a draft against approved memory: banned words, and numbers that disagree.
+    """Check a draft against approved memory: banned words, wrong and made-up numbers.
 
-    Exits 1 when it finds a problem, so it can gate a pipeline. Tone and voice
-    are not checked: that is a reviewer's call.
+    A price, percentage or date that no approved line states is reported, unless
+    --allow-unsupported. Exits 1 when it finds a problem, so it can gate a
+    pipeline. Tone and voice are not checked: that is a reviewer's call.
     """
-    from verilore.check import render_check
+    from verilore.check import render_check, render_feedback
 
     # The draft is read here, by the person running the command, as they could
     # read it with `cat`: it is compared and never stored, and a finding quotes
@@ -1092,14 +1108,29 @@ def check(
         raise typer.Exit(code=2)
     try:
         client = _client(base_url, runtime=True)
+        # Only what was chosen is passed, so the call is the one it always was
+        # for a command line that names neither.
+        chosen: dict = {}
+        if allow_unsupported:
+            chosen["unsupported"] = False
+        if task:
+            chosen["supported_by"] = [task]
         result = _run(
-            client.memory.check, text, corpus, path_prefix=path_prefix or None, channel=channel
+            client.memory.check,
+            text,
+            corpus,
+            path_prefix=path_prefix or None,
+            channel=channel,
+            **chosen,
         )
     except Exception as exc:  # noqa: BLE001
         _fail(exc, verbose, debug)
         return
     if json_out:
         typer.echo(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+    elif feedback:
+        if not result.ok:
+            typer.echo(render_feedback(result))
     else:
         typer.echo(render_check(result))
     if not result.ok:
