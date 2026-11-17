@@ -143,6 +143,29 @@ def test_a_price_is_compared_by_the_product_it_names_and_not_by_the_word_price()
     assert check_draft("The Trail 2 is Rs 24,999.", current).ok
 
 
+def test_a_price_under_a_product_heading_is_that_products_price():
+    """ "Price: Rs 520 for a 250 g tin." names no product; its heading does. Read
+    without it, every draft with a tin and a price was compared with every price
+    in the sheet."""
+    from verilore.check import check_draft
+
+    current = {
+        "corpus": "saffron",
+        "current_memories": [
+            {"id": "a" * 12, "claim": "Price: Rs 520 for a 250 g tin.", "path": "products.md"},
+            {"id": "b" * 12, "claim": "Price: Rs 890 for a 100 g tin.", "path": "products.md"},
+        ],
+        "evidence": [
+            {"claim_id": "a" * 12, "heading": "Products > Assam Gold"},
+            {"claim_id": "b" * 12, "heading": "Products > Darjeeling First Flush"},
+        ],
+    }
+    wrong = check_draft("Assam Gold is now Rs 480 for a 250 g tin.", current)
+    assert [(f.claim_id, f.quote) for f in wrong.findings] == [("a" * 12, "Rs 480")]
+    assert check_draft("Our Kashmiri Kahwa tin is Rs 640.", current).ok
+    assert check_draft("Darjeeling First Flush, Rs 890 a tin.", current).ok
+
+
 def test_the_same_rule_in_two_documents_is_one_finding_that_names_both():
     """A brand guide synced as Word and as PDF states each rule twice. The draft
     broke one rule, once."""

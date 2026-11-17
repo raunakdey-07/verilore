@@ -2,9 +2,9 @@ Approved memory for "saffron-lane", scope brand + campaigns.
 Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
 
 brand/channels.md
+- Email: Length: 200 words; Emojis: none; Hashtags: none
 - Always end an Instagram caption with the estate name in capitals.
-- Never tag a competitor brand on Instagram.
-- Every WhatsApp message must include the word STOP so a reader can unsubscribe.
+- When a channel is not listed here, follow the email rules.
 
 brand/legal.md
 - Every product page and every email must show our FSSAI licence number, 10019022010877.
@@ -37,4 +37,4 @@ campaigns/winter-2026/brief.md
 campaigns/winter-2026/headlines.md
 - Headline: Saffron season is here.
 
-Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 29 more approved lines. The lines least related to the task went first.
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 29 more approved lines, 2 of them rules. The lines least related to the task went first.
