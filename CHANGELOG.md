@@ -139,6 +139,16 @@ advertises nineteen tools.
   in `hard/measures.md` and held to the code by a test. `run.py --suite hard`
   runs the same eight tasks through a model on OpenRouter's free tier.
 
+**A made-up price, percentage or date is a finding.** `check` reported a value
+that contradicts an approved one, and passed a value with nothing behind it:
+"Masala Chai costs Rs 300" for a product the kit never names. Now a price,
+percentage or date in the draft that no approved line in scope states is reported
+as `unsupported`. Values the person's own request states count (`supported_by=`,
+`--task`, the MCP tool's `task`); `unsupported=False` or `--allow-unsupported`
+turns it off. `verilore.check.render_feedback(check)`, `verilore check --feedback`
+and the end of every MCP `memory_check` result say exactly what to change, one
+line per finding, so a model can fix its own draft.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
@@ -287,6 +297,14 @@ a claim since v0.11.
   (`{"changes": 3}`), a diagnostic like `expired_count`: on REST, MCP and the SDK,
   never in the canonical JSON, the budget or the receipt digest. `recall` prints
   it: `(truncated to fit the response budget: left out 3 changes)`.
+
+**A fact with two values agrees with a draft that repeats either.** "Orders below
+Rs 999 pay Rs 79 for shipping" made "free shipping above Rs 999" a finding that
+said "the draft says Rs 999 where approved memory says Rs 999".
+
+**A ban for a channel written in lower case is for that channel.** "Do not use
+exclamation marks in emails" was applied to an Instagram caption; only a
+capitalized channel ("on LinkedIn") was recognised.
 
 ## [v0.11.0] - 2026-11-10
 

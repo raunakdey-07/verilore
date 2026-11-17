@@ -452,12 +452,35 @@ for finding in result.findings:
 assert result.checked >= 1
 ```
 
-`result.ok` is true when there is nothing to report, which covers only these
-exact checks: tone, voice and what a line implies stay with the reviewer. A ban
-written for one channel ("Never use hashtags on LinkedIn") is skipped when
-`channel` names another. `verilore check draft.txt` does the same from a file or
+**A value nothing approved states is made up.** A price, percentage or date in
+the draft that no approved line in scope states is a finding too (`kind:
+"unsupported"`): a weak model fills silence with numbers. Values the person's own
+request states count as approved; pass it as `supported_by`. `unsupported=False`
+turns this off.
+
+```python
+made_up = mp.memory.check(
+    "Spring launch: 30% off everything.",
+    path_prefix=["brand", "campaigns/spring"],
+    supported_by="Write the spring launch caption",
+)
+assert [f.kind for f in made_up.findings] == ["unsupported"], made_up.as_dict()
+from verilore.check import render_feedback
+
+print(render_feedback(made_up))  # one exact instruction per finding, for a model
+```
+
+`render_feedback` turns the findings into an instruction a model can follow:
+remove this word, replace this value with that one, remove a value nothing
+states. `result.ok` is true when there is nothing to report, which covers only
+these exact checks: tone, voice and what a line implies stay with the reviewer. A
+ban written for one channel ("Never use hashtags on LinkedIn", or "in emails") is
+skipped when `channel` names another. `verilore check draft.txt` does the same from a file or
 from standard input (`-`) and exits 1 on a finding, so it can gate a pipeline;
-over MCP, `memory_check` lets an agent fix its own draft before anyone sees it.
+`--feedback` prints the instruction instead of the report, `--task` names the
+request, `--allow-unsupported` turns off the made-up value check. Over MCP,
+`memory_check` returns the report and the instruction, so an agent can fix its
+own draft before anyone sees it.
 
 ```python
 default_pack = mp.memory.pack(query="", budget=16000, path_prefix=["brand", "campaigns/spring"])

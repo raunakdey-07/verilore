@@ -139,7 +139,12 @@ def test_a_price_is_compared_by_the_product_it_names_and_not_by_the_word_price()
     assert _details(wrong) == [
         "The draft says Rs 22,999 where approved memory says Rs 24,999 (money)."
     ]
-    assert check_draft("Meet the Trail 3, now Rs 34,999.", current).ok
+    # Not compared with the Trail 2's price. Memory states no price for the
+    # Trail 3, so by default that price is reported as unsupported instead.
+    assert check_draft("Meet the Trail 3, now Rs 34,999.", current, unsupported=False).ok
+    assert [f.kind for f in check_draft("Meet the Trail 3, now Rs 34,999.", current).findings] == [
+        "unsupported"
+    ]
     assert check_draft("The Trail 2 is Rs 24,999.", current).ok
 
 
@@ -162,7 +167,9 @@ def test_a_price_under_a_product_heading_is_that_products_price():
     }
     wrong = check_draft("Assam Gold is now Rs 480 for a 250 g tin.", current)
     assert [(f.claim_id, f.quote) for f in wrong.findings] == [("a" * 12, "Rs 480")]
-    assert check_draft("Our Kashmiri Kahwa tin is Rs 640.", current).ok
+    kahwa = "Our Kashmiri Kahwa tin is Rs 640."
+    assert check_draft(kahwa, current, unsupported=False).ok
+    assert [f.kind for f in check_draft(kahwa, current).findings] == ["unsupported"]
     assert check_draft("Darjeeling First Flush, Rs 890 a tin.", current).ok
 
 

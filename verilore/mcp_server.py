@@ -589,24 +589,33 @@ async def memory_check(
     draft: str,
     path_prefix: str | list[str] | None = None,
     channel: str | None = None,
+    task: str | None = None,
 ) -> str:
     """Check a draft you wrote against approved memory, before showing it to anyone.
 
     Returns every exact problem, each with the approved rule it breaks: a word
     or phrase a rule bans ("Never use the word 'premium'"), emojis, exclamation
-    marks or hashtags a rule forbids, and a price, date, weight, percentage or
-    duration that differs from an approved fact about the same thing. Fix each
-    one and check again. "No problems found" covers only these exact checks;
-    tone and voice are still the reader's call. `channel` (e.g. "Instagram")
-    skips bans written for another channel.
+    marks or hashtags a rule forbids, a price, date, weight, percentage or
+    duration that differs from an approved fact, and a price, percentage or date
+    that no approved line states. When there are problems, the result ends with
+    exactly what to change: make those changes, change nothing else, and check
+    again. "No problems found" covers only these exact checks; tone and voice
+    are still the reader's call. `channel` (e.g. "Instagram") skips bans written
+    for another channel. `task` is the request you were given: values it states
+    count as approved.
     """
-    from verilore.check import check_draft, render_check
+    from verilore.check import check_draft, render_check, render_feedback
 
     request = MemoryRequest(corpus=corpus, path_prefix=path_prefix)
     result = await _execute_memory("current", request)
     if result.is_error:
         return result.content[0].text
-    return render_check(check_draft(draft, result.structured_content, channel=channel))
+    checked = check_draft(
+        draft, result.structured_content, channel=channel, supported_by=[task] if task else []
+    )
+    if checked.ok:
+        return render_check(checked)
+    return f"{render_check(checked)}\n\n{render_feedback(checked)}"
 
 
 def _load_artifact(value):

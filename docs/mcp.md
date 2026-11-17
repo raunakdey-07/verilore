@@ -92,10 +92,13 @@ never quoted. Use `memory_recall` when you need one fact and its evidence.
 
 `memory_check` is the one to call after writing. Give it the draft, and it returns
 each exact problem with the approved rule it breaks: text a rule bans, emojis,
-exclamation marks or hashtags a rule forbids, and a price, date, weight,
-percentage or duration that differs from an approved fact about the same thing.
-An agent fixes each one and checks again. "No problems found" covers only these
-exact checks; tone and voice are a reviewer's.
+exclamation marks or hashtags a rule forbids, a price, date, weight, percentage
+or duration that differs from an approved fact about the same thing, and a price,
+percentage or date that no approved line states. The result ends with exactly
+what to change; an agent makes those changes, nothing else, and checks again.
+Pass `task`, the request the agent was given, so values the person asked for are
+not reported. "No problems found" covers only these exact checks; tone and voice
+are a reviewer's.
 
 ## What comes back
 
