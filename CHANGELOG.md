@@ -327,6 +327,20 @@ capitalized channel ("on LinkedIn") was recognised.
 **`memory_brief` describes the order it keeps lines in.** Its description still
 said rules come first; with a `task`, the lines the task is about do.
 
+**An install job no longer fails on a moment of DNS.** The macOS Intel job piped
+`curl` into `sh`; one failed lookup failed the run before anything was tested. It
+downloads the installer first, with retries.
+
+### Security
+
+**A converted file is held to limits, and fails alone.** A Word or PowerPoint file
+can unpack to gigabytes, a PDF stream can inflate a thousandfold, and a part that
+was not XML stopped a sync with a parser error. A synced or converted file is now
+refused, with the reason, over 50 MB on disk, 200 MB unpacked in all (read through
+a bounded stream, not the size the archive declares), 10,000 archive parts or
+3,000 PDF pages, or when a part is not what its name says; the rest of the folder
+syncs. The last-resort PDF reader bounds what it inflates too.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or

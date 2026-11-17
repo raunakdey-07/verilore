@@ -18,15 +18,45 @@ from pathlib import Path
 
 from verilore.api.services.parser import parse_markdown
 
+#: What one file may cost to read. A brand kit's largest file is a few MB; a
+#: folder someone else filled can hold a file built to exhaust the reader: a
+#: 40 KB Word file can unpack to gigabytes. Each limit refuses that one file,
+#: with the reason, and the rest of the folder still syncs.
+MAX_SOURCE_BYTES = 50_000_000
+MAX_UNPACKED_BYTES = 200_000_000
+MAX_ZIP_MEMBERS = 10_000
+MAX_PDF_PAGES = 3_000
+
 
 def parse_file(path: str | Path) -> tuple[dict, str]:
     """Parse a file into (metadata, body) based on its extension.
 
-    Supported: .md/.markdown (canonical), .txt, source code, .json, .yaml/.yml.
-    Raises ValueError for unsupported extensions.
+    Supported: .md/.markdown (canonical), .txt, source code, .json, .yaml/.yml,
+    .docx, .pptx and .pdf. Raises ValueError for an unsupported extension, a
+    file over the size limits above, or a file that is not what its extension
+    says.
     """
     p = Path(path)
     suffix = p.suffix.lower()
+    size = p.stat().st_size
+    if size > MAX_SOURCE_BYTES:
+        raise ValueError(
+            f"the file is {size / 1_000_000:.0f} MB; the limit for one file is "
+            f"{MAX_SOURCE_BYTES // 1_000_000} MB"
+        )
+    if suffix in (".docx", ".pptx", ".pdf"):
+        try:
+            return {".docx": _parse_docx, ".pptx": _parse_pptx, ".pdf": _parse_pdf}[suffix](p)
+        except (
+            _ET.ParseError,
+            _zipfile.BadZipFile,
+            RuntimeError,
+            NotImplementedError,
+            EOFError,
+        ) as exc:
+            # A malformed part, an encrypted archive, an unknown compression: the
+            # file is not what its name says, and that is the reader's to fix.
+            raise ValueError(f"not a readable {suffix.lstrip('.')} file ({exc})") from None
 
     if suffix in (".md", ".markdown"):
         content = p.read_text(encoding="utf-8")
@@ -43,13 +73,6 @@ def parse_file(path: str | Path) -> tuple[dict, str]:
     if suffix in (".yaml", ".yml"):
         content = p.read_text(encoding="utf-8")
         return _parse_yaml(p, content)
-    if suffix == ".docx":
-        return _parse_docx(p)
-    if suffix == ".pptx":
-        return _parse_pptx(p)
-    if suffix == ".pdf":
-        return _parse_pdf(p)
-
     raise ValueError(f"unsupported source format: {suffix}")
 
 
@@ -146,15 +169,46 @@ def _end_block(lines: list) -> None:
         lines.append("")
 
 
-def _parse_docx(p):
-    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    W = "{%s}" % ns
+class _Unpacked:
+    """How much of a Word or PowerPoint file has been unpacked so far."""
+
+    def __init__(self) -> None:
+        self.used = 0
+
+    def read(self, z, name: str) -> bytes:
+        """One part of the archive, refused past `MAX_UNPACKED_BYTES` in all.
+
+        Read through a bounded stream, not `ZipFile.read`, because the size an
+        archive declares is the archive's own claim: a bomb declares a small one.
+        """
+        left = MAX_UNPACKED_BYTES - self.used
+        with z.open(name) as part:
+            data = part.read(left + 1)
+        if len(data) > left:
+            raise ValueError(
+                f"it unpacks to more than {MAX_UNPACKED_BYTES // 1_000_000} MB, "
+                "which no document needs; refused as a possible zip bomb"
+            )
+        self.used += len(data)
+        return data
+
+
+def _open_zip(p, kind: str):
     try:
         z = _zipfile.ZipFile(str(p))
     except _zipfile.BadZipFile:
-        raise ValueError("invalid docx")
+        raise ValueError("invalid %s" % kind)
+    if len(z.infolist()) > MAX_ZIP_MEMBERS:
+        raise ValueError(f"it holds more than {MAX_ZIP_MEMBERS} parts, which no {kind} needs")
+    return z, _Unpacked()
+
+
+def _parse_docx(p):
+    ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    W = "{%s}" % ns
+    z, unpacked = _open_zip(p, "docx")
     try:
-        doc_xml = z.read("word/document.xml")
+        doc_xml = unpacked.read(z, "word/document.xml")
     except KeyError:
         raise ValueError("unsupported source format: .docx")
     root = _ET.fromstring(doc_xml)
@@ -218,7 +272,7 @@ def _parse_docx(p):
     body_text = "\n".join(lines).strip()
     title = p.stem
     try:
-        cp = z.read("docProps/core.xml")
+        cp = unpacked.read(z, "docProps/core.xml")
         croot = _ET.fromstring(cp)
         for el in croot.iter():
             if el.tag.endswith("}title") and el.text:
@@ -233,10 +287,7 @@ def _parse_docx(p):
 def _parse_pptx(p):
     A = "http://schemas.openxmlformats.org/drawingml/2006/main"
     AT = "{%s}" % A
-    try:
-        z = _zipfile.ZipFile(str(p))
-    except _zipfile.BadZipFile:
-        raise ValueError("invalid pptx")
+    z, unpacked = _open_zip(p, "pptx")
     slide_files = sorted(
         [n for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")],
         key=lambda x: (
@@ -247,15 +298,15 @@ def _parse_pptx(p):
     title = p.stem
     for idx, sf in enumerate(slide_files, start=1):
         try:
-            root = _ET.fromstring(z.read(sf))
-        except Exception:
+            root = _ET.fromstring(unpacked.read(z, sf))
+        except _ET.ParseError:
             continue
         texts = [t.text for t in root.iter(AT + "t") if t.text]
         notes_text = ""
         rels_path = sf.replace("slides/slide", "slides/_rels/slide").replace(".xml", ".xml.rels")
         notes_file = None
         try:
-            rels = _ET.fromstring(z.read(rels_path))
+            rels = _ET.fromstring(unpacked.read(z, rels_path))
             for rel in rels:
                 if "notesSlide" in (rel.get("Type") or ""):
                     target = rel.get("Target", "")
@@ -264,7 +315,7 @@ def _parse_pptx(p):
             pass
         if notes_file:
             try:
-                nroot = _ET.fromstring(z.read(notes_file))
+                nroot = _ET.fromstring(unpacked.read(z, notes_file))
                 ntexts = [t.text for t in nroot.iter(AT + "t") if t.text]
                 notes_text = " ".join(ntexts).strip()
             except KeyError:
@@ -283,7 +334,7 @@ def _parse_pptx(p):
         lines.append("")
     body_text = "\n".join(lines).strip()
     try:
-        cp = z.read("docProps/core.xml")
+        cp = unpacked.read(z, "docProps/core.xml")
         croot = _ET.fromstring(cp)
         for el in croot.iter():
             if el.tag.endswith("}title") and el.text:
@@ -308,8 +359,14 @@ def _pypdf_text(p) -> str:
         return ""
     try:
         reader = PdfReader(str(p))
-        return "\f".join((page.extract_text() or "") for page in reader.pages)
+        pages = len(reader.pages)
     except Exception:  # noqa: BLE001 - a broken file falls through to the next reader
+        return ""
+    if pages > MAX_PDF_PAGES:
+        raise ValueError(f"it has {pages} pages; the limit is {MAX_PDF_PAGES}")
+    try:
+        return "\f".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:  # noqa: BLE001
         return ""
 
 
@@ -408,12 +465,21 @@ def _pdf_stdlib_extract(p):
     except Exception:
         return ""
     out = []
+    left = MAX_UNPACKED_BYTES
     for m in _re2.finditer(rb"stream\r?\n(.*?)endstream", data, _re2.DOTALL):
         raw = m.group(1)
         try:
-            d = _zlib.decompress(raw.strip())
+            # Bounded: a stream can inflate a thousandfold, and this reader is
+            # the one that runs when the others could not read the file.
+            d = _zlib.decompressobj().decompress(raw.strip(), left + 1)
         except Exception:
             d = raw
+        if len(d) > left:
+            raise ValueError(
+                f"it unpacks to more than {MAX_UNPACKED_BYTES // 1_000_000} MB, "
+                "which no document needs; refused as a possible zip bomb"
+            )
+        left -= len(d)
         for tm in _re2.finditer(rb"\((?:\\.|[^()])*\)\s*Tj", d):
             s = tm.group(0)
             start = s.find(b"(")
