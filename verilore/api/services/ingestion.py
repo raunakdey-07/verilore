@@ -164,12 +164,21 @@ def _source_text(path: Path, rel_path: str) -> str:
     `title`. A file that converts to no text at all (a scanned PDF) is refused
     with the reason, rather than stored as an empty document.
     """
-    if path.suffix.lower() in _MARKDOWN:
-        return path.read_text(encoding="utf-8")
     import yaml
 
     from verilore.api.services import memory
-    from verilore.api.services.source_formats import parse_file
+    from verilore.api.services.source_formats import MAX_SOURCE_BYTES, parse_file
+
+    size = path.stat().st_size
+    if size > MAX_SOURCE_BYTES:
+        raise memory.ClaimValidationError(
+            rel_path,
+            "-",
+            f"too_large: the file is {size / 1_000_000:.0f} MB and the limit for one file is "
+            f"{MAX_SOURCE_BYTES // 1_000_000} MB; split it",
+        )
+    if path.suffix.lower() in _MARKDOWN:
+        return path.read_text(encoding="utf-8")
 
     try:
         metadata, body = parse_file(path)

@@ -718,6 +718,16 @@ Resolution is by real path, so `..` and symlinks are followed before the check
 rather than being compared as strings. The refusal does not name the allowed
 roots, because a caller refused a path should not learn the layout from it.
 
+**A file inside a root is still untrusted.** The folder a sync reads is often
+filled by someone else, and a Word or PDF file can be built to exhaust the reader:
+a 40 KB `.docx` can unpack to gigabytes. Every converted file is held to limits in
+`verilore/api/services/source_formats.py`: 50 MB on disk, 200 MB unpacked in all
+(read through a bounded stream, because the size an archive declares is its own
+claim), 10,000 parts in an archive and 3,000 pages in a PDF. A file over a limit,
+or with a part that is not what its name says, fails alone with the reason, and
+the rest of the folder syncs. XML is parsed by the standard library, which fetches
+no external entity.
+
 ## Data lifecycle: deletion, erasure, and what survives
 
 Deleting a *source file* is not deleting memory. Deleting a *corpus* is. These

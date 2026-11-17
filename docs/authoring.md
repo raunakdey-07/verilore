@@ -306,7 +306,8 @@ A file cannot carry frontmatter, so a sidecar beside it does: `rules.pdf.yaml`
 holding `status: draft`, `valid_until: 2026-11-06` or `prose: rules` applies to
 `rules.pdf`. A PDF with no text layer (a scan) is refused with the reason, and the
 rest of the folder still syncs. Word's `~$` lock files and macOS `._` files are
-skipped.
+skipped. A file over 50 MB, or one that unpacks to more than 200 MB, is refused
+the same way: split it.
 
 `--formats md,docx,pptx,pdf` is the default. Plain text is read only when asked
 for, `--formats md,txt`, because a code repository's `.txt` files are licences and

@@ -39,7 +39,12 @@ if [ "$(uname -s)" = "Darwin" ]; then
   else
     # Homebrew no longer builds Intel bottles for every update, so an Intel Mac
     # may compile from source; uv's own installer is a single download there.
-    curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+    # Downloaded first, with retries: a runner's DNS can fail for a minute, and
+    # a failed `curl | sh` failed the whole job before anything was tested.
+    installer="${TMPDIR:-/tmp}/uv-install.sh"
+    curl -LsSf --retry 5 --retry-all-errors --retry-delay 10 -o "$installer" \
+      https://astral.sh/uv/install.sh
+    env UV_NO_MODIFY_PATH=1 sh "$installer"
     export PATH="$HOME/.local/bin:$PATH"
   fi
   # pipx the way its own documentation installs it, with the Python on PATH.
