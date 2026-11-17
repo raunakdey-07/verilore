@@ -50,7 +50,26 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from verilore.api.models.memory import MemoryRequest, MemoryWire
 from verilore.sdk import Verilore
 
-mcp = MCPServer("verilore")
+#: What a model connected to this server should do, in the order it should do
+#: it. Sent once, at connection; a weak model follows a short procedure more
+#: reliably than it infers one from nineteen tool descriptions.
+INSTRUCTIONS = """\
+Verilore holds a team's approved memory: rules and facts with their sources.
+To write something: call memory_brief with the corpus and a `task` describing
+what you will write; write using only those lines; call memory_check with your
+draft and the same `task`; make exactly the changes it lists, then check again.
+To answer a question: call memory_recall. If it finds no memory, say you do not
+know; do not answer from general knowledge. Never state a price, percentage or
+date that memory does not state."""
+
+mcp = MCPServer("verilore", instructions=INSTRUCTIONS)
+
+#: Tool sets a deployment can expose instead of all of them, by
+#: `VERILORE_MCP_TOOLS`. `writer` is for an assistant that writes and answers
+#: from memory: a small model offered nineteen tools picks the wrong one.
+TOOL_PROFILES = {
+    "writer": ("memory_brief", "memory_check", "memory_recall", "memory_remember", "list_corpora"),
+}
 
 # One client per corpus name, cached; Verilore handles corpus creation.
 _clients: dict[str, Verilore] = {}
@@ -561,8 +580,8 @@ async def memory_brief(
 
     Pass `task`, a few words on what you are about to write (e.g. "Instagram
     caption for the spring launch"): when not everything fits in `max_chars`,
-    rules are kept first and then the lines closest to the task. `must` names
-    folders or files whose lines are always kept. If the last line says lines
+    the lines the task is about are kept first, then rules that hold for any
+    task. `must` names folders or files whose lines are always kept. If the last line says lines
     were left out for length, call again with a narrower `path_prefix`.
     """
     from verilore.brief import render_brief
@@ -760,6 +779,11 @@ Environment:
   DATABASE_URL                 PostgreSQL with pgvector. Required.
   VERILORE_INGEST_ROOTS     directories `sync` and `memory_remember(file=)`
       may read. `none` disables both.
+  VERILORE_MCP_TOOLS       which tools to offer: `all` (default), `writer`
+      (memory_brief, memory_check, memory_recall, memory_remember,
+      list_corpora: for an assistant that writes from memory; small models
+      choose better from five tools than from nineteen), or tool names
+      separated by commas.
 
 Client configuration (stdio):
   { "command": "verilore-mcp",
@@ -774,8 +798,37 @@ To check it is alive without a client:
 """
 
 
+def apply_tool_profile(value: str | None) -> list[str]:
+    """Keep only the tools `value` names; returns the tools left.
+
+    `value` is empty or `all` (every tool), a profile name (`writer`), or a
+    comma-separated list of tool names. A name that is not a tool is refused,
+    so a typo cannot quietly leave an assistant with no way to read memory.
+    """
+    available = [tool.name for tool in mcp._tool_manager.list_tools()]
+    wanted = (value or "").strip()
+    if not wanted or wanted == "all":
+        return available
+    keep = (
+        set(TOOL_PROFILES[wanted])
+        if wanted in TOOL_PROFILES
+        else {name.strip() for name in wanted.split(",") if name.strip()}
+    )
+    unknown = sorted(keep - set(available))
+    if unknown:
+        raise ValueError(
+            f"VERILORE_MCP_TOOLS names no such tool: {', '.join(unknown)}. Use all, "
+            f"{', '.join(TOOL_PROFILES)}, or tool names from: {', '.join(sorted(available))}"
+        )
+    for name in available:
+        if name not in keep:
+            mcp.remove_tool(name)
+    return [name for name in available if name in keep]
+
+
 def main() -> None:
     import asyncio
+    import os
     import sys
 
     # `--help` before anything else: the server's normal mode consumes stdin, so
@@ -799,6 +852,11 @@ def main() -> None:
     from verilore.cli.config import apply_to_environ
 
     apply_to_environ()
+    try:
+        apply_tool_profile(os.environ.get("VERILORE_MCP_TOOLS"))
+    except ValueError as exc:
+        sys.stderr.write(f"verilore-mcp: {exc}\n")
+        raise SystemExit(2) from None
     asyncio.run(mcp.run_stdio_async())
 
 
