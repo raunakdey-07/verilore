@@ -280,13 +280,27 @@ print(f"brief chars: {len(brief.text)}, pack chars: {len(pack.canonical_json())}
 install. When a scope holds more than fits, the brief decides what to keep in
 an order you can predict, stops at a whole line, and says what it left out:
 
-1. **Rules first.** A line that says never, must, always or do not, a line
-   under a heading such as `## Never` or `## Legal`, and every line under a
-   path you name in `must`.
-2. **Then what the task is about.** `task` is a few words on what is being
-   written. The remaining lines are ranked by the words they share with it,
-   their heading and their file, and the least related are left out.
-3. Without a task, document order.
+Without a task: **rules first** (a line that says never, must, always or do
+not, a line under a heading such as `## Never` or `## Legal`, and every line
+under a path you name in `must`), then document order.
+
+With `task`, a few words on what is being written:
+
+1. Every line under a path in `must`.
+2. **What the task is about**, rules and facts alike, most related first: the
+   words a line shares with the task count in full, words only its heading or
+   file name shares count half.
+3. **Rules that hold for any task**, such as "never use the word premium".
+4. The rest, including rules about another named thing. "Never tag a competitor
+   on Instagram" cannot be broken by an email, so it does not take an email's
+   room. A named thing is a section heading such as `## Instagram` or
+   `## Assam Gold` that the kit also names inside a sentence.
+
+A line that leaves out what its section names is printed with it:
+`Price: Rs 520 for a 250 g tin.` under `## Assam Gold` reads
+`Assam Gold: Price: Rs 520 for a 250 g tin.` On the hard benchmark kit, eight
+tasks at 500 tokens, the brief carries 43 of 47 applicable rules and nothing
+that must not be served ([measures](../../benchmarks/governed_context/hard/measures.md)).
 
 ```python
 tight = mp.memory.brief(

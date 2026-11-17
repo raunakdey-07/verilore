@@ -87,23 +87,15 @@
   "250": {
    "brief": {
     "applicable": 47,
-    "carried": 12,
+    "carried": 28,
     "leaks": 0,
     "missed": {
      "assam-price": [
-      "p-assam-price",
-      "p-assam-steep",
       "l-gst"
      ],
-     "brand-voice": [
-      "v-voice"
-     ],
      "instagram-kahwa": [
-      "c-instagram",
-      "w-offer",
-      "w-ends",
       "w-lead",
-      "p-kahwa-what",
+      "l-discount-end",
       "v-premium",
       "v-exotic",
       "v-medicine",
@@ -111,34 +103,22 @@
      ],
      "kahwa-page": [
       "v-medicine",
-      "p-kahwa-what",
-      "p-kahwa-price",
-      "p-kahwa-steep",
+      "l-gst",
       "v-exotic"
      ],
      "linkedin-sourcing": [
-      "c-linkedin",
-      "p-dj-estate",
       "v-exotic",
       "v-premium",
-      "v-worldclass"
-     ],
-     "whatsapp-shipping": [
-      "c-whatsapp",
-      "c-wa-optin",
-      "p-ship-free",
-      "p-ship-days"
+      "v-worldclass",
+      "l-compare"
      ],
      "winter-email": [
-      "c-email",
-      "w-launch",
       "w-offer",
-      "w-ends",
-      "w-not-gift",
-      "v-address"
+      "v-address",
+      "l-gst",
+      "l-discount-end"
      ],
      "winter-headline": [
-      "w-headline",
       "w-rejected"
      ]
     }
@@ -256,18 +236,13 @@
   "500": {
    "brief": {
     "applicable": 47,
-    "carried": 42,
+    "carried": 43,
     "leaks": 0,
     "missed": {
-     "brand-voice": [
-      "v-voice"
-     ],
      "instagram-kahwa": [
-      "w-lead",
+      "v-premium",
+      "v-exotic",
       "v-voice"
-     ],
-     "winter-email": [
-      "c-email"
      ],
      "winter-headline": [
       "w-rejected"

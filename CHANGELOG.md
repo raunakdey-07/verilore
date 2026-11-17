@@ -195,6 +195,22 @@ memory has to pass `state="approved"`.
   on every machine. A `.docx` or `.pdf` ingested before this reads differently
   now, and its next ingest records a new version.
 
+- **A brief with a task keeps what the task needs, and says what each line is
+  about.** Rules used to take room first whatever the task, so a 250-token brief
+  for an email spent it on "never tag a competitor on Instagram" and left out the
+  campaign's offer. With `task`, the order is now: lines under `must`, the lines
+  the task is about, rules that hold for any task, then the rest, including rules
+  about another named channel or product. A word a line says counts more than a
+  word only its file name shares. A field such as `Price: Rs 520 for a 250 g tin.`
+  under `## Assam Gold` is printed `Assam Gold: Price: ...`. On the hard benchmark
+  kit at 250 tokens, the brief carries 28 of 47 applicable rules, up from 12;
+  at 500, 43, up from 42; nothing that must not be served, at any size. A brief
+  without `task` is unchanged.
+- **`check` reads a claim's section as part of its subject.** "Price: Rs 520 for a
+  250 g tin." under "Assam Gold" is compared only with a draft about Assam Gold;
+  before, any draft with a tin and a price was compared with every price on the
+  sheet.
+
 ### Removed
 
 **The `verilore_sdk` and `verilore_errors` shims.** v0.11 kept them for one

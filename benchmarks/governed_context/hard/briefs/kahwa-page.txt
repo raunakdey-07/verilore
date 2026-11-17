@@ -1,11 +1,6 @@
 Approved memory for "saffron-lane", scope brand + campaigns.
 Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
 
-brand/channels.md
-- Always end an Instagram caption with the estate name in capitals.
-- Never tag a competitor brand on Instagram.
-- Every WhatsApp message must include the word STOP so a reader can unsubscribe.
-
 brand/legal.md
 - Every product page and every email must show our FSSAI licence number, 10019022010877.
 - Prices include GST, and copy must say so when it states a price.
@@ -14,13 +9,17 @@ brand/legal.md
 - A discount must state its end date.
 
 brand/products.md
-- Price: Rs 520 for a 250 g tin.
+- Assam Gold: Price: Rs 520 for a 250 g tin.
 - Assam Gold comes from the Halmari estate in Dibrugarh.
 - Steep Assam Gold for 4 minutes at 95 °C.
-- Price: Rs 890 for a 100 g tin.
-- Price: Rs 640 for a 100 g tin.
+- Darjeeling First Flush: Price: Rs 890 for a 100 g tin.
+- Darjeeling First Flush comes from the Castleton estate.
+- Kashmiri Kahwa: Price: Rs 640 for a 100 g tin.
 - Kashmiri Kahwa is a green tea with saffron, cardamom and almond.
 - Steep Kashmiri Kahwa for 3 minutes at 80 °C.
+- Shipping is free on orders above Rs 999.
+- Orders below Rs 999 pay Rs 79 for shipping.
+- Orders ship within 2 working days.
 - Do not promise delivery in under 3 days.
 
 brand/voice.md
@@ -36,4 +35,4 @@ campaigns/winter-2026/brief.md
 - The winter campaign brings Kashmiri Kahwa to the front.
 - The winter offer is 15% off the Kashmiri Kahwa tin.
 
-Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 28 more approved lines. The lines least related to the task went first.
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 27 more approved lines, 3 of them rules. The lines least related to the task went first.

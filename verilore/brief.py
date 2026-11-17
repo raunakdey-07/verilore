@@ -195,7 +195,11 @@ _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _STOP = frozenset(
     "a an and are as at be by for from i in into is it its me my of on or our "
     "please that the their them this to us we with you your "
-    "write writing draft create make generate give new one some short long".split()
+    "write writing draft create make generate give new one some short long "
+    # How a task asks, not what it is about: "describe our brand voice in one
+    # sentence, using the exact words from the brand rules" is about voice.
+    "describe explain tell answer using use exact sentence sentences word words line "
+    "lines brand rule rules copy".split()
 )
 
 
@@ -226,14 +230,68 @@ def _scores(task: str, entries: list[dict[str, Any]]) -> list[float]:
     wanted = _terms(task)
     if not wanted or not entries:
         return [0.0] * len(entries)
-    bags = [
-        _terms(f'{entry["sentence"]} {entry["heading"] or ""} {" ".join(entry["paths"])}')
-        for entry in entries
-    ]
+    own = [_terms(entry["sentence"]) for entry in entries]
+    around = [_terms(f'{entry["heading"] or ""} {" ".join(entry["paths"])}') for entry in entries]
+    bags = [mine | context for mine, context in zip(own, around)]
     frequency = {term: sum(1 for bag in bags if term in bag) for term in wanted}
     total = len(bags)
     weight = {term: math.log(1 + total / count) for term, count in frequency.items() if count}
-    return [sum(weight[term] for term in wanted & bag if term in weight) for bag in bags]
+    # A word the line says counts in full; a word only its heading or file name
+    # says counts half. Otherwise every line of `voice.md` ties with the one
+    # line that says what the voice is.
+    return [
+        sum(
+            weight[term] * (1.0 if term in mine else 0.5) for term in wanted & bag if term in weight
+        )
+        for mine, bag in zip(own, bags)
+    ]
+
+
+# ------------------------------------------------------------------ subjects
+
+#: A heading that reads as a name: every word capitalized ("Assam Gold",
+#: "Instagram", "WhatsApp"), at most four words.
+_NAME = re.compile(r"^[A-Z0-9][\w'&.-]*(?: [A-Z0-9][\w'&.-]*){0,3}$")
+#: A capitalized word that does not start a sentence, a quote or a label.
+_MID_CAPITAL = re.compile(r"(?<![.!?:\"“(]\s)(?<!^)\b[A-Z][a-z]+[A-Z]?\w*")
+
+
+def _sections(heading: str | None) -> list[str]:
+    """A heading path's sections below the document's title."""
+    parts = [part.strip() for part in (heading or "").split(" > ") if part.strip()]
+    return parts[1:] if len(parts) > 1 else []
+
+
+def _subjects(entries: list[dict[str, Any]]) -> dict[str, set[str]]:
+    """The named things a corpus has sections about, as each name's terms.
+
+    A subject is a section heading that is a name ("Instagram", "Assam Gold")
+    and that the corpus also writes as a name inside a sentence ("never tag a
+    competitor on Instagram", "steep Assam Gold for 4 minutes"). That second
+    test is what keeps "Punctuation" and "Shipping" from being subjects: a
+    section about a topic is not a thing a task is written for. A language
+    ("Indian English") or a brand named in a rule is not a section, so a rule
+    that names it stays a rule for every task.
+    """
+    capitalized = {
+        match.group(0).lower()
+        for entry in entries
+        for match in _MID_CAPITAL.finditer(entry["sentence"])
+    }
+    names: dict[str, set[str]] = {}
+    for entry in entries:
+        for section in _sections(entry["heading"]):
+            if _NAME.match(section) and any(
+                word.lower() in capitalized for word in section.split()
+            ):
+                names.setdefault(section.lower(), _terms(section))
+    return names
+
+
+def _about(entry: dict[str, Any], subjects: dict[str, set[str]]) -> set[str]:
+    """The subjects a line is about: named in its sentence or its section."""
+    bag = _terms(f'{entry["sentence"]} {entry["heading"] or ""}')
+    return {name for name, terms in subjects.items() if terms and terms <= bag}
 
 
 # ----------------------------------------------------------------- rendering
@@ -265,6 +323,31 @@ def _expired(claim: Any, now: datetime) -> bool:
     if until.tzinfo is None:
         until = until.replace(tzinfo=timezone.utc)
     return until <= now
+
+
+#: A line that is a label and a value: "Price: Rs 520 for a 250 g tin."
+_FIELD = re.compile(r"^[\w][\w '&-]{0,30}: ")
+
+
+def _shown(entry: dict[str, Any], subjects: dict[str, set[str]]) -> str:
+    """A line as printed: with its section's name when the line leaves it out.
+
+    "Price: Rs 520 for a 250 g tin." under "Assam Gold" is a price for nothing
+    once it is out of its document; printed as "Assam Gold: Price: Rs 520 for
+    a 250 g tin." it is a price for something. The section is added only when
+    it is a name, the line does not already say it, and the line is a field or
+    the section is a subject (`_subjects`): "Facts" before every fact is noise.
+    """
+    sections = _sections(entry["heading"])
+    sentence = entry["sentence"]
+    if not sections or not _NAME.match(sections[-1]):
+        return sentence
+    section = sections[-1]
+    if _terms(section) <= _terms(sentence):
+        return sentence
+    if section.lower() not in subjects and not _FIELD.match(sentence):
+        return sentence
+    return f"{section}: {sentence}"
 
 
 def render_brief(
@@ -357,22 +440,39 @@ def render_brief(
             entry["paths"].append(path)
         entry["ids"].append(claim_id)
 
+    subjects = _subjects(entries)
     for entry in entries:
         entry["label"] = _label(entry["paths"][0] if entry["paths"] else "")
-        entry["rule"] = is_rule(entry["sentence"], entry["heading"]) or any(
-            _under(path, always) for path in entry["paths"]
-        )
+        entry["must"] = any(_under(path, always) for path in entry["paths"])
+        entry["rule"] = is_rule(entry["sentence"], entry["heading"]) or entry["must"]
+        entry["about"] = _about(entry, subjects)
+        entry["shown"] = _shown(entry, subjects)
 
     # The order lines are offered room in. Not the order they are printed in.
-    relevance = _scores(task, entries) if task else [0.0] * len(entries)
-    offered = sorted(
-        entries,
-        key=lambda entry: (
-            not entry["rule"],
-            -relevance[entry["position"]],
-            entry["position"],
-        ),
-    )
+    if task:
+        relevance = _scores(task, entries)
+        named = {name for name, terms in subjects.items() if terms and terms <= _terms(task)}
+
+        def rank(entry: dict[str, Any]) -> tuple:
+            """Lines under `must`; then lines the task is about, most related
+            first; then rules that hold for any task; then the rest. A rule
+            about another named thing ("never tag a competitor on Instagram",
+            for an email) is "the rest": it cannot be broken by this task."""
+            score = relevance[entry["position"]]
+            elsewhere = bool(entry["about"]) and not entry["about"] & named
+            if entry["must"]:
+                band = 0
+            elif score > 0 and not elsewhere:
+                band = 1
+            elif entry["rule"] and not elsewhere:
+                band = 2
+            else:
+                band = 3
+            return (band, -score, not entry["rule"], entry["position"])
+
+        offered = sorted(entries, key=rank)
+    else:
+        offered = sorted(entries, key=lambda entry: (not entry["rule"], entry["position"]))
 
     where = f', scope {" + ".join(scope)}' if scope else ""
     header = [
@@ -418,7 +518,7 @@ def render_brief(
         lines: list[str] = []
         for label, members in groups.items():
             lines += ["", label]
-            lines += [f'- {entry["sentence"]}' for entry in members]
+            lines += [f'- {entry["shown"]}' for entry in members]
         return lines
 
     def render(kept: list[dict[str, Any]]) -> str:

@@ -1181,10 +1181,11 @@ class MemoryClient:
 
         The size limit is `max_chars` (6,000 by default) or `max_tokens`, an
         estimate that needs no tokenizer; give one. When the scope holds more
-        than fits, rules are kept first: lines that say never, must, always or
-        do not, and every line under a path in `must`. With `task`, a short
-        description of what is being written, the remaining lines are ranked by
-        how much they share with it and the least related are left out.
+        than fits, every line under a path in `must` is kept first. Without
+        `task`, rules come next (lines that say never, must, always or do not),
+        then document order. With `task`, a short description of what is being
+        written, the lines it is about come next, then rules that hold for any
+        task, and the least related are left out.
         `brief.omitted` and `brief.omitted_rules` say what did not fit.
 
         A pack of the same claims is about twenty times longer, because a pack

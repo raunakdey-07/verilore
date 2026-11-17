@@ -503,3 +503,76 @@ def test_a_brief_is_a_fraction_of_the_pack_and_withholds_the_same(live_server): 
     # The same claims the pack vouches for, at a fraction of the size.
     assert set(brief.claim_ids) == {claim.id for claim in pack.current_memories}
     assert len(brief.text) * 5 < len(pack.canonical_json())
+
+
+# --------------------------------------------- sections and task ranking (BRIEF-3)
+
+#: A product sheet and a channel guide, as a brand writes them: facts under the
+#: name of what they are about, and rules for one channel under its name.
+SECTIONED = [
+    _claim(1, "Price: Rs 520 for a 250 g tin.", "brand/products.md"),
+    _claim(2, "Steep Assam Gold for 4 minutes at 95 °C.", "brand/products.md"),
+    _claim(3, "Price: Rs 890 for a 100 g tin.", "brand/products.md"),
+    _claim(4, "Never tag a competitor brand on Instagram.", "brand/channels.md"),
+    _claim(5, "Every WhatsApp message must include the word STOP.", "brand/channels.md"),
+    _claim(6, 'We never use the word "premium".', "brand/voice.md"),
+    _claim(7, "The spring launch date is 14 March 2027.", "campaigns/spring.md"),
+    _claim(8, "Our voice is warm, knowledgeable and unhurried.", "brand/voice.md"),
+    _claim(9, "We write in Indian English.", "brand/voice.md"),
+    _claim(10, "Send WhatsApp messages only to customers who opted in.", "brand/channels.md"),
+]
+SECTION_EVIDENCE = [
+    {"claim_id": "c1", "heading": "Products > Assam Gold"},
+    {"claim_id": "c2", "heading": "Products > Assam Gold"},
+    {"claim_id": "c3", "heading": "Products > Darjeeling First Flush"},
+    {"claim_id": "c4", "heading": "Channel rules > Instagram"},
+    {"claim_id": "c5", "heading": "Channel rules > WhatsApp"},
+    {"claim_id": "c6", "heading": "Voice > Words we do not use"},
+    {"claim_id": "c7", "heading": "Spring > Facts"},
+    {"claim_id": "c8", "heading": "Voice"},
+    {"claim_id": "c9", "heading": "Voice"},
+    {"claim_id": "c10", "heading": "Channel rules > WhatsApp"},
+]
+
+
+def test_a_line_that_leaves_out_its_subject_is_printed_with_it():
+    """Out of its document, "Price: Rs 520 for a 250 g tin." is a price for
+    nothing, and two such lines are two prices for nothing."""
+    lines = _lines(render_brief(_response(SECTIONED, evidence=SECTION_EVIDENCE)))
+    assert "Assam Gold: Price: Rs 520 for a 250 g tin." in lines
+    assert "Darjeeling First Flush: Price: Rs 890 for a 100 g tin." in lines
+    # Said already, or a section that is a topic and not a name: left as written.
+    assert "Steep Assam Gold for 4 minutes at 95 °C." in lines
+    assert "The spring launch date is 14 March 2027." in lines
+    assert 'We never use the word "premium".' in lines
+
+
+def test_with_a_task_a_rule_for_another_channel_waits_for_rules_that_hold_everywhere():
+    """For an email, "never tag a competitor on Instagram" cannot be broken and
+    "never use the word premium" can. The first used to win room because it is
+    a rule; now the rule that can be broken does."""
+    response = _response(SECTIONED, evidence=SECTION_EVIDENCE)
+    brief = render_brief(response, task="Write an email about the spring launch", max_chars=420)
+    lines = _lines(brief)
+    assert "The spring launch date is 14 March 2027." in lines
+    assert 'We never use the word "premium".' in lines
+    assert "Never tag a competitor brand on Instagram." not in lines
+    assert "Every WhatsApp message must include the word STOP." not in lines
+    # For the channel it names, the same rules come first.
+    whatsapp = _lines(render_brief(response, task="Write a WhatsApp message", max_chars=460))
+    assert "Every WhatsApp message must include the word STOP." in whatsapp
+    assert "Send WhatsApp messages only to customers who opted in." in whatsapp
+    assert "Never tag a competitor brand on Instagram." not in whatsapp
+
+
+def test_the_line_that_says_it_beats_lines_that_only_share_its_file_name():
+    """Every line of voice.md shares "voice" with "describe our brand voice" by
+    file name. The one line that says what the voice is must not lose to them."""
+    response = _response(SECTIONED, evidence=SECTION_EVIDENCE)
+    brief = render_brief(
+        response,
+        task="Describe our brand voice in one sentence, using the exact adjectives",
+        max_chars=MIN_MAX_CHARS,
+    )
+    assert "Our voice is warm, knowledgeable and unhurried." in _lines(brief)
+    assert "We write in Indian English." not in _lines(brief)

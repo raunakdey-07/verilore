@@ -969,8 +969,8 @@ def brief(
     No question is asked, so no wording can miss: it is everything current and
     approved in the scope you name. Drafts, rejected and replaced statements are
     left out, and the last line says how many. When the scope holds more than
-    fits, rules (never, must, always, do not, and everything under --must) are
-    kept first, then the lines closest to --task.
+    fits, everything under --must is kept first, then the lines closest to
+    --task, then rules (never, must, always, do not) that hold for any task.
     """
     try:
         client = _client(base_url, runtime=True)
