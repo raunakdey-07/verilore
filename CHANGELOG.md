@@ -249,6 +249,13 @@ a claim since v0.11.
   under a key that already held a line retires that line, and the reply still listed
   it as a "live claim that reads like this one", with advice to supersede it.
 
+- **A truncated pack says what it left out (#151).** `truncated: true` was the
+  whole report, so a pack holding every current claim and missing one change entry
+  read the same as a pack missing half the answer. Packs now carry `omitted_counts`
+  (`{"changes": 3}`), a diagnostic like `expired_count`: on REST, MCP and the SDK,
+  never in the canonical JSON, the budget or the receipt digest. `recall` prints
+  it: `(truncated to fit the response budget: left out 3 changes)`.
+
 ## [v0.11.0] - 2026-11-10
 
 The first release on PyPI: `uv tool install --python 3.13 verilore`, or

@@ -99,13 +99,36 @@ def _confidence_line(response: MemoryResponse) -> list[str]:
     return lines
 
 
+#: How each pack section is named in a sentence, singular and plural.
+_SECTION_NAMES = {
+    "current_memories": ("current memory", "current memories"),
+    "changes": ("change", "changes"),
+    "historical_memories": ("historical memory", "historical memories"),
+    "conflicts": ("conflict", "conflicts"),
+    "uncertain_memories": ("uncertain memory", "uncertain memories"),
+}
+
+
+def _truncation_note(response: MemoryResponse) -> str:
+    """What a truncated pack left out, so a reader knows whether it was the answer."""
+    omitted = getattr(response, "omitted_counts", None) or {}
+    parts = [
+        f"{count} {_SECTION_NAMES.get(field, (field, field))[count != 1]}"
+        for field, count in omitted.items()
+        if count
+    ]
+    if not parts:
+        return "(truncated to fit the response budget)"
+    return f"(truncated to fit the response budget: left out {', '.join(parts)})"
+
+
 def render_recall(
     response: MemoryResponse, *, explain: bool = False, budget: int | None = None
 ) -> str:
     """The answer, its source and its time. Plus why, on request."""
     lines = []
     if response.truncated:
-        lines.append("(truncated to fit the response budget)")
+        lines.append(_truncation_note(response))
 
     current = list(response.current_memories)
     historical = list(response.historical_memories)
