@@ -2,11 +2,13 @@
 
 [Website](https://verilore.vercel.app/) · [GitHub](https://github.com/raunakdey-07/verilore) · [Changelog](https://github.com/raunakdey-07/verilore/blob/main/CHANGELOG.md)
 
-Memory for AI applications that remembers what changed, what was true when, and
-why to believe the recorded state. Add Verilore to an application, record a fact,
-and get back an answer with its source, the time it was true, and the exact
-characters that support it. Export a receipt and verify it on a machine that has
-never heard of Verilore.
+Give a model only what your team approved, and check what it wrote. Point
+Verilore at a folder of brand rules, campaign briefs and product facts, in
+Markdown, Word, PowerPoint or PDF: it keeps every version, hands a model only the
+current, approved lines a task needs, checks a draft for banned words and wrong
+prices and dates, and names the document behind each line. Every answer carries
+its source, the time it was true and the exact characters that support it, and a
+receipt verifies offline.
 
 ## Install
 
@@ -30,9 +32,10 @@ says how to get uv and Podman on each.
 
 ```bash
 verilore init
-verilore ingest-repo ./docs --corpus project
-verilore recall "What is the primary datastore?" --corpus project
-verilore explain "What is the primary datastore?" --corpus project
+verilore ingest-repo ./brand-kit --corpus brand
+verilore brief --corpus brand --task "Instagram caption for the winter offer" --max-tokens 500
+verilore check draft.txt --corpus brand --channel Instagram
+verilore recall "What does the Assam Gold tin cost?" --corpus brand
 ```
 
 `init` sets up the database and records it for every later command, so nothing
