@@ -159,6 +159,14 @@ back with its findings, for a person. Verilore still calls no model and needs no
 key. `verilore.write.compose` builds the prompt alone. The benchmark's hard suite
 measures the loop as a fourth condition, `checked`.
 
+**An MCP assistant is told what to do, and can be offered less.** The server now
+sends instructions at connection: call `memory_brief` before writing and
+`memory_check` after, answer from `memory_recall`, say "I do not know" when
+memory is silent, and state no price, percentage or date that memory does not.
+`VERILORE_MCP_TOOLS=writer` offers only the five tools that procedure needs,
+because a small model offered nineteen picks the wrong one; a list of tool names
+works too, and an unknown name stops the server with the real ones.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
@@ -315,6 +323,9 @@ said "the draft says Rs 999 where approved memory says Rs 999".
 **A ban for a channel written in lower case is for that channel.** "Do not use
 exclamation marks in emails" was applied to an Instagram caption; only a
 capitalized channel ("on LinkedIn") was recognised.
+
+**`memory_brief` describes the order it keeps lines in.** Its description still
+said rules come first; with a `task`, the lines the task is about do.
 
 ## [v0.11.0] - 2026-11-10
 

@@ -81,6 +81,15 @@ Nineteen tools are advertised. `memory_brief`, `memory_check`, `memory_recall`,
 `memory_evidence`, `memory_as_of`, `memory_replay`, `memory_pack`, `memory_snapshot`,
 `memory_remember`, `memory_revalidate`, `list_corpora`, `search`, `sync` and `context`.
 
+**For an assistant that writes from memory, offer five.** A small model given
+nineteen tools picks the wrong one. With `"VERILORE_MCP_TOOLS": "writer"` in the
+server's `env`, it is offered `memory_brief`, `memory_check`, `memory_recall`,
+`memory_remember` and `list_corpora`, and nothing else; a comma-separated list of
+tool names works too, and a name that is not a tool stops the server with the
+list of real ones. Whatever is offered, the server tells the model at connection
+what to do: brief before writing, check after, recall to answer, "I do not know"
+when memory is silent, and no price, percentage or date that memory does not state.
+
 `memory_brief` is the one to call first. It asks no question: it returns every
 current, approved claim in a corpus, or in the folders named by `path_prefix`, as
 plain text lines under the file they come from, sized for a prompt (`max_chars`,
