@@ -127,7 +127,7 @@ def test_the_findings_read_as_exact_instructions_for_a_model():
     assert "    rule: none; state it only if a person approves it" in render_check(result)
     assert render_feedback(_check("Assam Gold is Rs 520.")) == ""
     exclaim = render_feedback(_check("Order now!", channel="Email"))
-    assert "- Remove the exclamation mark !." in exclaim
+    assert "- Remove every exclamation mark (such as !)." in exclaim
 
 
 def test_the_cli_passes_the_choices_and_prints_the_instructions(monkeypatch, tmp_path):
