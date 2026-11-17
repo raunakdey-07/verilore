@@ -68,6 +68,13 @@ gets at 500 tokens, which is what a model run sends:
 python -m benchmarks.governed_context.run --suite hard --model <model id>
 ```
 
+The hard suite adds a fourth condition, `checked`: the same brief, then
+`verilore check` of the draft against the kit's approved lines
+(`hard/approved.json`) and one revision with exactly what to change, the loop
+`vl.memory.write` runs. It costs a second call only for a task whose first draft
+had a finding, so the eight tasks take 32 to 40 calls in all, inside the free
+tier's 50 a day.
+
 ## What it does and does not show
 
 It shows whether a model, given this kit each way, wrote an answer that broke a

@@ -320,6 +320,39 @@ meaning: "tweet" does not find a line about "X posts". Put what must always be
 there under `must`, and name the channel in the task the way the kit names it.
 A line whose `valid_until` has passed is left out and counted in `brief.expired`.
 
+### Write with your model, checked
+
+`write` is the whole loop in one call, and Verilore still calls no model: you
+pass your own, as any function from a prompt to its text. It builds the prompt
+from the brief for the task, calls your model, checks the draft against the same
+approved lines, and on a finding calls your model once more with the draft and
+exactly what to change. A person gets the draft with the fewest findings, and
+those findings.
+
+```python
+def my_model(prompt):
+    # Your call: OpenRouter, a local model, anything that returns text.
+    return "Ride light this spring with the Trailhead 2."
+
+written = mp.memory.write(
+    "Instagram caption for the spring launch",
+    my_model,
+    path_prefix=["brand", "campaigns/spring"],
+    channel="Instagram",
+)
+print(written.draft)
+for finding in written.check.findings:  # empty when written.ok
+    print(finding.detail)
+assert 1 <= len(written.attempts) <= 2
+```
+
+The prompt tells the model to use only the approved lines and to state no price,
+percentage or date they do not state; `verilore.write.compose` builds it, if you
+would rather call your model yourself. `retries` (default 1, at most 3) is how
+many second chances a draft gets. Values the task states count as approved, so
+"announce 20% off" may say 20%. A draft that still has findings is returned with
+them, for a person: the loop never hides a problem it could not fix.
+
 ### Remember decisions and corrections
 
 `remember(statement, key=..., scope=..., state=...)` records a decision as
