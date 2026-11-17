@@ -50,6 +50,9 @@ BRIEFS = HARD / "briefs"
 RUN_BUDGET = 500
 #: The corpus name the committed briefs carry on their first line.
 CORPUS = "saffron-lane"
+#: The approved lines in scope, which `run.py`'s `checked` condition checks
+#: drafts against without a database.
+APPROVED = HARD / "approved.json"
 #: Token budgets, by the same estimate `verilore brief` uses: a short prompt
 #: section, a generous one, and one that holds most of the kit.
 BUDGETS = (250, 500, 1000)
@@ -143,6 +146,30 @@ def briefs(vl) -> dict[str, str]:
     return out
 
 
+def approved(vl) -> dict:
+    """The current, approved lines in scope, as `check_draft` reads them.
+
+    Ids are positions, not the archive's ids, so the file is the same on every
+    run; `check` needs a claim's text, path and section, not its identity.
+    """
+    spec = load(RULES)
+    current = vl.memory.current(path_prefix=spec["scope"])
+    headings = {e.claim_id: e.heading for e in current.evidence if e.heading}
+    lines = sorted({(c.path, c.claim, headings.get(c.id) or "") for c in current.current_memories})
+    return {
+        "corpus": CORPUS,
+        "current_memories": [
+            {"id": f"line-{n:03d}", "claim": claim, "path": path}
+            for n, (path, claim, _heading) in enumerate(lines, start=1)
+        ],
+        "evidence": [
+            {"claim_id": f"line-{n:03d}", "heading": heading}
+            for n, (_path, _claim, heading) in enumerate(lines, start=1)
+            if heading
+        ],
+    }
+
+
 def render(result: dict) -> str:
     out = [
         "# Hard kit: what reaches the model, measured without one",
@@ -211,6 +238,9 @@ def main(argv: list[str] | None = None) -> int:
         BRIEFS.mkdir(exist_ok=True)
         for task_id, brief in briefs(vl).items():
             (BRIEFS / f"{task_id}.txt").write_text(brief, encoding="utf-8")
+        APPROVED.write_text(
+            json.dumps(approved(vl), indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
     return 0
 
 

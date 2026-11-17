@@ -1236,6 +1236,48 @@ class MemoryClient:
             draft, current, channel=channel, unsupported=unsupported, supported_by=extra
         )
 
+    def write(
+        self,
+        task: str,
+        generate,
+        corpus=None,
+        *,
+        path_prefix: str | list[str] | None = None,
+        channel: str | None = None,
+        max_tokens: int = 500,
+        must: str | list[str] | None = None,
+        retries: int = 1,
+    ):
+        """Write with your model, checked against approved memory, with a chance to fix.
+
+        `generate` is your model: any function from a prompt to its text (an
+        OpenRouter call, a local model, a test stub). Verilore builds the prompt
+        from the brief for `task`, calls `generate`, checks the draft against the
+        same approved lines, and on a finding calls `generate` once more
+        (`retries`, at most 3) with the draft and exactly what to change.
+        Returns a `verilore.write.Written`: the draft with the fewest findings,
+        its `check` (show the findings to the person who approves it), and every
+        attempt. `written.ok` is true when the draft passed. Values the task
+        itself states ("announce 20% off") count as approved.
+
+        It reads memory once: the brief and the check see the same lines.
+        """
+        from verilore.brief import render_brief
+        from verilore.check import check_draft
+        from verilore.write import write_with
+
+        response = self.current(corpus, "", path_prefix=path_prefix)
+        brief = render_brief(
+            response, path_prefix=path_prefix, max_tokens=max_tokens, task=task, must=must
+        )
+        return write_with(
+            task,
+            generate,
+            brief=brief,
+            check=lambda draft: check_draft(draft, response, channel=channel, supported_by=[task]),
+            retries=retries,
+        )
+
     def review(
         self,
         corpus=None,

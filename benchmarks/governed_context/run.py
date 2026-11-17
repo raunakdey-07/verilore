@@ -42,6 +42,13 @@ KIT = HERE / "kit"
 TASKS = HERE / "tasks.json"
 BRIEF = HERE / "brief.txt"
 CONDITIONS = ("dump", "grep", "brief")
+#: `checked` is the brief, then `verilore check` of the draft and one revision
+#: with exactly what to change (`verilore.write`). It needs the suite's approved
+#: lines (`hard/approved.json`), so it runs on the hard suite only, where it is
+#: on by default, and it costs a second call for a task whose first draft had a
+#: finding.
+CHECKED = "checked"
+ALL_CONDITIONS = (*CONDITIONS, CHECKED)
 #: Two kits. `basic` is eight tasks on a small bike kit with one brief for all
 #: of them. `hard` is eight tasks on a tea brand's kit written the way brands
 #: write (paragraphs, a channel table, an ended campaign, old notes), with the
@@ -102,9 +109,25 @@ def context_for(condition: str, task: dict, *, kit: Path = KIT, brief: Path = BR
         return dump_context(kit)
     if condition == "grep":
         return grep_context(task["keywords"], kit)
-    if condition == "brief":
+    if condition in ("brief", "checked"):
         return brief_context(brief, task)
     raise ValueError(f"unknown condition: {condition}")
+
+
+def checked_answer(generate, task: dict, brief_text: str, approved: dict):
+    """The `checked` condition: brief, draft, check, one revision. Returns `Written`."""
+    from types import SimpleNamespace
+
+    from verilore.check import check_draft
+    from verilore.write import write_with
+
+    return write_with(
+        task["prompt"],
+        generate,
+        brief=SimpleNamespace(text=brief_text, claim_ids=[]),
+        check=lambda draft: check_draft(draft, approved, supported_by=[task["prompt"]]),
+        retries=1,
+    )
 
 
 def messages(system: str, context: str, prompt: str) -> list[dict]:
@@ -152,7 +175,7 @@ def summarize(results: Path) -> str:
     for model in sorted({row["model"] for row in rows}):
         out += [f"### {model}", "", "| Context | Tasks passed | Rule violations | Context chars |"]
         out.append("|---|---|---|---|")
-        for condition in CONDITIONS:
+        for condition in ALL_CONDITIONS:
             mine = [r for r in rows if r["model"] == model and r["condition"] == condition]
             if not mine:
                 continue
@@ -171,10 +194,15 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
         return 2
     kit, tasks_file, brief = SUITES[suite]
     spec = load_tasks(tasks_file)
-    conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
-    unknown = [c for c in conditions if c not in CONDITIONS]
+    approved_file = tasks_file.parent / "approved.json"
+    chosen = args.conditions or ",".join(ALL_CONDITIONS if approved_file.exists() else CONDITIONS)
+    conditions = [c.strip() for c in chosen.split(",") if c.strip()]
+    unknown = [c for c in conditions if c not in ALL_CONDITIONS]
     if unknown:
         print(f"unknown condition: {', '.join(unknown)}", file=sys.stderr)
+        return 2
+    if CHECKED in conditions and not approved_file.exists():
+        print("the checked condition needs --suite hard", file=sys.stderr)
         return 2
 
     if args.dry_run:
@@ -211,10 +239,29 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
                 if calls:
                     sleep(args.delay)
                 context = context_for(condition, task, kit=kit, brief=brief)
-                answer = ask(
-                    client, args.model, key, messages(spec["system"], context, task["prompt"])
-                )
-                calls += 1
+                extra: dict = {}
+                if condition == CHECKED:
+                    approved = json.loads(approved_file.read_text(encoding="utf-8"))
+
+                    def generate(prompt: str) -> str:
+                        chat = [
+                            {"role": "system", "content": spec["system"]},
+                            {"role": "user", "content": prompt},
+                        ]
+                        return ask(client, args.model, key, chat)
+
+                    written = checked_answer(generate, task, context, approved)
+                    answer = written.draft
+                    calls += len(written.attempts)
+                    extra = {
+                        "attempts": len(written.attempts),
+                        "findings_left": [f.detail for f in written.check.findings],
+                    }
+                else:
+                    answer = ask(
+                        client, args.model, key, messages(spec["system"], context, task["prompt"])
+                    )
+                    calls += 1
                 row = {
                     "model": args.model,
                     "condition": condition,
@@ -222,6 +269,7 @@ def run(args, client=None, sleep=time.sleep, out=sys.stdout) -> int:
                     "context_chars": len(context),
                     "answer": answer,
                     **score(answer, task),
+                    **extra,
                 }
                 with results.open("a", encoding="utf-8") as handle:
                     handle.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -243,7 +291,11 @@ def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--model", help="an OpenRouter model id, for example one ending in :free")
     p.add_argument("--suite", default="basic", choices=sorted(SUITES), help="which kit")
-    p.add_argument("--conditions", default=",".join(CONDITIONS))
+    p.add_argument(
+        "--conditions",
+        default=None,
+        help="comma-separated; default dump,grep,brief, and checked on the hard suite",
+    )
     p.add_argument("--out", default="governed-context-results", help="directory for results")
     p.add_argument("--delay", type=float, default=DEFAULT_DELAY, help="seconds between calls")
     p.add_argument("--max-calls", type=int, default=DEFAULT_MAX_CALLS)

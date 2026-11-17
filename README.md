@@ -47,7 +47,9 @@ the model's prompt. `check` exits 1 and names the rule a draft breaks.
 `review --html` writes one page a brand owner can open. In an AI assistant that
 speaks MCP, `brief` and `check` are the tools `memory_brief` and `memory_check`
 ([MCP](docs/mcp.md)); in an app, `vl.memory.brief()`, `vl.memory.check()` and
-`vl.memory.review()` ([developer guide](docs/integration/guide.md)).
+`vl.memory.review()`, or `vl.memory.write(task, your_model)`, which briefs your
+model, checks its draft and gives it one chance to fix what the check found
+([developer guide](docs/integration/guide.md)).
 
 On a kit written the way brands write one, a 500-token brief carries 43 of the
 47 rules eight writing tasks need, and none of the 13 lines that must not reach

@@ -149,6 +149,16 @@ turns it off. `verilore.check.render_feedback(check)`, `verilore check --feedbac
 and the end of every MCP `memory_check` result say exactly what to change, one
 line per finding, so a model can fix its own draft.
 
+**Write with any model, checked, with one chance to fix.** `vl.memory.write(task,
+generate)` takes your model as any function from a prompt to text, builds the
+prompt from the brief for the task, checks the draft against the same approved
+lines, and on a finding calls your model once more with the draft and exactly
+what to change (`retries`, at most 3). It returns the draft with the fewest
+findings, those findings and every attempt; a draft that could not be fixed comes
+back with its findings, for a person. Verilore still calls no model and needs no
+key. `verilore.write.compose` builds the prompt alone. The benchmark's hard suite
+measures the loop as a fourth condition, `checked`.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing
