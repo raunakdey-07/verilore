@@ -508,7 +508,10 @@ remove this word, replace this value with that one, remove a value nothing
 states. `result.ok` is true when there is nothing to report, which covers only
 these exact checks: tone, voice and what a line implies stay with the reviewer. A
 ban written for one channel ("Never use hashtags on LinkedIn", or "in emails") is
-skipped when `channel` names another. `verilore check draft.txt` does the same from a file or
+skipped when `channel` names another. With `channel`, the channel's own limits
+are counted too: a row such as `Instagram: Length: 150 characters; Hashtags: 3 at
+most`, or a sentence such as "Keep LinkedIn posts under 120 words", makes a longer
+draft, or one with more hashtags or emojis, a finding of kind `limit`. `verilore check draft.txt` does the same from a file or
 from standard input (`-`) and exits 1 on a finding, so it can gate a pipeline;
 `--feedback` prints the instruction instead of the report, `--task` names the
 request, `--allow-unsupported` turns off the made-up value check. Over MCP,

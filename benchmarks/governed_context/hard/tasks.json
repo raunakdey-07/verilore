@@ -8,6 +8,7 @@
   {
    "id": "instagram-kahwa",
    "prompt": "Write an Instagram caption for the winter Kashmiri Kahwa offer.",
+   "channel": "Instagram",
    "keywords": [
     "instagram",
     "kahwa",
@@ -43,6 +44,7 @@
   {
    "id": "winter-email",
    "prompt": "Write a short email announcing the winter campaign launch to our subscribers.",
+   "channel": "Email",
    "keywords": [
     "email",
     "winter",
@@ -75,6 +77,7 @@
   {
    "id": "whatsapp-shipping",
    "prompt": "Write a WhatsApp message telling customers about free shipping.",
+   "channel": "WhatsApp",
    "keywords": [
     "whatsapp",
     "shipping",
@@ -124,6 +127,7 @@
   {
    "id": "linkedin-sourcing",
    "prompt": "Write a LinkedIn post about where our Darjeeling First Flush comes from.",
+   "channel": "LinkedIn",
    "keywords": [
     "linkedin",
     "darjeeling",

@@ -215,6 +215,11 @@ A table row is one claim per row, read against its header: `| Instagram | 150
 characters | 3 |` under `| Channel | Length | Hashtags |` is "Instagram: Length:
 150 characters; Hashtags: 3".
 
+A channel table is also what `check` counts a draft against. Write a limit so it
+reads as one: a `Length` column (`150 characters`, `120 words`), and `3 at most`
+or `none` under `Hashtags` or `Emojis`. A plain number under `Hashtags` is a
+count, not a limit, and is not checked.
+
 **Not extracted:** fenced and indented code, HTML comments, link reference
 definitions, horizontal rules, block quotes, and a document's own `# title`. A
 code block holds example commands, which are not decisions.

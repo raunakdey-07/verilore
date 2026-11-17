@@ -103,7 +103,9 @@ never quoted. Use `memory_recall` when you need one fact and its evidence.
 each exact problem with the approved rule it breaks: text a rule bans, emojis,
 exclamation marks or hashtags a rule forbids, a price, date, weight, percentage
 or duration that differs from an approved fact about the same thing, and a price,
-percentage or date that no approved line states. The result ends with exactly
+percentage or date that no approved line states, and, with `channel`, a draft
+longer than the channel allows or with more hashtags or emojis than it allows. The
+result ends with exactly
 what to change; an agent makes those changes, nothing else, and checks again.
 Pass `task`, the request the agent was given, so values the person asked for are
 not reported. "No problems found" covers only these exact checks; tone and voice

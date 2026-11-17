@@ -31,15 +31,23 @@ import unicodedata
 from dataclasses import dataclass, replace
 from typing import Any, Iterable
 
-__all__ = ["Finding", "Check", "check_draft", "render_check", "render_feedback"]
+__all__ = [
+    "Finding",
+    "Check",
+    "channel_limits",
+    "check_draft",
+    "render_check",
+    "render_feedback",
+]
 
 
 @dataclass(frozen=True)
 class Finding:
     """One way a draft breaks one approved claim."""
 
-    #: "banned", "number" (differs from an approved value) or "unsupported"
-    #: (a price, percentage or date no approved line states).
+    #: "banned", "number" (differs from an approved value), "unsupported"
+    #: (a price, percentage or date no approved line states) or "limit" (longer,
+    #: or with more hashtags or emojis, than the channel allows).
     kind: str
     claim_id: str
     claim: str
@@ -471,6 +479,107 @@ def _unsupported_findings(
     return findings
 
 
+# ------------------------------------------------------------- channel limits
+
+#: What a channel line limits, and how to find the number.
+_LIMITS = {
+    "characters": re.compile(r"(\d[\d,]*)\s*(?:characters?|chars?)\b", re.I),
+    "words": re.compile(r"(\d[\d,]*)\s*words?\b", re.I),
+    "hashtags": re.compile(
+        r"hashtags?\s*:?\s*(?:(\d+)\s*(?:at most|max(?:imum)?)|(?:at most|up to|max(?:imum)?)"
+        r"\s*(\d+)|(none|no|0)\b)|(?:at most|up to|no more than)\s*(\d+)\s*hashtags?"
+        r"|\bno hashtags\b",
+        re.I,
+    ),
+    "emojis": re.compile(
+        r"emojis?\s*:?\s*(?:(\d+)\s*(?:at most|max(?:imum)?)|(?:at most|up to|max(?:imum)?)"
+        r"\s*(\d+)|(none|no|0)\b)|(?:at most|up to|no more than)\s*(\d+)\s*emojis?"
+        r"|\bno emojis\b",
+        re.I,
+    ),
+}
+#: A length is a limit only when the line says so: "Length: 150 characters",
+#: "at most 150 characters". "Blog posts run about 800 words" is a habit.
+_LENGTH_IS_LIMIT = re.compile(
+    r"\blength\s*:|\b(?:at most|up to|under|no more than|max(?:imum)?|within|fewer than"
+    r"|less than)\b",
+    re.I,
+)
+#: A channel's own line: "Instagram: Length: 150 characters; Hashtags: 3 at most".
+_CHANNEL_ROW = re.compile(r"^([A-Z][\w-]*(?: [A-Z][\w-]*){0,2}):\s")
+#: A channel named inside a sentence: "on LinkedIn", "Instagram captions".
+_CHANNEL_NAMED = re.compile(
+    r"\b(Instagram|LinkedIn|WhatsApp|Facebook|Twitter|TikTok|YouTube|Threads|Email|SMS)\b"
+)
+
+
+def channel_limits(claim: str) -> tuple[str | None, dict[str, int]]:
+    """The channel a line limits and its limits: ("Instagram", {"characters": 150}).
+
+    Read from a table row ("Instagram: Length: 150 characters; Hashtags: 3 at
+    most") or a sentence naming the channel ("Keep LinkedIn posts under 120
+    words"). A line with no channel, or no limit, gives `(None, {})`.
+    """
+    row = _CHANNEL_ROW.match(claim)
+    channel = row.group(1) if row else None
+    if channel is None:
+        named = _CHANNEL_NAMED.search(claim)
+        channel = named.group(1) if named else None
+    if channel is None:
+        return None, {}
+    limits: dict[str, int] = {}
+    for part in claim.split(";"):
+        for kind in ("characters", "words"):
+            match = _LIMITS[kind].search(part)
+            if match and (row or _LENGTH_IS_LIMIT.search(part)):
+                limits.setdefault(kind, int(match.group(1).replace(",", "")))
+        for kind in ("hashtags", "emojis"):
+            match = _LIMITS[kind].search(part)
+            if match:
+                number = next((g for g in match.groups() if g and g.isdigit()), None)
+                limits.setdefault(kind, int(number) if number else 0)
+    return (channel, limits) if limits else (None, {})
+
+
+def _counts(draft: str) -> dict[str, int]:
+    text = draft.strip()
+    return {
+        "characters": len(text),
+        "words": len(text.split()),
+        "hashtags": len(_HASHTAG.findall(text)),
+        "emojis": sum(1 for char in text if _is_emoji(char)),
+    }
+
+
+def _limit_findings(draft: str, claims: list[dict[str, str]], channel: str) -> list[Finding]:
+    """Where the draft is longer, or has more hashtags or emojis, than its channel allows."""
+    counts = _counts(draft)
+    findings: list[Finding] = []
+    seen: set[str] = set()
+    for claim in claims:
+        named, limits = channel_limits(claim["claim"])
+        if not named or named.lower().rstrip("s") not in channel.lower():
+            continue
+        for kind, most in limits.items():
+            if counts[kind] <= most or kind in seen:
+                continue
+            seen.add(kind)
+            unit = kind if counts[kind] != 1 else kind[:-1]
+            allows = f"at most {most}" if most else f"no {kind}"
+            findings.append(
+                Finding(
+                    "limit",
+                    claim["id"],
+                    claim["claim"],
+                    claim["path"],
+                    f"{counts[kind]} {unit}",
+                    f"The draft has {counts[kind]} {unit}; {named} allows {allows}.",
+                    expected=str(most),
+                )
+            )
+    return findings
+
+
 # ------------------------------------------------------------- the check
 
 
@@ -492,7 +601,9 @@ def check_draft(
     `channel` is where the draft will appear ("Instagram", "LinkedIn post"). A
     ban limited to one channel ("Never use hashtags on LinkedIn") is skipped
     for a draft for another one. Without `channel` such a ban is still checked,
-    and its finding names the channel so a reviewer can dismiss it.
+    and its finding names the channel so a reviewer can dismiss it. With
+    `channel`, the channel's own limits are checked too: its length in
+    characters or words, and how many hashtags and emojis it allows.
 
     With `unsupported` (the default), a price, percentage or date in the draft
     that no approved line states is a finding too: memory is silent on it, so
@@ -566,6 +677,9 @@ def check_draft(
             if key not in seen:
                 seen.add(key)
                 add(finding)
+    if channel:
+        for finding in _limit_findings(draft, claims, channel):
+            add(finding)
     if unsupported:
         # A value already shown to differ from an approved one is not reported
         # twice; the "number" finding says what it should be.
@@ -602,9 +716,9 @@ def render_check(check: Check) -> str:
 
 
 _CLASS_NAMES = {
-    "emoji": "the emoji",
-    "exclamation": "the exclamation mark",
-    "hashtag": "the hashtag",
+    "emoji": "every emoji",
+    "exclamation": "every exclamation mark",
+    "hashtag": "every hashtag",
 }
 
 
@@ -630,8 +744,20 @@ def render_feedback(check: Check) -> str:
                     if finding.quote == "!"
                     else ("hashtag" if finding.quote.startswith("#") else "emoji")
                 )
-                what = f"{_CLASS_NAMES[kind]} {finding.quote}"
+                # Every one, not only the one quoted: told "remove #tea", a
+                # model removes #tea and keeps the other three.
+                what = f"{_CLASS_NAMES[kind]} (such as {finding.quote})"
             lines.append(f"- Remove {what}. Approved rule: {finding.claim}")
+        elif finding.kind == "limit":
+            count, unit = finding.quote.split(" ", 1)
+            plural = unit if unit.endswith("s") else unit + "s"
+            if plural in ("characters", "words"):
+                change = f"Shorten the draft to at most {finding.expected} {plural}"
+            elif finding.expected == "0":
+                change = f"Remove every {plural[:-1]}"
+            else:
+                change = f"Use at most {finding.expected} {plural}"
+            lines.append(f"- {change}; it has {count}. Approved: {finding.claim}")
         elif finding.kind == "number":
             lines.append(
                 f"- Replace {finding.quote} with {finding.expected}. Approved: {finding.claim}"
