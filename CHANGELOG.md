@@ -167,6 +167,15 @@ memory is silent, and state no price, percentage or date that memory does not.
 because a small model offered nineteen picks the wrong one; a list of tool names
 works too, and an unknown name stops the server with the real ones.
 
+**A draft longer than its channel allows is a finding.** A kit's channel table is
+its most exact rule and the one a model breaks most. With `channel`, `check`
+counts the draft against that channel's lines: `Instagram: Length: 150
+characters; Emojis: 2 at most; Hashtags: 3 at most`, or "Keep LinkedIn posts
+under 120 words", gives findings of kind `limit` with how much to cut. A length
+is a limit only when the line says so (`Length:`, "at most", "under"). A ban on a
+kind of mark now asks for every one to go, not only the one quoted. The hard
+benchmark's tasks name their channel, so its `checked` condition counts too.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing

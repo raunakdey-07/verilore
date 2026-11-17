@@ -125,7 +125,9 @@ def checked_answer(generate, task: dict, brief_text: str, approved: dict):
         task["prompt"],
         generate,
         brief=SimpleNamespace(text=brief_text, claim_ids=[]),
-        check=lambda draft: check_draft(draft, approved, supported_by=[task["prompt"]]),
+        check=lambda draft: check_draft(
+            draft, approved, channel=task.get("channel"), supported_by=[task["prompt"]]
+        ),
         retries=1,
     )
 
