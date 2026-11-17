@@ -1,0 +1,439 @@
+{
+ "_comment": "Marked by hand before any measure ran. A rule is carried when one line of a context matches every pattern in `match` (case-insensitive regular expressions). `rules` are what a writer needs; `not_rules` must never reach a model: a draft, an expired campaign, and notes outside the scope.",
+ "scope": [
+  "brand",
+  "campaigns"
+ ],
+ "rules": [
+  {
+   "id": "v-voice",
+   "path": "brand/voice.md",
+   "match": [
+    "warm, knowledgeable and unhurried"
+   ]
+  },
+  {
+   "id": "v-indian-english",
+   "path": "brand/voice.md",
+   "match": [
+    "write in Indian English"
+   ]
+  },
+  {
+   "id": "v-spelling",
+   "path": "brand/voice.md",
+   "match": [
+    "colour, flavour, favourite"
+   ]
+  },
+  {
+   "id": "v-price-format",
+   "path": "brand/voice.md",
+   "match": [
+    "write prices as Rs 520"
+   ]
+  },
+  {
+   "id": "v-address",
+   "path": "brand/voice.md",
+   "match": [
+    "address the reader as you"
+   ]
+  },
+  {
+   "id": "v-premium",
+   "path": "brand/voice.md",
+   "match": [
+    "never use the word .premium"
+   ]
+  },
+  {
+   "id": "v-exotic",
+   "path": "brand/voice.md",
+   "match": [
+    "do not call any tea .exotic"
+   ]
+  },
+  {
+   "id": "v-worldclass",
+   "path": "brand/voice.md",
+   "match": [
+    "world-class.{0,10}best-in-class"
+   ]
+  },
+  {
+   "id": "v-medicine",
+   "path": "brand/voice.md",
+   "match": [
+    "cures, treats or prevents",
+    "detox"
+   ]
+  },
+  {
+   "id": "v-exclaim-one",
+   "path": "brand/voice.md",
+   "match": [
+    "one exclamation mark at most"
+   ]
+  },
+  {
+   "id": "v-exclaim-email",
+   "path": "brand/voice.md",
+   "match": [
+    "exclamation marks in emails"
+   ]
+  },
+  {
+   "id": "c-default",
+   "path": "brand/channels.md",
+   "match": [
+    "not listed here",
+    "email rules"
+   ]
+  },
+  {
+   "id": "c-instagram",
+   "path": "brand/channels.md",
+   "match": [
+    "instagram",
+    "150 characters",
+    "3 at most"
+   ]
+  },
+  {
+   "id": "c-linkedin",
+   "path": "brand/channels.md",
+   "match": [
+    "linkedin",
+    "120 words"
+   ]
+  },
+  {
+   "id": "c-email",
+   "path": "brand/channels.md",
+   "match": [
+    "email",
+    "200 words"
+   ]
+  },
+  {
+   "id": "c-whatsapp",
+   "path": "brand/channels.md",
+   "match": [
+    "whatsapp",
+    "60 words"
+   ]
+  },
+  {
+   "id": "c-blog",
+   "path": "brand/channels.md",
+   "match": [
+    "blog",
+    "800 words"
+   ]
+  },
+  {
+   "id": "c-ig-estate",
+   "path": "brand/channels.md",
+   "match": [
+    "estate name in capitals"
+   ]
+  },
+  {
+   "id": "c-ig-competitor",
+   "path": "brand/channels.md",
+   "match": [
+    "tag a competitor"
+   ]
+  },
+  {
+   "id": "c-wa-optin",
+   "path": "brand/channels.md",
+   "match": [
+    "opted in"
+   ]
+  },
+  {
+   "id": "c-wa-stop",
+   "path": "brand/channels.md",
+   "match": [
+    "word STOP"
+   ]
+  },
+  {
+   "id": "p-assam-price",
+   "path": "brand/products.md",
+   "match": [
+    "Rs 520 for a 250 g"
+   ]
+  },
+  {
+   "id": "p-assam-estate",
+   "path": "brand/products.md",
+   "match": [
+    "Halmari"
+   ]
+  },
+  {
+   "id": "p-assam-steep",
+   "path": "brand/products.md",
+   "match": [
+    "Assam Gold for 4 minutes"
+   ]
+  },
+  {
+   "id": "p-dj-price",
+   "path": "brand/products.md",
+   "match": [
+    "Rs 890"
+   ]
+  },
+  {
+   "id": "p-dj-estate",
+   "path": "brand/products.md",
+   "match": [
+    "Castleton"
+   ]
+  },
+  {
+   "id": "p-dj-steep",
+   "path": "brand/products.md",
+   "match": [
+    "First Flush for 3 minutes"
+   ]
+  },
+  {
+   "id": "p-kahwa-price",
+   "path": "brand/products.md",
+   "match": [
+    "Rs 640"
+   ]
+  },
+  {
+   "id": "p-kahwa-what",
+   "path": "brand/products.md",
+   "match": [
+    "saffron, cardamom and almond"
+   ]
+  },
+  {
+   "id": "p-kahwa-steep",
+   "path": "brand/products.md",
+   "match": [
+    "Kahwa for 3 minutes"
+   ]
+  },
+  {
+   "id": "p-ship-free",
+   "path": "brand/products.md",
+   "match": [
+    "free on orders above Rs 999"
+   ]
+  },
+  {
+   "id": "p-ship-fee",
+   "path": "brand/products.md",
+   "match": [
+    "Rs 79"
+   ]
+  },
+  {
+   "id": "p-ship-days",
+   "path": "brand/products.md",
+   "match": [
+    "within 2 working days"
+   ]
+  },
+  {
+   "id": "p-ship-promise",
+   "path": "brand/products.md",
+   "match": [
+    "delivery in under 3 days"
+   ]
+  },
+  {
+   "id": "l-fssai",
+   "path": "brand/legal.md",
+   "match": [
+    "10019022010877"
+   ]
+  },
+  {
+   "id": "l-gst",
+   "path": "brand/legal.md",
+   "match": [
+    "include GST"
+   ]
+  },
+  {
+   "id": "l-compare",
+   "path": "brand/legal.md",
+   "match": [
+    "compare our prices"
+   ]
+  },
+  {
+   "id": "l-photos",
+   "path": "brand/legal.md",
+   "match": [
+    "customer photos"
+   ]
+  },
+  {
+   "id": "l-discount-end",
+   "path": "brand/legal.md",
+   "match": [
+    "discount must state its end date"
+   ]
+  },
+  {
+   "id": "w-launch",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "1 December 2026"
+   ]
+  },
+  {
+   "id": "w-offer",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "15% off the Kashmiri Kahwa"
+   ]
+  },
+  {
+   "id": "w-ends",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "offer ends on 31 January 2027"
+   ]
+  },
+  {
+   "id": "w-not-gift",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "does not apply to gift boxes"
+   ]
+  },
+  {
+   "id": "w-audience",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "already drink tea every day"
+   ]
+  },
+  {
+   "id": "w-lead",
+   "path": "campaigns/winter-2026/brief.md",
+   "match": [
+    "lead with the saffron"
+   ]
+  },
+  {
+   "id": "w-headline",
+   "path": "campaigns/winter-2026/headlines.md",
+   "match": [
+    "Saffron season is here"
+   ]
+  },
+  {
+   "id": "w-rejected",
+   "path": "campaigns/winter-2026/headlines.md",
+   "match": [
+    "detox tea for winter"
+   ]
+  }
+ ],
+ "not_rules": [
+  {
+   "id": "n-draft-voice",
+   "path": "brand/drafts/voice-2027.md",
+   "match": [
+    "bold, witty"
+   ]
+  },
+  {
+   "id": "n-draft-emoji",
+   "path": "brand/drafts/voice-2027.md",
+   "match": [
+    "emojis freely"
+   ]
+  },
+  {
+   "id": "n-draft-premium",
+   "path": "brand/drafts/voice-2027.md",
+   "match": [
+    "premium blends"
+   ]
+  },
+  {
+   "id": "n-draft-signoff",
+   "path": "brand/drafts/voice-2027.md",
+   "match": [
+    "Saffron squad"
+   ]
+  },
+  {
+   "id": "n-diwali-box",
+   "path": "campaigns/diwali-2026/brief.md",
+   "match": [
+    "gift box costs Rs 1,499"
+   ]
+  },
+  {
+   "id": "n-diwali-strainer",
+   "path": "campaigns/diwali-2026/brief.md",
+   "match": [
+    "brass tea strainer"
+   ]
+  },
+  {
+   "id": "n-diwali-close",
+   "path": "campaigns/diwali-2026/brief.md",
+   "match": [
+    "close on 5 November 2026"
+   ]
+  },
+  {
+   "id": "n-diwali-headline",
+   "path": "campaigns/diwali-2026/brief.md",
+   "match": [
+    "Light up the evening"
+   ]
+  },
+  {
+   "id": "n-old-price",
+   "path": "notes/2025-pricing.md",
+   "match": [
+    "Rs 450"
+   ]
+  },
+  {
+   "id": "n-old-ship",
+   "path": "notes/2025-pricing.md",
+   "match": [
+    "free on every order"
+   ]
+  },
+  {
+   "id": "n-old-nextday",
+   "path": "notes/2025-pricing.md",
+   "match": [
+    "next-day delivery"
+   ]
+  },
+  {
+   "id": "n-kickoff-premium",
+   "path": "notes/kickoff.md",
+   "match": [
+    "sounding more premium"
+   ]
+  },
+  {
+   "id": "n-kickoff-detox",
+   "path": "notes/kickoff.md",
+   "match": [
+    "detox blend"
+   ]
+  }
+ ]
+}

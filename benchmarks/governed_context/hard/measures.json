@@ -1,0 +1,380 @@
+{
+ "coverage": {
+  "1000": {
+   "brief": {
+    "applicable": 47,
+    "carried": 46,
+    "leaks": 0,
+    "missed": {
+     "winter-headline": [
+      "w-rejected"
+     ]
+    }
+   },
+   "dump": {
+    "applicable": 47,
+    "carried": 38,
+    "leaks": 64,
+    "missed": {
+     "instagram-kahwa": [
+      "w-lead",
+      "v-exotic",
+      "v-medicine"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "v-exotic"
+     ],
+     "winter-email": [
+      "v-exclaim-email"
+     ],
+     "winter-headline": [
+      "w-headline",
+      "w-rejected"
+     ]
+    }
+   },
+   "grep": {
+    "applicable": 47,
+    "carried": 22,
+    "leaks": 11,
+    "missed": {
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-lead",
+      "l-discount-end",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "p-kahwa-price",
+      "l-fssai",
+      "l-gst",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "v-exotic",
+      "v-premium",
+      "v-worldclass",
+      "l-compare"
+     ],
+     "whatsapp-shipping": [
+      "p-ship-days",
+      "p-ship-promise"
+     ],
+     "winter-email": [
+      "v-exclaim-email",
+      "l-fssai",
+      "w-launch",
+      "v-address",
+      "l-gst",
+      "l-discount-end"
+     ],
+     "winter-headline": [
+      "w-rejected"
+     ]
+    }
+   }
+  },
+  "250": {
+   "brief": {
+    "applicable": 47,
+    "carried": 12,
+    "leaks": 0,
+    "missed": {
+     "assam-price": [
+      "p-assam-price",
+      "p-assam-steep",
+      "l-gst"
+     ],
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "c-instagram",
+      "w-offer",
+      "w-ends",
+      "w-lead",
+      "p-kahwa-what",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "p-kahwa-what",
+      "p-kahwa-price",
+      "p-kahwa-steep",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "c-linkedin",
+      "p-dj-estate",
+      "v-exotic",
+      "v-premium",
+      "v-worldclass"
+     ],
+     "whatsapp-shipping": [
+      "c-whatsapp",
+      "c-wa-optin",
+      "p-ship-free",
+      "p-ship-days"
+     ],
+     "winter-email": [
+      "c-email",
+      "w-launch",
+      "w-offer",
+      "w-ends",
+      "w-not-gift",
+      "v-address"
+     ],
+     "winter-headline": [
+      "w-headline",
+      "w-rejected"
+     ]
+    }
+   },
+   "dump": {
+    "applicable": 47,
+    "carried": 7,
+    "leaks": 24,
+    "missed": {
+     "assam-price": [
+      "p-assam-price",
+      "p-assam-steep",
+      "v-price-format",
+      "l-gst"
+     ],
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-offer",
+      "w-ends",
+      "w-lead",
+      "l-discount-end",
+      "p-kahwa-what",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "p-kahwa-what",
+      "p-kahwa-price",
+      "p-kahwa-steep",
+      "l-fssai",
+      "l-gst",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "p-dj-estate",
+      "v-exotic",
+      "v-premium",
+      "v-worldclass",
+      "l-compare"
+     ],
+     "whatsapp-shipping": [
+      "p-ship-free",
+      "p-ship-days",
+      "p-ship-promise"
+     ],
+     "winter-email": [
+      "v-exclaim-email",
+      "l-fssai",
+      "w-launch",
+      "w-offer",
+      "w-ends",
+      "w-not-gift",
+      "v-address",
+      "l-gst",
+      "l-discount-end"
+     ],
+     "winter-headline": [
+      "w-headline",
+      "w-rejected"
+     ]
+    }
+   },
+   "grep": {
+    "applicable": 47,
+    "carried": 22,
+    "leaks": 10,
+    "missed": {
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-lead",
+      "l-discount-end",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "p-kahwa-price",
+      "l-fssai",
+      "l-gst",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "v-exotic",
+      "v-premium",
+      "v-worldclass",
+      "l-compare"
+     ],
+     "whatsapp-shipping": [
+      "p-ship-days",
+      "p-ship-promise"
+     ],
+     "winter-email": [
+      "v-exclaim-email",
+      "l-fssai",
+      "w-launch",
+      "v-address",
+      "l-gst",
+      "l-discount-end"
+     ],
+     "winter-headline": [
+      "w-rejected"
+     ]
+    }
+   }
+  },
+  "500": {
+   "brief": {
+    "applicable": 47,
+    "carried": 42,
+    "leaks": 0,
+    "missed": {
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-lead",
+      "v-voice"
+     ],
+     "winter-email": [
+      "c-email"
+     ],
+     "winter-headline": [
+      "w-rejected"
+     ]
+    }
+   },
+   "dump": {
+    "applicable": 47,
+    "carried": 22,
+    "leaks": 32,
+    "missed": {
+     "assam-price": [
+      "v-price-format"
+     ],
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-offer",
+      "w-ends",
+      "w-lead",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "v-exotic",
+      "v-premium",
+      "v-worldclass"
+     ],
+     "whatsapp-shipping": [
+      "p-ship-free",
+      "p-ship-days",
+      "p-ship-promise"
+     ],
+     "winter-email": [
+      "v-exclaim-email",
+      "w-launch",
+      "w-offer",
+      "w-ends",
+      "w-not-gift",
+      "v-address"
+     ],
+     "winter-headline": [
+      "w-headline",
+      "w-rejected"
+     ]
+    }
+   },
+   "grep": {
+    "applicable": 47,
+    "carried": 22,
+    "leaks": 11,
+    "missed": {
+     "brand-voice": [
+      "v-voice"
+     ],
+     "instagram-kahwa": [
+      "w-lead",
+      "l-discount-end",
+      "v-premium",
+      "v-exotic",
+      "v-medicine",
+      "v-voice"
+     ],
+     "kahwa-page": [
+      "v-medicine",
+      "p-kahwa-price",
+      "l-fssai",
+      "l-gst",
+      "v-exotic"
+     ],
+     "linkedin-sourcing": [
+      "v-exotic",
+      "v-premium",
+      "v-worldclass",
+      "l-compare"
+     ],
+     "whatsapp-shipping": [
+      "p-ship-days",
+      "p-ship-promise"
+     ],
+     "winter-email": [
+      "v-exclaim-email",
+      "l-fssai",
+      "w-launch",
+      "v-address",
+      "l-gst",
+      "l-discount-end"
+     ],
+     "winter-headline": [
+      "w-rejected"
+     ]
+    }
+   }
+  }
+ },
+ "extracted": 46,
+ "not_extracted": [
+  "w-rejected"
+ ],
+ "not_rules": 13,
+ "rules": 47,
+ "served_in_error": []
+}

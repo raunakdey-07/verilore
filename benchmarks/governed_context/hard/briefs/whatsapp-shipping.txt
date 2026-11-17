@@ -1,0 +1,37 @@
+Approved memory for "saffron-lane", scope brand + campaigns.
+Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
+
+brand/channels.md
+- Instagram: Length: 150 characters; Emojis: 2 at most; Hashtags: 3 at most
+- LinkedIn: Length: 120 words; Emojis: none; Hashtags: none
+- Email: Length: 200 words; Emojis: none; Hashtags: none
+- WhatsApp: Length: 60 words; Emojis: 1 at most; Hashtags: none
+- Blog: Length: 800 words; Emojis: none; Hashtags: none
+- Always end an Instagram caption with the estate name in capitals.
+- Never tag a competitor brand on Instagram.
+- Send WhatsApp messages only to customers who opted in.
+- Every WhatsApp message must include the word STOP so a reader can unsubscribe.
+
+brand/legal.md
+- Every product page and every email must show our FSSAI licence number, 10019022010877.
+- Prices include GST, and copy must say so when it states a price.
+- Never compare our prices with a named competitor.
+- Do not use customer photos without written permission.
+- A discount must state its end date.
+
+brand/products.md
+- Shipping is free on orders above Rs 999.
+- Orders below Rs 999 pay Rs 79 for shipping.
+- Orders ship within 2 working days.
+- Do not promise delivery in under 3 days.
+
+brand/voice.md
+- Avoid "world-class" and "best-in-class" in all copy.
+- Never claim that a tea cures, treats or prevents any illness, and never use the word "detox".
+- Do not use exclamation marks in emails at all.
+- Spell colour, flavour, favourite and organise the Indian way, and write prices as Rs 520, never as ₹520.00 or INR 520.
+- Address the reader as you, and never as "dear customer" or "valued customer".
+- We never use the word "premium".
+- We do not call any tea "exotic", because the people who grow it do not think of it that way.
+
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 28 more approved lines. The lines least related to the task went first.
