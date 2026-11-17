@@ -596,6 +596,12 @@ never below 8000. For a brand kit of 5 claims, that is 8000; at 8000 the pack
 fits all current claims but drops all change entries (hence `truncated: true`).
 Use 16000 when you also want the change history in the same call.
 
+**Read `omitted_counts`, not only `truncated`.** A truncated pack says what it left
+out, by section: `{"changes": 3}` means every current claim is in the pack and only
+the history was cut; `{"current_memories": 2}` means the answer itself is short and
+the budget should grow. Like the other diagnostics it is on the REST, MCP and SDK
+response and never in the receipt digest.
+
 **Build the prompt from claim texts only.** `brief` does this for you (section 5).
 By hand, the pack's `current_memories` carry each claim's sentence in `claim`;
 join those sentences for the prompt. The prompt stays small (about 60 characters

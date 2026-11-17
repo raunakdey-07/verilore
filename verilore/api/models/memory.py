@@ -220,6 +220,10 @@ class MemoryResponse(Contract):
     #: `valid_until` has passed. A diagnostic like the others: it lets a brief
     #: say "2 expired" without changing a byte of what was answered.
     expired_count: int = Field(default=0, exclude=True)
+    #: What a bounded pack left out to fit its budget, by section, only for the
+    #: sections it cut ({"changes": 2}). `truncated` says that something was cut;
+    #: this says whether it was the answer or only its history (#151).
+    omitted_counts: dict[str, int] = Field(default_factory=dict, exclude=True)
     #: Distinct withheld claim ids per withheld state, for current and pack.
     #: Present only when at least one claim was withheld; a response with nothing
     #: withheld is byte-identical to a response without this field.
@@ -232,6 +236,7 @@ class MemoryResponse(Contract):
         "candidates",
         "unmatched_subparts",
         "expired_count",
+        "omitted_counts",
     )
 
     def canonical_json(self) -> str:
@@ -271,6 +276,7 @@ class MemoryResponse(Contract):
             "candidates": [c.model_dump(mode="json") for c in self.candidates],
             "unmatched_subparts": list(self.unmatched_subparts),
             "expired_count": self.expired_count,
+            "omitted_counts": dict(self.omitted_counts),
         }
 
     def public_dict(self) -> dict[str, Any]:
@@ -301,6 +307,7 @@ class MemoryWire(MemoryResponse):
     candidates: list[Candidate] = Field(default_factory=list)
     unmatched_subparts: list[str] = Field(default_factory=list)
     expired_count: int = 0
+    omitted_counts: dict[str, int] = Field(default_factory=dict)
 
     def canonical_json(self) -> str:
         """The budget applies to this complete compact JSON, including escaped content.

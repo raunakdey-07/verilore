@@ -505,6 +505,16 @@ def _json_chars(model) -> int:
     )
 
 
+#: The sections a bounded pack selects from, in the order it fills them.
+PACK_SECTIONS = (
+    "current_memories",
+    "changes",
+    "historical_memories",
+    "conflicts",
+    "uncertain_memories",
+)
+
+
 def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
     """Greedy stable selection; claims, evidence and conflict sides are atomic units.
 
@@ -561,13 +571,7 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
         return total
 
     dropped = False
-    for field in (
-        "current_memories",
-        "changes",
-        "historical_memories",
-        "conflicts",
-        "uncertain_memories",
-    ):
+    for field in PACK_SECTIONS:
         for item in getattr(full, field):
             if item not in getattr(result, field) and size + _floor(field, item) > budget:
                 dropped = True
@@ -606,6 +610,13 @@ def bounded_pack(full: MemoryResponse, budget: int) -> MemoryResponse:
         result.truncated = False
         if len(result.canonical_json()) > budget:
             result.truncated = True
+    # Counted after selection: a conflict pulled in by a change is in the pack
+    # even though its own turn came later.
+    for field in PACK_SECTIONS:
+        kept = getattr(result, field)
+        left_out = sum(1 for item in getattr(full, field) if item not in kept)
+        if left_out:
+            result.omitted_counts[field] = left_out
     return result
 
 

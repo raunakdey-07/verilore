@@ -435,7 +435,10 @@ async def test_project_and_pack_claim_evidence_source_unicode_boundaries(public_
     with pytest.raises(memory_public.MemoryError) as error:
         memory_public.bounded_pack(full, envelope - 1)
     assert (error.value.code, error.value.status_code) == ("invalid_budget", 422)
-    assert memory_public.bounded_pack(full, envelope) == empty
+    # The pack also says what it left out; the answer itself is the empty envelope.
+    assert memory_public.bounded_pack(full, envelope) == empty.model_copy(
+        update={"omitted_counts": {"current_memories": 1}}
+    )
     assert memory_public.bounded_pack(empty, envelope).truncated is True
     assert memory_public.bounded_pack(empty, envelope + 1).truncated is False
 
@@ -553,6 +556,7 @@ async def test_pack_change_previous_and_current_are_atomic(public_db):
     versions = {item.version_id for item in first_only.evidence}
     first_only.sources = [item for item in full.sources if item.version_id in versions]
     first_only.truncated = True
+    first_only.omitted_counts = {"changes": len(full.changes) - 1}
     first_boundary = len(canonical(first_only))
     for budget in (first_boundary - 1, first_boundary, boundary - 1, boundary, boundary + 1):
         packed = memory_public.bounded_pack(full, budget)
