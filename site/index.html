@@ -202,7 +202,7 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 <main>
 <section id="top" class="wrap hero">
   <h1>Memory your AI can&nbsp;<em>cite</em>.</h1>
-  <p class="hero-lead">Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version.</p>
+  <p class="hero-lead">Your AI gets only what your team approved, every draft is checked against it, and each line names the document it came from.</p>
   <div class="actions">
     <a class="primary" href="#install">Get started</a>
     <a class="prompt-link" id="try-link" href="#try"><span>$</span><span id="try-label" style="color: inherit">try the demo</span></a>
@@ -265,11 +265,12 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 <section id="how" class="wrap block" aria-labelledby="how-title">
   <div class="split">
     <div class="side">
-      <h2 id="how-title">From Markdown to a prompt you can trust.</h2>
+      <h2 id="how-title">From a brand kit to a prompt you can trust.</h2>
       <ol class="steps">
-        <li><span class="n">01</span><span class="t"><strong>Write it down</strong><span>Rules and facts in Markdown, one bullet each.</span></span></li>
+        <li><span class="n">01</span><span class="t"><strong>Bring the kit</strong><span>Markdown, Word, PowerPoint or PDF, as your team already writes it.</span></span></li>
         <li><span class="n">02</span><span class="t"><strong>Review it</strong><span>Mark documents draft, approved or rejected. Corrections keep the old version.</span></span></li>
-        <li><span class="n">03</span><span class="t"><strong>Ask for a pack</strong><span>Your app gets the approved lines for the task, each with its source.</span></span></li>
+        <li><span class="n">03</span><span class="t"><strong>Ask for a brief</strong><span>The model gets the approved lines the task needs, each with its source.</span></span></li>
+        <li><span class="n">04</span><span class="t"><strong>Check the draft</strong><span>Banned words, wrong prices and dates, each with the rule it breaks.</span></span></li>
       </ol>
     </div>
     <div class="exhibit term">
@@ -305,11 +306,11 @@ pack = vl.memory.pack(
       <div class="help">
         <p>usage: verilore &lt;command&gt; [options]</p>
         <dl>
-          <div><dt>remember</dt><dd>save a rule or fact, with where it came from</dd></div>
+          <div><dt>brief</dt><dd>the approved lines a task needs, sized for a prompt</dd></div>
+          <div><dt>check</dt><dd>a draft against them: banned words, wrong numbers</dd></div>
+          <div><dt>review</dt><dd>lines that disagree, for a person to settle</dd></div>
           <div><dt>recall</dt><dd>the answer, its source, and when it was true</dd></div>
-          <div><dt>explain</dt><dd>why that answer, and what it replaced</dd></div>
           <div><dt>history</dt><dd>every earlier version, oldest first</dd></div>
-          <div><dt>receipt</dt><dd>a record of exactly what your AI was given</dd></div>
           <div><dt>verify</dt><dd>check a receipt offline: no database, no network</dd></div>
         </dl>
       </div>

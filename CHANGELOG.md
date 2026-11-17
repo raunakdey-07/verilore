@@ -147,6 +147,11 @@ now lists the series, and `tests/test_metrics_endpoint.py` holds that the endpoi
 answers without a credential, counts requests by route template, and puts no corpus
 name, path or query in a label.
 
+- **The README, the PyPI page and the site lead with the loop a content team
+  runs:** sync the kit (Word and PDF included), `brief` for the prompt, `check`
+  the draft, `review` what disagrees. The README quotes the hard benchmark kit's
+  model-free measure, with its source.
+
 ### Changed
 
 **Building a pack costs what fits, not what the corpus holds.** `pack` tried every

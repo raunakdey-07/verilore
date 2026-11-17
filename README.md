@@ -12,24 +12,54 @@ Verilore was called Mind Palace until v0.10.0.
 [Website](https://verilore.vercel.app/) · [Current release: v0.11.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
 
 
-**Memory for AI applications that remembers what changed, what was true when, and
-why to believe the recorded state.**
+**Give a model only what your team approved, and check what it wrote.**
 
-Add Verilore to an application, record a fact, and get back an answer with its
-source, the time it was true, and the exact characters that support it. Export a
-receipt and verify it on a machine that has never heard of Verilore.
+Point Verilore at the folder your team already keeps: a brand guide, campaign
+briefs, product facts, in Markdown, Word, PowerPoint or PDF. It keeps every
+version, hands a model only the current, approved lines a task needs, and names
+the document behind each one. Drafts, rejected ideas and ended campaigns stay out.
 
 ```text
-remember   a statement becomes memory, with evidence
-recall     an answer, its source, and the time it was true
-explain    the characters that support it, and what replaced it
-history    the supersession chain, oldest first
-receipt    what was returned, plus the digest of the whole response
-verify     offline: no database, no model, no network
+brief      the approved lines a writing task needs, sized for a prompt
+check      a draft against them: banned words, wrong prices, wrong dates
+review     lines in two documents that disagree, for a person to settle
+recall     one answer, its source, and the time it was true
+history    what changed, and what it replaced
+verify     a receipt, offline: no database, no model, no network
 ```
 
-Run `verilore` with no arguments and it prints the first three commands, in
-the order a newcomer needs them.
+Free and open source, and it runs on your own machine.
+
+### For a content team
+
+After the install below, four commands cover the loop a reviewer runs by hand
+today:
+
+```bash
+verilore ingest-repo ./brand-kit --corpus brand
+verilore brief --corpus brand --task "Instagram caption for the winter offer" --max-tokens 500
+verilore check draft.txt --corpus brand --channel Instagram
+verilore review --corpus brand --html review.html
+```
+
+`ingest-repo` reads the folder, Word and PDF included. `brief` is what goes into
+the model's prompt. `check` exits 1 and names the rule a draft breaks.
+`review --html` writes one page a brand owner can open. In an AI assistant that
+speaks MCP, `brief` and `check` are the tools `memory_brief` and `memory_check`
+([MCP](docs/mcp.md)); in an app, `vl.memory.brief()`, `vl.memory.check()` and
+`vl.memory.review()` ([developer guide](docs/integration/guide.md)).
+
+On a kit written the way brands write one, a 500-token brief carries 43 of the
+47 rules eight writing tasks need, and none of the 13 lines that must not reach
+a model; the same kit cut to 500 tokens carries 22 rules and 32 such lines
+([measured without a model](benchmarks/governed_context/hard/measures.md)).
+
+### For a developer
+
+Record a fact, and get back an answer with its source, the time it was true, and
+the exact characters that support it. Export a receipt and verify it on a machine
+that has never heard of Verilore. Run `verilore` with no arguments and it prints
+the first three commands, in the order a newcomer needs them.
 
 ---
 
