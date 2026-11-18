@@ -474,8 +474,11 @@ by its id in `review(settled=[...])`.
 **Check the draft before a person reads it.** The brief controls what a model
 is given; `check` looks at what it wrote. It reports each exact problem with the
 approved rule it breaks: text a rule bans (`Never use the word "premium"`),
-emojis, exclamation marks or hashtags a rule forbids, and a price, date, weight,
-percentage or duration that differs from an approved fact about the same thing.
+emojis, exclamation marks or hashtags a rule forbids, a price, date, weight,
+percentage or duration that differs from an approved fact about the same thing,
+and a price, percentage or duration past a limit a rule sets: under "Do not
+promise delivery in under 48 hours", a draft that says "delivered in 24 hours"
+is a finding of kind `bound` that says the rule allows 48 hours or more.
 
 ```python
 draft = "Ride into spring with free shipping on every order!"

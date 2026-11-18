@@ -102,7 +102,8 @@ never quoted. Use `memory_recall` when you need one fact and its evidence.
 `memory_check` is the one to call after writing. Give it the draft, and it returns
 each exact problem with the approved rule it breaks: text a rule bans, emojis,
 exclamation marks or hashtags a rule forbids, a price, date, weight, percentage
-or duration that differs from an approved fact about the same thing, and a price,
+or duration that differs from an approved fact about the same thing or is past a
+limit a rule sets ("not under 48 hours"), and a price,
 percentage or date that no approved line states, and, with `channel`, a draft
 longer than the channel allows or with more hashtags or emojis than it allows. The
 result ends with exactly

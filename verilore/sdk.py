@@ -1219,11 +1219,13 @@ class MemoryClient:
         Each finding names the approved claim it breaks: text a rule bans,
         emojis, exclamation marks or hashtags a rule forbids, or a price, date,
         weight, percentage or duration that differs from an approved fact about
-        the same thing. With `unsupported` (the default), a price, percentage or
-        date that no approved line in scope states is a finding too: the draft
-        made it up. `supported_by` is text whose values count as stated, such
-        as the task a person wrote. `check.ok` is true when there are no
-        findings. Only exact checks: tone and voice stay with the reviewer.
+        the same thing, or a price, percentage or duration past a limit a rule
+        sets ("Do not promise delivery in under 48 hours"). With `unsupported`
+        (the default), a price, percentage or date that no approved line in
+        scope states is a finding too: the draft made it up. `supported_by` is
+        text whose values count as stated, such as the task a person wrote.
+        `check.ok` is true when there are no findings. Only exact checks: tone
+        and voice stay with the reviewer.
         `channel` skips bans written for another channel. For a model to fix
         its own draft, `verilore.check.render_feedback(check)` says exactly what
         to change.

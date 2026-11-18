@@ -14,6 +14,8 @@ this does the part a machine can do exactly, and nothing more:
   percentage, a duration or a date ("The gift box costs Rs 1,499.") and a
   sentence of the draft about the same thing with a different value of the
   same kind ("Gift box, now Rs 999") is a finding.
+* **Values past a limit.** "Do not promise delivery in under 48 hours" allows
+  48 hours or more; a draft that says "delivered in 24 hours" is a finding.
 
 Every finding names the claim it breaks, by id, with the quote from the draft,
 so a reviewer can see why and an app can link to the source. Tone, voice and
@@ -32,8 +34,10 @@ from dataclasses import dataclass, replace
 from typing import Any, Iterable
 
 __all__ = [
+    "Bound",
     "Finding",
     "Check",
+    "bound_rule",
     "channel_limits",
     "check_draft",
     "render_check",
@@ -45,9 +49,10 @@ __all__ = [
 class Finding:
     """One way a draft breaks one approved claim."""
 
-    #: "banned", "number" (differs from an approved value), "unsupported"
-    #: (a price, percentage or date no approved line states) or "limit" (longer,
-    #: or with more hashtags or emojis, than the channel allows).
+    #: "banned", "number" (differs from an approved value), "bound" (past a
+    #: limit a rule sets, such as "under 48 hours"), "unsupported" (a price,
+    #: percentage or date no approved line states) or "limit" (longer, or with
+    #: more hashtags or emojis, than the channel allows).
     kind: str
     claim_id: str
     claim: str
@@ -59,7 +64,8 @@ class Finding:
     #: Other documents that state the same rule, word for word. A kit synced as
     #: Word and as PDF states every rule twice; the draft broke it once.
     also: tuple[str, ...] = ()
-    #: For a "number" finding, the value approved memory states, as written there.
+    #: For a "number" finding, the value approved memory states, as written
+    #: there; for "bound", what the rule allows ("48 hours or more").
     expected: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -432,6 +438,160 @@ def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ limits on values
+
+#: The comparison a phrase before a value states, and the phrases that state a
+#: limit on their own ("up to 25%"), without a "not" or "never" before them.
+_BOUND_PHRASES = [
+    ("lt", r"under|less than|fewer than|below|faster than|sooner than|shorter than"),
+    ("le", r"within|at most|no more than|up to|maximum of"),
+    ("gt", r"over|more than|above|exceeds?|exceeding|longer than|beyond|slower than"),
+    ("ge", r"at least|no less than|minimum of"),
+]
+_BOUND = re.compile(
+    r"(?<![\w'])(?:"
+    + "|".join(f"(?P<{op}>{words})" for op, words in _BOUND_PHRASES)
+    + r")(?![\w'])\s+(?:a\s+|of\s+)?",
+    re.IGNORECASE,
+)
+_CAP_ON_ITS_OWN = re.compile(
+    r"^(?:at most|no more than|up to|maximum of|at least|no less than|minimum of)$", re.I
+)
+_RULE_NEGATION = re.compile(
+    r"(?<![\w'])(?:not|never|don't|cannot|can't|mustn't|no(?!\s+(?:more|less|fewer)\b))"
+    r"(?![\w'])",
+    re.IGNORECASE,
+)
+_OPPOSITE = {"lt": "ge", "le": "gt", "gt": "le", "ge": "lt"}
+_BOUND_KINDS = ("money", "percent", "duration")
+_HOURS = {"hour": 1, "day": 24, "week": 168, "month": 720, "year": 8760}
+#: Words a limit is phrased with, not what it is about.
+_BOUND_GLUE = frozenset(
+    """do not never no don dont must should always promise say state claim mention
+    write use under over than least most more less fewer up within exceed exceeding
+    beyond above below faster sooner longer shorter slower maximum minimum any take
+    takes""".split()
+)
+
+
+@dataclass(frozen=True)
+class Bound:
+    """What an approved rule allows a value to be: `op` against `limit`."""
+
+    kind: str
+    op: str
+    limit: float
+    #: The rule's own value, as written ("48 hours").
+    text: str
+    subject: frozenset[str]
+
+    @property
+    def allowed(self) -> str:
+        return {
+            "lt": f"under {self.text}",
+            "le": f"{self.text} or less",
+            "gt": f"over {self.text}",
+            "ge": f"{self.text} or more",
+        }[self.op]
+
+    def admits(self, value: float) -> bool:
+        return {
+            "lt": value < self.limit,
+            "le": value <= self.limit,
+            "gt": value > self.limit,
+            "ge": value >= self.limit,
+        }[self.op]
+
+
+def _magnitude(kind: str, value: str) -> tuple[str, float] | None:
+    """A value as a number comparable with others of its kind: durations in hours."""
+    try:
+        number = float(value.split()[0])
+    except (ValueError, IndexError):
+        return None
+    if kind.startswith("duration:"):
+        hours = _HOURS.get(kind.split(":", 1)[1])
+        return ("duration", number * hours) if hours else None
+    return (kind, number) if kind in _BOUND_KINDS else None
+
+
+def _prefixes(words: Iterable[str]) -> frozenset[str]:
+    return frozenset(word[:5] for word in words if not word.isdigit())
+
+
+def bound_rule(rule: str, section: str = "") -> Bound | None:
+    """The limit a rule puts on a price, a percentage or a duration, if it puts one.
+
+    "Do not promise delivery in under 48 hours" allows 48 hours or more, and
+    "Discounts never exceed 30%" allows 30% or less. A rule bounds a value only
+    when it forbids one side ("not", "never") or caps it on its own ("up to",
+    "at least"): "Orders below Rs 999 pay Rs 79" states a condition, not a
+    limit. Lengths and counts of marks are a channel's limits, not these.
+    """
+    for match in _BOUND.finditer(rule):
+        value = next(
+            (
+                found
+                for found in _values(rule[match.end() :])
+                if rule[match.end() :].startswith(found[2])
+            ),
+            None,
+        )
+        if value is None:
+            continue
+        measured = _magnitude(value[0], value[1])
+        if measured is None:
+            continue
+        op = next(name for name in ("lt", "le", "gt", "ge") if match.group(name))
+        phrase = match.group(op)
+        negated = bool(_RULE_NEGATION.search(rule[: match.start()]))
+        if not negated and not _CAP_ON_ITS_OWN.match(phrase):
+            continue
+        subject = _prefixes(
+            word for word in _subject(f"{section} {rule}") if word not in _BOUND_GLUE
+        )
+        if not subject:
+            continue
+        return Bound(
+            kind=measured[0],
+            op=_OPPOSITE[op] if negated else op,
+            limit=measured[1],
+            text=value[2],
+            subject=subject,
+        )
+    return None
+
+
+def _bound_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
+    """Values in the draft on the wrong side of the claim's limit, about its subject."""
+    bound = bound_rule(claim["claim"], claim.get("section", ""))
+    if bound is None:
+        return []
+    findings: list[Finding] = []
+    for context, statement in _windows(draft):
+        shared = bound.subject & _prefixes(_subject(f"{context} {statement}"))
+        if not shared or (len(bound.subject) >= 3 and len(shared) < 2):
+            continue
+        for kind, value, exact in _values(statement):
+            measured = _magnitude(kind, value)
+            if measured is None or measured[0] != bound.kind or bound.admits(measured[1]):
+                continue
+            if any(f.quote == exact for f in findings):
+                continue
+            findings.append(
+                Finding(
+                    "bound",
+                    claim["id"],
+                    claim["claim"],
+                    claim["path"],
+                    exact,
+                    f"The draft says {exact}, and an approved rule allows only {bound.allowed}.",
+                    expected=bound.allowed,
+                )
+            )
+    return findings
+
+
 # ------------------------------------------------------------- unsupported values
 
 #: The kinds of value a draft must not state unless approved memory does. A
@@ -634,6 +794,10 @@ def check_draft(
 
     def add(finding: Finding) -> None:
         same = (finding.kind, finding.claim.casefold(), finding.quote.casefold())
+        if finding.kind == "banned" and len(finding.quote) > 1 and finding.quote[0] != "#":
+            # One word banned by two rules worded differently ('the word
+            # "premium"' and 'the word premium') is one thing to remove.
+            same = ("banned", "", finding.quote.casefold())
         if same in by_text:
             index = by_text[same]
             first = findings[index]
@@ -677,13 +841,17 @@ def check_draft(
             if key not in seen:
                 seen.add(key)
                 add(finding)
+    for claim in claims:
+        for finding in _bound_findings(draft, claim):
+            if not any(f.quote == finding.quote for f in findings if f.kind == "number"):
+                add(finding)
     if channel:
         for finding in _limit_findings(draft, claims, channel):
             add(finding)
     if unsupported:
-        # A value already shown to differ from an approved one is not reported
-        # twice; the "number" finding says what it should be.
-        differing = {f.quote.lower() for f in findings if f.kind == "number"}
+        # A value already shown to differ from an approved one, or to break a
+        # limit, is not reported twice; that finding says what it should be.
+        differing = {f.quote.lower() for f in findings if f.kind in ("number", "bound")}
         for finding in _unsupported_findings(draft, claims, supported_by):
             if finding.quote.lower() not in differing:
                 add(finding)
@@ -758,6 +926,11 @@ def render_feedback(check: Check) -> str:
             else:
                 change = f"Use at most {finding.expected} {plural}"
             lines.append(f"- {change}; it has {count}. Approved: {finding.claim}")
+        elif finding.kind == "bound":
+            lines.append(
+                f"- Remove {finding.quote}, or change it to a value the rule allows "
+                f"({finding.expected}). Approved rule: {finding.claim}"
+            )
         elif finding.kind == "number":
             lines.append(
                 f"- Replace {finding.quote} with {finding.expected}. Approved: {finding.claim}"
