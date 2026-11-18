@@ -12,6 +12,7 @@ brand/products.md
 - Assam Gold: Price: Rs 520 for a 250 g tin.
 - Assam Gold comes from the Halmari estate in Dibrugarh.
 - Steep Assam Gold for 4 minutes at 95 °C.
+- Orders ship within 2 working days.
 - Do not promise delivery in under 3 days.
 
 brand/voice.md
@@ -35,4 +36,4 @@ brand/voice.md
 campaigns/winter-2026/brief.md
 - The winter offer does not apply to gift boxes.
 
-Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 27 more approved lines, 3 of them rules. The lines least related to the task went first.
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 26 more approved lines, 3 of them rules. The lines least related to the task went first.

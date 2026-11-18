@@ -1186,7 +1186,10 @@ class MemoryClient:
         then document order. With `task`, a short description of what is being
         written, the lines it is about come next, then rules that hold for any
         task, and the least related are left out.
-        `brief.omitted` and `brief.omitted_rules` say what did not fit.
+        A line that does not fit is passed over, and a shorter one after it is
+        still kept. `brief.omitted`, `brief.omitted_rules` and
+        `brief.omitted_must` say what did not fit; `omitted_must` above zero
+        means a line you required is not in the text, and its last line says so.
 
         A pack of the same claims is about twenty times longer, because a pack
         also carries the proof. Use `pack` to hand memory to another system, and

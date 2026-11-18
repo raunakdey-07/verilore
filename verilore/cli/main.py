@@ -1003,6 +1003,7 @@ def brief(
                     "claim_ids": list(result.claim_ids),
                     "omitted": result.omitted,
                     "omitted_rules": result.omitted_rules,
+                    "omitted_must": result.omitted_must,
                     "withheld": result.withheld,
                     "conflicts": result.conflicts,
                     "expired": result.expired,
@@ -1016,8 +1017,10 @@ def brief(
                 indent=2,
             )
         )
+        _warn_omitted_must(result.omitted_must)
         return
     typer.echo(result.text)
+    _warn_omitted_must(result.omitted_must)
     if result.possible_conflicts:
         # To the terminal, not into the prompt: the text above is what a model
         # reads, and a flag is for the person running this.
@@ -1025,6 +1028,16 @@ def brief(
         typer.echo(
             f"\n{count} pair{'s' if count != 1 else ''} of lines above may disagree. "
             "`verilore review` lists them.",
+            err=True,
+        )
+
+
+def _warn_omitted_must(count: int) -> None:
+    """Say, to the terminal, that a line the caller required is not in the brief."""
+    if count:
+        typer.echo(
+            f"{count} line{'s' if count != 1 else ''} under --must did not fit. "
+            "Raise --max-tokens or --max-chars, or narrow --must.",
             err=True,
         )
 

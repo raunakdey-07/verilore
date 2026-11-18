@@ -21,9 +21,11 @@ brand/products.md
 
 brand/voice.md
 - Avoid "world-class" and "best-in-class" in all copy.
+- Tea is not medicine.
 - Never claim that a tea cures, treats or prevents any illness, and never use the word "detox".
 - Do not use exclamation marks in emails at all.
 - Spell colour, flavour, favourite and organise the Indian way, and write prices as Rs 520, never as ₹520.00 or INR 520.
+- We never use the word "premium".
 
 campaigns/winter-2026/brief.md
 - The winter campaign brings Kashmiri Kahwa to the front.
@@ -37,4 +39,4 @@ campaigns/winter-2026/brief.md
 campaigns/winter-2026/headlines.md
 - Headline: Saffron season is here.
 
-Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 29 more approved lines, 4 of them rules. The lines least related to the task went first.
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 27 more approved lines, 3 of them rules. The lines least related to the task went first.

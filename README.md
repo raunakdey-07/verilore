@@ -51,7 +51,7 @@ speaks MCP, `brief` and `check` are the tools `memory_brief` and `memory_check`
 model, checks its draft and gives it one chance to fix what the check found
 ([developer guide](docs/integration/guide.md)).
 
-On a kit written the way brands write one, a 500-token brief carries 43 of the
+On a kit written the way brands write one, a 500-token brief carries 44 of the
 47 rules eight writing tasks need, and none of the 13 lines that must not reach
 a model; the same kit cut to 500 tokens carries 22 rules and 32 such lines
 ([measured without a model](benchmarks/governed_context/hard/measures.md)).

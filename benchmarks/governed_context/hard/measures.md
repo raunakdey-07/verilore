@@ -18,11 +18,11 @@ one line of the context states it. Leaks are lines that must not be served.
 | Budget (tokens) | Kit dumped whole | `grep` for the task | `verilore brief --task` |
 |---|---|---|---|
 | 250 | 7/47 (15%), 24 leaked | 22/47 (47%), 10 leaked | 28/47 (60%), 0 leaked |
-| 500 | 22/47 (47%), 32 leaked | 22/47 (47%), 11 leaked | 43/47 (91%), 0 leaked |
+| 500 | 22/47 (47%), 32 leaked | 22/47 (47%), 11 leaked | 44/47 (94%), 0 leaked |
 | 1000 | 38/47 (81%), 64 leaked | 22/47 (47%), 11 leaked | 46/47 (98%), 0 leaked |
 
 ## What the brief missed
 
 - 250 tokens: instagram-kahwa: w-lead, l-discount-end, v-premium, v-exotic, v-medicine, v-voice; winter-email: w-offer, v-address, l-gst, l-discount-end; assam-price: l-gst; linkedin-sourcing: v-exotic, v-premium, v-worldclass, l-compare; winter-headline: w-rejected; kahwa-page: v-medicine, l-gst, v-exotic.
-- 500 tokens: instagram-kahwa: v-premium, v-exotic, v-voice; winter-headline: w-rejected.
+- 500 tokens: instagram-kahwa: v-exotic, v-voice; winter-headline: w-rejected.
 - 1000 tokens: winter-headline: w-rejected.

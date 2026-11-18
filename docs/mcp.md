@@ -96,7 +96,8 @@ plain text lines under the file they come from, sized for a prompt (`max_chars`,
 6,000 by default). Pass `task`, a few words on what is about to be written, and
 when not everything fits it keeps the lines closest to the task, then rules that hold
 for any task;
-`must` names folders or files that are always kept. Drafts, rejected and replaced statements are counted in its last line and
+`must` names folders or files whose lines are kept before anything else; one that does not fit
+is counted in the last line as "marked must". Drafts, rejected and replaced statements are counted in its last line and
 never quoted. Use `memory_recall` when you need one fact and its evidence.
 
 `memory_check` is the one to call after writing. Give it the draft, and it returns

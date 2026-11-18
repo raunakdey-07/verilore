@@ -236,11 +236,10 @@
   "500": {
    "brief": {
     "applicable": 47,
-    "carried": 43,
+    "carried": 44,
     "leaks": 0,
     "missed": {
      "instagram-kahwa": [
-      "v-premium",
       "v-exotic",
       "v-voice"
      ],

@@ -581,8 +581,10 @@ async def memory_brief(
     Pass `task`, a few words on what you are about to write (e.g. "Instagram
     caption for the spring launch"): when not everything fits in `max_chars`,
     the lines the task is about are kept first, then rules that hold for any
-    task. `must` names folders or files whose lines are always kept. If the last line says lines
-    were left out for length, call again with a narrower `path_prefix`.
+    task. `must` names folders or files whose lines are kept before anything
+    else; if one did not fit, the last line says how many were "marked must".
+    If the last line says lines were left out for length, call again with a
+    narrower `path_prefix`.
     """
     from verilore.brief import render_brief
 
