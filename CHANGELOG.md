@@ -111,8 +111,8 @@ text a rule bans (quoted, or "the word X"), emojis, exclamation marks and
 hashtags a rule forbids, and a price, date, weight, percentage or duration that
 differs from an approved fact about the same thing. Every finding quotes the
 draft. Rules that name an action rather than a word ("Never discount the house
-blend") and limits ("Do not promise delivery in under 48 hours") are not
-guessed at, and a ban for one channel is skipped when `channel` names another.
+blend") are not guessed at, and a ban for one channel is skipped when `channel`
+names another.
 A price is matched to the product it names ("Trail 2, now Rs 22,999"), and a
 model number keeps the Trail 2 apart from the Trail 3. A rule stated in two
 documents is one finding naming both. The CLI exits 1 on a finding. MCP now
@@ -175,6 +175,17 @@ under 120 words", gives findings of kind `limit` with how much to cut. A length
 is a limit only when the line says so (`Length:`, "at most", "under"). A ban on a
 kind of mark now asks for every one to go, not only the one quoted. The hard
 benchmark's tasks name their channel, so its `checked` condition counts too.
+
+**A value past a limit is a finding.** "Do not promise delivery in under 48
+hours" is the rule the v0.12 review found broken, and `check` passed "delivered in
+24 hours": a limit is not a value to match. A rule that bounds a price, a
+percentage or a duration is now read as a limit when it forbids one side ("not",
+"never") or caps the value itself ("up to 25%", "at least 3 days"), and a draft
+value on the wrong side of it, about the same thing, is a finding of kind `bound`
+that says what the rule allows ("48 hours or more"); "1 day" counts as 24 hours.
+"Orders below Rs 999 pay Rs 79" states a condition and is not a limit. A word
+banned by two rules worded differently, as a Word guide and a Markdown file often
+do, is now one finding and one instruction, not two.
 
 ### Documented
 
