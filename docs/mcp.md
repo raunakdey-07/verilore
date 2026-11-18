@@ -106,7 +106,8 @@ exclamation marks or hashtags a rule forbids, a price, date, weight, percentage
 or duration that differs from an approved fact about the same thing or is past a
 limit a rule sets ("not under 48 hours"), and a price,
 percentage or date that no approved line states, and, with `channel`, a draft
-longer than the channel allows or with more hashtags or emojis than it allows. The
+longer or shorter than the channel allows, or with more or fewer hashtags or emojis
+than it asks for ("Hashtags: 5 to 8"). The
 result ends with exactly
 what to change; an agent makes those changes, nothing else, and checks again.
 Pass `task`, the request the agent was given, so values the person asked for are

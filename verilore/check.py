@@ -39,6 +39,7 @@ __all__ = [
     "Check",
     "bound_rule",
     "channel_limits",
+    "channel_minimums",
     "check_draft",
     "render_check",
     "render_feedback",
@@ -662,9 +663,50 @@ _LIMITS = {
 #: "at most 150 characters". "Blog posts run about 800 words" is a habit.
 _LENGTH_IS_LIMIT = re.compile(
     r"\blength\s*:|\b(?:at most|up to|under|no more than|max(?:imum)?|within|fewer than"
-    r"|less than)\b",
+    r"|less than|between|at least|min(?:imum)?|no fewer than|no less than)\b",
     re.I,
 )
+_UNIT = {
+    "characters": r"(?:characters?|chars?)",
+    "words": r"words?",
+    "hashtags": r"hashtags?",
+    "emojis": r"emojis?",
+}
+_N = r"(\d[\d,]*)"
+_TO = r"\s*(?:-|–|—|to|and)\s*"
+
+
+def _range(part: str, kind: str) -> tuple[int, int] | None:
+    """`(least, most)` when a part states a range for `kind`: "Hashtags: 5 to 8",
+    "5–8 hashtags", "between 100 and 150 characters"."""
+    unit = _UNIT[kind]
+    for pattern in (
+        rf"\b{unit}\s*:?\s*(?:between\s+)?{_N}{_TO}{_N}\b",
+        rf"(?:\bbetween\s+)?\b{_N}{_TO}{_N}\s*{unit}\b",
+    ):
+        match = re.search(pattern, part, re.I)
+        if match:
+            least, most = (int(group.replace(",", "")) for group in match.groups())
+            if least <= most:
+                return least, most
+    return None
+
+
+def _minimum(part: str, kind: str) -> int | None:
+    """The least a part asks for: "at least 3 hashtags", "Hashtags: 3 or more"."""
+    unit = _UNIT[kind]
+    for pattern in (
+        rf"(?:at least|min(?:imum)?(?: of)?|no fewer than|no less than)\s*{_N}\s*{unit}\b",
+        rf"\b{unit}\s*:?\s*(?:at least|min(?:imum)?(?: of)?)\s*{_N}\b",
+        rf"\b{unit}\s*:?\s*{_N}\s*or more\b",
+        rf"\b{_N}\s*{unit}\s*or more\b",
+    ):
+        match = re.search(pattern, part, re.I)
+        if match:
+            return int(match.group(1).replace(",", ""))
+    return None
+
+
 #: A channel's own line: "Instagram: Length: 150 characters; Hashtags: 3 at most".
 _CHANNEL_ROW = re.compile(r"^([A-Z][\w-]*(?: [A-Z][\w-]*){0,2}):\s")
 #: A channel named inside a sentence: "on LinkedIn", "Instagram captions".
@@ -673,13 +715,9 @@ _CHANNEL_NAMED = re.compile(
 )
 
 
-def channel_limits(claim: str) -> tuple[str | None, dict[str, int]]:
-    """The channel a line limits and its limits: ("Instagram", {"characters": 150}).
-
-    Read from a table row ("Instagram: Length: 150 characters; Hashtags: 3 at
-    most") or a sentence naming the channel ("Keep LinkedIn posts under 120
-    words"). A line with no channel, or no limit, gives `(None, {})`.
-    """
+def _channel_bounds(claim: str) -> tuple[str | None, dict[str, tuple[int, int | None]]]:
+    """The channel a line limits, and for each kind its `(least, most)`; `most`
+    is None when the line sets only a minimum. Kinds keep the line's order."""
     row = _CHANNEL_ROW.match(claim)
     channel = row.group(1) if row else None
     if channel is None:
@@ -687,18 +725,59 @@ def channel_limits(claim: str) -> tuple[str | None, dict[str, int]]:
         channel = named.group(1) if named else None
     if channel is None:
         return None, {}
-    limits: dict[str, int] = {}
+    bounds: dict[str, tuple[int, int | None]] = {}
     for part in claim.split(";"):
-        for kind in ("characters", "words"):
+        for kind in ("characters", "words", "hashtags", "emojis"):
+            if kind in bounds:
+                continue
+            length = kind in ("characters", "words")
+            if length and not (row or _LENGTH_IS_LIMIT.search(part)):
+                continue
+            span = _range(part, kind)
+            if span:
+                bounds[kind] = span
+                continue
             match = _LIMITS[kind].search(part)
-            if match and (row or _LENGTH_IS_LIMIT.search(part)):
-                limits.setdefault(kind, int(match.group(1).replace(",", "")))
-        for kind in ("hashtags", "emojis"):
-            match = _LIMITS[kind].search(part)
-            if match:
+            if match and length:
+                bounds[kind] = (0, int(match.group(1).replace(",", "")))
+                continue
+            least = _minimum(part, kind)
+            if match and not length:
                 number = next((g for g in match.groups() if g and g.isdigit()), None)
-                limits.setdefault(kind, int(number) if number else 0)
-    return (channel, limits) if limits else (None, {})
+                bounds[kind] = (least or 0, int(number) if number else 0)
+            elif least is not None:
+                bounds[kind] = (least, None)
+    # A length in characters or words with a minimum and no maximum comes from
+    # "at least 50 words", which `_LIMITS` reads as at most 50: the minimum wins.
+    for kind in ("characters", "words"):
+        if kind in bounds:
+            for part in claim.split(";"):
+                least = _minimum(part, kind)
+                if least is not None and _range(part, kind) is None:
+                    bounds[kind] = (least, None)
+    bounds = {kind: span for kind, span in bounds.items() if span != (0, None)}
+    return (channel, bounds) if bounds else (None, {})
+
+
+def channel_limits(claim: str) -> tuple[str | None, dict[str, int]]:
+    """The channel a line limits and its limits: ("Instagram", {"characters": 150}).
+
+    Read from a table row ("Instagram: Length: 150 characters; Hashtags: 5 to
+    8") or a sentence naming the channel ("Keep LinkedIn posts under 120
+    words"). A range gives its upper end here; `channel_minimums` gives the
+    lower. A line with no channel, or no limit, gives `(None, {})`.
+    """
+    channel, bounds = _channel_bounds(claim)
+    most = {kind: high for kind, (_low, high) in bounds.items() if high is not None}
+    return (channel, most) if most else (None, {})
+
+
+def channel_minimums(claim: str) -> tuple[str | None, dict[str, int]]:
+    """The least a channel line asks for: ("Instagram", {"hashtags": 5}) from
+    "Hashtags: 5 to 8" or "at least 5 hashtags". `(None, {})` when none."""
+    channel, bounds = _channel_bounds(claim)
+    least = {kind: low for kind, (low, _high) in bounds.items() if low}
+    return (channel, least) if least else (None, {})
 
 
 def _counts(draft: str) -> dict[str, int]:
@@ -712,29 +791,39 @@ def _counts(draft: str) -> dict[str, int]:
 
 
 def _limit_findings(draft: str, claims: list[dict[str, str]], channel: str) -> list[Finding]:
-    """Where the draft is longer, or has more hashtags or emojis, than its channel allows."""
+    """Where the draft is longer or shorter, or has more or fewer hashtags or
+    emojis, than its channel allows."""
     counts = _counts(draft)
     findings: list[Finding] = []
     seen: set[str] = set()
     for claim in claims:
-        named, limits = channel_limits(claim["claim"])
+        named, bounds = _channel_bounds(claim["claim"])
         if not named or named.lower().rstrip("s") not in channel.lower():
             continue
-        for kind, most in limits.items():
-            if counts[kind] <= most or kind in seen:
+        for kind, (least, most) in bounds.items():
+            count = counts[kind]
+            over = most is not None and count > most
+            under = count < least
+            if not (over or under) or kind in seen:
                 continue
             seen.add(kind)
-            unit = kind if counts[kind] != 1 else kind[:-1]
-            allows = f"at most {most}" if most else f"no {kind}"
+            unit = kind if count != 1 else kind[:-1]
+            if most is not None and least:
+                allows = f"{least} to {most}"
+            elif most is not None:
+                allows = f"at most {most}" if most else f"no {kind}"
+            else:
+                allows = f"at least {least}"
+            verb = "allows" if over else "asks for"
             findings.append(
                 Finding(
                     "limit",
                     claim["id"],
                     claim["claim"],
                     claim["path"],
-                    f"{counts[kind]} {unit}",
-                    f"The draft has {counts[kind]} {unit}; {named} allows {allows}.",
-                    expected=str(most),
+                    f"{count} {unit}",
+                    f"The draft has {count} {unit}; {named} {verb} {allows}.",
+                    expected=str(most if over else least),
                 )
             )
     return findings
@@ -919,12 +1008,18 @@ def render_feedback(check: Check) -> str:
         elif finding.kind == "limit":
             count, unit = finding.quote.split(" ", 1)
             plural = unit if unit.endswith("s") else unit + "s"
+            wanted = plural if finding.expected != "1" else plural[:-1]
+            fewer = int(count) < int(finding.expected)
             if plural in ("characters", "words"):
-                change = f"Shorten the draft to at most {finding.expected} {plural}"
+                change = (
+                    f"Lengthen the draft to at least {finding.expected} {wanted}"
+                    if fewer
+                    else f"Shorten the draft to at most {finding.expected} {wanted}"
+                )
             elif finding.expected == "0":
                 change = f"Remove every {plural[:-1]}"
             else:
-                change = f"Use at most {finding.expected} {plural}"
+                change = f"Use {'at least' if fewer else 'at most'} {finding.expected} {wanted}"
             lines.append(f"- {change}; it has {count}. Approved: {finding.claim}")
         elif finding.kind == "bound":
             lines.append(
