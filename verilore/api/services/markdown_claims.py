@@ -1143,7 +1143,18 @@ _FRONTMATTER_STATE_VALUES = {
 #: Heading words that declare a state, per state.
 _HEADING_STATE_WORDS = {
     "draft": {"draft", "drafts", "brainstorm", "brainstorming", "work in progress", "wip"},
-    "rejected": {"rejected"},
+    # Copy a kit shows as what not to write is rejected, so it is never served
+    # as an approved line. "Avoid" and "Do not use" head rules, and stay out.
+    "rejected": {
+        "rejected",
+        "not like this",
+        "bad example",
+        "bad examples",
+        "examples to avoid",
+        "don't write like this",
+        "don\u2019t write like this",
+        "do not write like this",
+    },
     "superseded": {"superseded", "deprecated", "obsolete", "archive", "archived"},
     "historical_observation": {"past campaigns", "lessons learned", "performance report"},
 }

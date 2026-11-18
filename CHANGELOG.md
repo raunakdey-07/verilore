@@ -351,6 +351,15 @@ said rules come first; with a `task`, the lines the task is about do.
 `curl` into `sh`; one failed lookup failed the run before anything was tested. It
 downloads the installer first, with retries.
 
+**Copy shown as what not to write is never served as approved.** Since
+paragraphs are read in every document, a kit's page of example copy put its bad
+examples into the brief, under a header that tells the model every line is
+approved: "Our coffee will change your life forever." Copy under a heading such
+as `## Not like this`, `## Bad examples`, `## Examples to avoid` or `## Don't
+write like this` is now rejected, like `## Rejected`: stored, counted, never
+quoted. Headings of rules, such as `## Avoid` and `## Do not use`, are unchanged.
+**Upgrading:** re-ingest a kit with such a section to withhold it.
+
 ### Security
 
 **A converted file is held to limits, and fails alone.** A Word or PowerPoint file
