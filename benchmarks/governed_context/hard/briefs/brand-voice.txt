@@ -2,6 +2,7 @@ Approved memory for "saffron-lane", scope brand + campaigns.
 Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
 
 brand/channels.md
+- LinkedIn: Length: 120 words; Emojis: none; Hashtags: none
 - Always end an Instagram caption with the estate name in capitals.
 - Never tag a competitor brand on Instagram.
 - Every WhatsApp message must include the word STOP so a reader can unsubscribe.
@@ -34,4 +35,4 @@ brand/voice.md
 - It says nothing a reader can taste.
 - We do not call any tea "exotic", because the people who grow it do not think of it that way.
 
-Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 28 more approved lines. The lines least related to the task went first.
+Not included: 3 draft, 1 rejected, 4 expired. Left out for length: 27 more approved lines. The lines least related to the task went first.

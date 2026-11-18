@@ -299,7 +299,7 @@ With `task`, a few words on what is being written:
 A line that leaves out what its section names is printed with it:
 `Price: Rs 520 for a 250 g tin.` under `## Assam Gold` reads
 `Assam Gold: Price: Rs 520 for a 250 g tin.` On the hard benchmark kit, eight
-tasks at 500 tokens, the brief carries 43 of 47 applicable rules and nothing
+tasks at 500 tokens, the brief carries 44 of 47 applicable rules and nothing
 that must not be served ([measures](../../benchmarks/governed_context/hard/measures.md)).
 
 ```python
@@ -312,10 +312,14 @@ tight = mp.memory.brief(
 assert tight.approx_tokens <= 120
 assert "- Our voice is warm, plain and confident." in tight.text.splitlines()
 assert tight.omitted_rules == 0, "a rule was cut: narrow the scope or raise the limit"
+assert tight.omitted_must == 0, "a required line did not fit: raise max_tokens"
 ```
 
-`brief.omitted` counts the lines left out and `brief.omitted_rules` how many of
-them were rules; the second should be zero. The ranking shares words, not
+`brief.omitted` counts the lines left out, `brief.omitted_rules` how many of
+them were rules, and `brief.omitted_must` how many were under `must`. The last
+two should be zero; when `omitted_must` is not, the brief's last line says so
+("including 2 marked must") and `verilore brief` warns on its error stream. A
+line that does not fit is passed over, so a shorter line after it is still kept. The ranking shares words, not
 meaning: "tweet" does not find a line about "X posts". Put what must always be
 there under `must`, and name the channel in the task the way the kit names it.
 A line whose `valid_until` has passed is left out and counted in `brief.expired`.

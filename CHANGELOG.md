@@ -360,6 +360,17 @@ write like this` is now rejected, like `## Rejected`: stored, counted, never
 quoted. Headings of rules, such as `## Avoid` and `## Do not use`, are unchanged.
 **Upgrading:** re-ingest a kit with such a section to withhold it.
 
+**A line you mark `must` is never dropped without saying so, and a short line is
+not lost behind a long one.** At 150 tokens a brief left out three of eight lines
+marked `must`, among them "Never claim health benefits", and said only "24 more
+approved lines, 5 of them rules". It now keeps every line under `must` before any
+other line, with or without `task`, and its last line says "including 3 marked
+must" when one did not fit; `Brief.omitted_must` counts them, `verilore brief
+--json` carries the count, and `verilore brief` warns on its error stream. The
+brief also stopped at the first line that did not fit; each line is now kept if it
+still fits, so a short required line after a long one is kept. On the hard kit at
+500 tokens the brief carries 44 of 47 applicable rules (was 43).
+
 ### Security
 
 **A converted file is held to limits, and fails alone.** A Word or PowerPoint file

@@ -82,6 +82,10 @@ class Brief:
     #: How many of the omitted lines were rules. Not zero means the limit is too
     #: small for this scope: narrow the scope or raise the limit.
     omitted_rules: int = 0
+    #: How many of the omitted lines are under a path in `must`. Not zero means
+    #: a line the caller required is not in the text: raise the limit or narrow
+    #: `must`. The last line of the text says so too.
+    omitted_must: int = 0
     #: Claims the corpus holds but does not vouch for, by state.
     withheld: dict[str, int] = field(default_factory=dict)
     #: Keys whose sources disagree. Both sides are shown, neither is chosen.
@@ -373,10 +377,13 @@ def render_brief(
     reached the lines left out are counted and the last line says so: a brief
     never ends mid-sentence, and it never drops lines silently.
 
-    What is kept when not everything fits: rules first (`is_rule`, and every
-    line under a path in `must`), then the lines most related to `task`, then
-    the rest in document order. A line whose `valid_until` has passed is left
-    out and counted in `expired`.
+    What is kept when not everything fits: every line under a path in `must`
+    first, then rules (`is_rule`), then the lines most related to `task`, then
+    the rest in document order. Each line in that order is kept if it still
+    fits, so a short line after a long one that did not fit is still kept. A
+    line under `must` that does not fit is counted in `omitted_must`, and the
+    last line says so. A line whose `valid_until` has passed is left out and
+    counted in `expired`.
     """
     if max_chars is not None and max_tokens is not None:
         raise ValueError("give max_chars or max_tokens, not both")
@@ -472,7 +479,9 @@ def render_brief(
 
         offered = sorted(entries, key=rank)
     else:
-        offered = sorted(entries, key=lambda entry: (not entry["rule"], entry["position"]))
+        offered = sorted(
+            entries, key=lambda entry: (not entry["must"], not entry["rule"], entry["position"])
+        )
 
     where = f', scope {" + ".join(scope)}' if scope else ""
     header = [
@@ -492,10 +501,17 @@ def render_brief(
 
     total = sum(len(entry["ids"]) for entry in entries)
     total_rules = sum(len(entry["ids"]) for entry in entries if entry["rule"])
+    total_must = sum(len(entry["ids"]) for entry in entries if entry["must"])
 
-    def footer(kept: list[dict[str, Any]]) -> list[str]:
-        kept_claims = sum(len(entry["ids"]) for entry in kept)
-        kept_rules = sum(len(entry["ids"]) for entry in kept if entry["rule"])
+    def counted(kept: list[dict[str, Any]]) -> tuple[int, int, int]:
+        """How many claims, rules and claims under `must` the kept lines carry."""
+        return (
+            sum(len(entry["ids"]) for entry in kept),
+            sum(len(entry["ids"]) for entry in kept if entry["rule"]),
+            sum(len(entry["ids"]) for entry in kept if entry["must"]),
+        )
+
+    def closing(kept_claims: int, kept_rules: int, kept_must: int) -> list[str]:
         omitted = total - kept_claims
         parts = []
         if withheld or expired:
@@ -506,9 +522,15 @@ def render_brief(
         if omitted:
             rules = total_rules - kept_rules
             which = f", {rules} of them rules" if rules else ""
+            required = total_must - kept_must
+            if required:
+                which += f", including {required} marked must"
             least = " The lines least related to the task went first." if task else ""
             parts.append(f"Left out for length: {omitted} more approved lines{which}.{least}")
         return ["", " ".join(parts)] if parts else []
+
+    def footer(kept: list[dict[str, Any]]) -> list[str]:
+        return closing(*counted(kept))
 
     def body(kept: list[dict[str, Any]]) -> list[str]:
         """The kept lines under their documents, both in the response's own order."""
@@ -527,11 +549,46 @@ def render_brief(
             lines = ["", "(no approved memory in this scope)"]
         return "\n".join(header + lines + conflict_lines + footer(kept))
 
+    def without_footer(kept: list[dict[str, Any]]) -> str:
+        return "\n".join(header + body(kept) + conflict_lines)
+
+    # Every line in `offered` order is kept if it still fits: one that does not
+    # fit is passed over, not the end of the brief. Rendering a candidate costs
+    # the size of what is kept, so a line that cannot fit is passed over without
+    # it: the text it would join is at least what is kept, footer aside, plus
+    # its own line. That line is at least a quarter of its characters in tokens
+    # (less one, as `approx_tokens` rounds each part up), and all of them in
+    # characters; counting is left to the render that decides.
+    if size is len:
+        cost = [len(entry["shown"]) + 3 for entry in offered]
+    else:
+        cost = [(len(entry["shown"]) + 3 + 3) // 4 - 1 for entry in offered]
+    cheapest_after = [0] * (len(offered) + 1)
+    cheapest_after[len(offered)] = limit + 1
+    for index in range(len(offered) - 1, -1, -1):
+        cheapest_after[index] = min(cost[index], cheapest_after[index + 1])
     kept: list[dict[str, Any]] = []
-    for entry in offered:
-        if size(render(kept + [entry])) > limit:
+    floor = size(without_footer(kept))
+    claims_kept = rules_kept = must_kept = 0
+    for index, entry in enumerate(offered):
+        if floor + cheapest_after[index] > limit:
             break
+        if floor + cost[index] > limit:
+            continue
+        ids = len(entry["ids"])
+        after = (
+            claims_kept + ids,
+            rules_kept + (ids if entry["rule"] else 0),
+            must_kept + (ids if entry["must"] else 0),
+        )
+        # The footer it would end with is known without rendering anything.
+        if floor + cost[index] + size("\n".join(closing(*after))) - 1 > limit:
+            continue
+        if size(render(kept + [entry])) > limit:
+            continue
         kept.append(entry)
+        floor = size(without_footer(kept))
+        claims_kept, rules_kept, must_kept = after
 
     printed = sorted(kept, key=lambda entry: entry["position"])
     order: dict[str, list[dict[str, Any]]] = {}
@@ -554,6 +611,7 @@ def render_brief(
         claim_ids=tuple(kept_ids),
         omitted=total - len(kept_ids),
         omitted_rules=total_rules - sum(len(e["ids"]) for e in kept if e["rule"]),
+        omitted_must=total_must - sum(len(e["ids"]) for e in kept if e["must"]),
         withheld=withheld,
         conflicts=len(conflicts),
         expired=expired,

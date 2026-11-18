@@ -389,6 +389,7 @@ def test_the_cli_prints_the_text_and_json_carries_the_ids(monkeypatch):
         "claim_ids",
         "omitted",
         "omitted_rules",
+        "omitted_must",
         "withheld",
         "conflicts",
         "expired",
