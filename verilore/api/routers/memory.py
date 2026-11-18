@@ -78,9 +78,13 @@ async def remember(request: RememberRequest) -> RememberResult:
     that lands near claims that already exist reports them under
     ``related_active_claims``; the archive cannot tell a supersession from a
     contradiction, so it names them and lets the caller decide.
+
+    On a server deployment a write that names no ``state`` is a draft, withheld
+    until the same key is written with ``"state": "approved"``.
     """
     from verilore.api.services.memory import ClaimValidationError
     from verilore.api.services.remember import RememberError, remember as write
+    from verilore.api.services.remember import state_for_request
 
     if request.statement is None:
         raise HTTPException(
@@ -100,7 +104,7 @@ async def remember(request: RememberRequest) -> RememberResult:
             key=request.key,
             supersedes_claim_id=request.supersedes_claim_id,
             topic_key=request.topic_key,
-            state=request.state,
+            state=state_for_request(request.state),
             scope=request.scope,
             valid_from=request.valid_from,
             valid_until=request.valid_until,
