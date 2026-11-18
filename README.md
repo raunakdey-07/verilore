@@ -85,12 +85,14 @@ uv tool install --python 3.13 verilore
 With a Python from 3.11 to 3.14, `pipx install verilore` works too. Fedora's uv
 downloads a Python only when asked, so run `uv python install 3.13` first.
 
+<!-- quickstart-commands: the five-minute path runs every command in the bash blocks below, verbatim -->
+
 **2. Set up.** With Podman or Docker installed, `init` starts a local PostgreSQL
 (its image downloads once), applies the schema, creates your first corpus and
 records the database for every later command. Running it again changes nothing.
 
 ```bash
-$ verilore init
+verilore init
 ```
 
 **3. Ingest a document.** No frontmatter and no `claims:` block are needed:
@@ -99,37 +101,39 @@ file it came from. `docs/adr/001-datastore.md` is the worked example; point this
 at your own folder.
 
 ```bash
-$ verilore ingest-repo ./docs/adr --corpus project
+verilore ingest-repo ./docs/adr --corpus project
 ```
 
 **4. Ask.** An ambiguous answer lists the claims it could not separate, with
 their ids.
 
 ```bash
-$ verilore recall "What is the primary datastore?" --corpus project
+verilore recall "What is the primary datastore?" --corpus project
 ```
 
 **5. Record what replaces it.** `--topic-key` retires whatever is live under that
 key, across files, so the new statement can come from a different document.
 
 ```bash
-$ verilore remember "The primary datastore is PostgreSQL 16." \
+verilore remember "The primary datastore is PostgreSQL 16." \
   --corpus project --key architecture.datastore --topic-key architecture.datastore
 ```
 
 **6. See what is true now, and what it displaced.**
 
 ```bash
-$ verilore recall "What is the primary datastore?" --corpus project
-$ verilore history "" --corpus project
+verilore recall "What is the primary datastore?" --corpus project
+verilore history "" --corpus project
 ```
 
 **7. Verify the answer offline**, with no database, model or network.
 
 ```bash
-$ verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
-$ verilore verify receipt.json
+verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
+verilore verify receipt.json
 ```
+
+<!-- /quickstart-commands -->
 
 Nothing needs exporting. `init` records the database in `~/.verilore/config.toml`
 (mode 0600), and every command and `verilore-mcp` read it; an exported
@@ -178,7 +182,8 @@ read. The JSON for OpenCode, Zed and Claude Code is in [connecting an agent](doc
 to `~/.verilore/logs/queries.jsonl` and changes nothing else.
 
 ```bash
-verilore feedback <query_id> --verdict wrong --note "meant the cache"
+query_id=b062424783ba   # the query_id that recall printed
+verilore feedback "$query_id" --verdict wrong --note "meant the cache"
 verilore feedback-summary
 ```
 

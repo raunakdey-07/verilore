@@ -360,8 +360,8 @@ Re-issue it with: verilore receipt "<question>" -o receipt.json
 MCP is nearly invisible. Point an agent at `verilore-mcp` and it can recall and
 explain the same memory:
 
-```console
-$ verilore-mcp
+```bash
+verilore-mcp
 ```
 
 ```json
@@ -567,13 +567,13 @@ There is no `verilore mcp` command. The server is an executable named
 stdin/stdout — a client starts it, you do not type at it. It used to print
 nothing at all for `--help`; it prints usage now.
 
-```console
-$ pip install verilore
+```bash
+pip install verilore
 
-$ verilore credential issue my-agent -c default -r read_write
-$ export VERILORE_MCP_CREDENTIAL=mpk_...
+verilore credential issue my-agent -c default -r read_write
+export VERILORE_MCP_CREDENTIAL=mpk_...   # the secret the line above printed
 
-$ verilore-mcp --help
+verilore-mcp --help
 ```
 
 `VERILORE_MCP_CREDENTIAL` takes the raw `mpk_...` secret. Mint one with

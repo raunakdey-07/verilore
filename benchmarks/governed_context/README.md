@@ -27,8 +27,9 @@ python -m benchmarks.governed_context.run --dry-run
 With a model. Pick any model id on OpenRouter; the free ones end in `:free`.
 
 ```bash
-export OPENROUTER_API_KEY=...
-python -m benchmarks.governed_context.run --model <model id>
+export OPENROUTER_API_KEY=...   # your key
+model=...                       # a model id from OpenRouter, such as one ending in :free
+python -m benchmarks.governed_context.run --model "$model"
 ```
 
 One model is 24 calls, at temperature 0, 3.5 seconds apart. OpenRouter's free
@@ -65,7 +66,7 @@ holds it equal to what the code computes. `hard/briefs/` holds the brief each ta
 gets at 500 tokens, which is what a model run sends:
 
 ```bash
-python -m benchmarks.governed_context.run --suite hard --model <model id>
+python -m benchmarks.governed_context.run --suite hard --model "$model"
 ```
 
 The hard suite adds a fourth condition, `checked`: the same brief, then

@@ -75,23 +75,59 @@ SKIP_PATTERNS = (
 )
 
 
-#: The documents whose ``$ `` lines are commands a reader is told to type. The
-#: authoring guide is second because its examples are the ones most likely to rot
-#: silently: a wrong claim field still "runs", it just stores nothing.
+#: The documents whose commands a reader is told to type. The authoring guide is
+#: second because its examples are the ones most likely to rot silently: a wrong
+#: claim field still "runs", it just stores nothing.
 COMMAND_DOCS = (README, ROOT / "docs" / "authoring.md")
+
+#: The README's quickstart is plain ```bash blocks a reader copies, with no ``$ ``
+#: prompt (a pasted ``$`` is "command not found"). These comments, invisible on
+#: GitHub and PyPI, mark the commands this script runs.
+QUICKSTART = re.compile(r"<!-- quickstart-commands\b.*?-->(.*?)<!-- /quickstart-commands -->", re.S)
 
 
 def readme_commands() -> list[str]:
-    """Commands the documented path tells a reader to type, extracted not retyped."""
+    """Commands the documented path tells a reader to type, extracted not retyped.
+
+    From the README, every line of the ```bash blocks between the quickstart
+    markers; from a transcript (```console, with output), its ``$ `` lines. The
+    README must have the markers and at least one command between them: a
+    quickstart this script cannot find is a failure, not an empty run.
+    """
     out: list[str] = []
     for doc in COMMAND_DOCS:
         if not doc.exists():
             continue
-        for _lang, block in re.findall(r"```(console|bash)\n(.*?)```", doc.read_text(), re.S):
-            for command in _dollar_lines(block):
-                if not any(p in command for p in SKIP_PATTERNS):
-                    out.append(command)
+        text = doc.read_text()
+        commands: list[str] = []
+        if doc == README:
+            marked = QUICKSTART.search(text)
+            if not marked:
+                raise SystemExit("README.md has no <!-- quickstart-commands --> markers")
+            for block in re.findall(r"```bash\n(.*?)```", marked.group(1), re.S):
+                commands += _block_lines(block)
+            if not commands:
+                raise SystemExit("README.md's quickstart markers hold no ```bash commands")
+            text = text[: marked.start()] + text[marked.end() :]
+        for _lang, block in re.findall(r"```(console|bash)\n(.*?)```", text, re.S):
+            commands += _dollar_lines(block)
+        out += [command for command in commands if not any(p in command for p in SKIP_PATTERNS)]
     return out
+
+
+def _block_lines(block: str) -> list[str]:
+    """Every command in a ```bash block with no prompts: each line that is not
+    blank or a comment, with shell continuations joined."""
+    return _dollar_lines(
+        "\n".join(
+            (
+                line
+                if line.startswith(" ") or not line.strip() or line.lstrip().startswith("#")
+                else f"$ {line}"
+            )
+            for line in block.splitlines()
+        )
+    )
 
 
 def _own_database(base_url: str, name: str) -> str:
