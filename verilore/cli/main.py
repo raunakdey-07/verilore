@@ -1012,6 +1012,8 @@ def brief(
                         {"id": p.id, "reasons": list(p.reasons), "left": p.left, "right": p.right}
                         for p in result.possible_conflicts
                     ],
+                    "disagreements": [p.id for p in result.disagreements],
+                    "overruled": result.overruled,
                 },
                 ensure_ascii=False,
                 indent=2,

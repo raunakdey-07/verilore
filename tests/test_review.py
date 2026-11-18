@@ -189,13 +189,21 @@ def test_the_page_is_self_contained_and_escapes_what_it_quotes():
     assert "prefers-color-scheme: dark" in page and 'name="viewport"' in page
 
 
-def test_the_brief_carries_the_pairs_it_contains_but_does_not_tell_the_model():
-    from verilore.brief import render_brief
+def test_the_brief_carries_the_pairs_it_contains_and_tells_the_model_not_to_choose():
+    """The delivery pair states a difference (24 hours where the other says not
+    under 48), so the brief prints it apart (BRIEF-5). The spelling pair is the
+    same verb with other details, which words cannot tell from details that go
+    together; it stays in the list, for a person. The text never sends the
+    model to `verilore review`, a command it cannot run."""
+    from verilore.brief import DISAGREE, render_brief
 
     response = {"corpus": "kaveri", "current_memories": _claims(KIT[:4])}
     brief = render_brief(response)
     assert len(brief.possible_conflicts) == 2
-    assert "disagree" not in brief.text and "review" not in brief.text
+    assert [pair.left["claim"] for pair in brief.disagreements] == [
+        "Do not promise delivery in under 48 hours."
+    ]
+    assert DISAGREE in brief.text and "review" not in brief.text
 
 
 def test_the_cli_prints_writes_the_page_and_strict_exits_one(monkeypatch, tmp_path):

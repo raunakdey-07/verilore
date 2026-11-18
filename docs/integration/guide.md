@@ -470,10 +470,18 @@ page = render_review_html(review)  # one self-contained page for a brand owner
 From the command line, `verilore review --corpus <name> --html review.html`
 prints the same list and writes the page; `--strict` exits 1 while anything is
 open, for a sync job. `brief.possible_conflicts` lists the pairs inside one
-brief, without putting them in its text: a flag is for a person, and a model
-told "these may disagree" hedges on rules that are fine. Settle a pair by
-rejecting or superseding the wrong line; a pair that agrees can be passed back
-by its id in `review(settled=[...])`.
+brief. Those that state a difference (two values of one kind for the same
+thing, or nearly the same line with "not" in one) are `brief.disagreements`, and
+the brief prints them apart from its other lines, under one telling the model not
+to choose between them; the header tells it to follow every other line. A pair
+flagged only for sharing its words, two bans, a rule and its exception, two
+products or channels, and the same instruction with other details ("Use Indian
+English spelling", "Use American spelling") stay in the list: words cannot tell
+the last from details that go together, so `review` is where it is settled. When one
+line of a disagreement is under `must`, that line holds: the other is left out,
+counted in `brief.overruled` and in the last line. Settle a pair by rejecting
+or superseding the wrong line; a pair that agrees can be passed back by its id
+in `review(settled=[...])`.
 
 **Check the draft before a person reads it.** The brief controls what a model
 is given; `check` looks at what it wrote. It reports each exact problem with the

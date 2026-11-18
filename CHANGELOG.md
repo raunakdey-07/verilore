@@ -264,6 +264,24 @@ memory has to pass `state="approved"`.
   before, any draft with a tin and a price was compared with every price on the
   sheet.
 
+**A brief prints lines that disagree apart, and tells the model not to choose.**
+Old workshop notes said "We guarantee delivery within 24 hours", the brand rules
+"Do not promise delivery in under 48 hours", and the brief printed both under "Do
+not contradict these lines"; the only hint was on the terminal, where a model
+cannot read it. Two kept lines from different documents that state a difference,
+two values of one kind for the same thing or nearly the same line with "not" in
+one of them, are now printed in a block of their own: "These lines come from
+different documents and may disagree. Do not choose between them; where the task
+depends on one, leave that point out". `Brief.disagreements` names those pairs.
+Lines flagged only for sharing their words, two bans, a rule and its exception,
+two sizes with their prices, and two channels stay in the list, because both can
+be followed. So does the same verb with other details ("Use Indian English
+spelling", "Use American spelling"): words cannot tell it from details that go
+together ("Mention the estate name", "Mention the price"), so it is left to
+`review`. When one line of a disagreeing pair is under `must`, that line holds:
+the other is left out, counted in `Brief.overruled` and in the last line ("1 that
+may disagree with a line marked must").
+
 ### Removed
 
 **The `verilore_sdk` and `verilore_errors` shims.** v0.11 kept them for one
