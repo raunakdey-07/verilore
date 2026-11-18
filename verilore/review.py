@@ -18,9 +18,12 @@ is, and that is what this module does:
   keyed conflicts, as plain text or as one static HTML page a brand owner can
   open without installing anything.
 
-Nothing here resolves anything. A wrongly dropped rule is worse than a flagged
-pair, so the brief keeps serving both lines and only counts the pairs. A person
-settles each one: reject or supersede a line, or record that the two agree.
+Nothing here resolves anything. A person settles each pair: reject or
+supersede a line, or record that the two agree. Until then a brief prints a
+pair that states a difference (two values of one kind for the same thing, or
+nearly the same line with "not" in one) apart from its other lines, and tells
+the model not to choose; see `verilore.brief._disagree`. The other pairs, such
+as the same instruction with other details, stay in its list for a person.
 
 Lexical and deterministic, like the brief: no model, the same answer on every
 machine. That bounds what it finds. "Ship in two days" and "Delivery takes 48
@@ -348,7 +351,8 @@ def render_review(review: Review) -> str:
     if review.pairs:
         out += [
             "",
-            f"Lines that may disagree ({len(review.pairs)}): both are served as approved.",
+            f"Lines that may disagree ({len(review.pairs)}): a brief prints the ones that "
+            "state a difference apart, and tells the model not to choose.",
         ]
         for pair in review.pairs:
             out.append(f'  {pair.id}  ({"; ".join(pair.reasons)})')
@@ -433,7 +437,8 @@ def render_review_html(review: Review) -> str:
             for pair in review.pairs
         )
         sections.append(
-            "<h2>Lines that may disagree</h2><p class='note'>Both are served as approved "
+            "<h2>Lines that may disagree</h2><p class='note'>A brief prints the ones that "
+            "state a difference apart, and tells the model not to choose between them, "
             f"until one is rejected or replaced.</p><ol>{items}</ol>"
         )
     if review.drafts:

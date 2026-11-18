@@ -15,13 +15,22 @@ Drafts, rejected statements and replaced versions are already withheld by
 is true. This module only renders, and when the scope holds more than fits it
 decides what to keep, in an order anyone can predict:
 
-1. Rules first. A line that says never, must, always or do not, a line under a
-   heading such as "Never" or "Legal", and every line under a path the caller
-   named in `must`, are kept before anything else.
-2. Then what the task is about. With `task="Instagram caption for Diwali"` the
-   remaining lines are ranked by the words they share with the task, their
-   heading and their file, and the least related are the ones left out.
-3. Without a task, in the order the documents list them.
+1. Every line under a path the caller named in `must`, before anything else.
+2. With `task="Instagram caption for Diwali"`, the lines the task is about,
+   ranked by the words they share with the task, their heading and their
+   file; then rules that hold for any task; then the rest. A rule is a line
+   that says never, must, always or do not, or sits under a heading such as
+   "Never" or "Legal".
+3. Without a task, rules, then the rest, in the order the documents list them.
+
+Each line in that order is kept if it still fits, and the last line counts
+what was left out, including any line under `must`.
+
+Two kept lines from different documents that state a difference ("Do not
+promise delivery in under 48 hours", "We guarantee delivery within 24 hours")
+are printed apart, under a line telling the model not to choose between them:
+the header says every other line is to be followed. A line under `must` holds
+against one that is not.
 
     from verilore import Verilore
 
@@ -95,10 +104,17 @@ class Brief:
     #: What the brief was ranked for, when a task was given.
     task: str | None = None
     #: Pairs of lines in this brief, from different documents, that may disagree
-    #: (`verilore.review.likely_pairs`). Not in the text: a flag is for a person
-    #: to settle, and a model told "these may disagree" would hedge on rules
-    #: that are fine. `verilore review` lists them.
+    #: (`verilore.review.likely_pairs`), for a person to settle with `verilore
+    #: review`. Only those in `disagreements` change the text: a pair flagged for
+    #: repeating itself, or two bans, can both be followed.
     possible_conflicts: tuple = ()
+    #: The pairs among those that state a difference (two values for one thing,
+    #: one saying "not", two different instructions). Their lines are printed
+    #: apart, in a block that tells the model not to choose between them.
+    disagreements: tuple = ()
+    #: Approved lines left out because they may disagree with a line under
+    #: `must`: the caller said which line holds. Counted in the last line.
+    overruled: int = 0
 
     @property
     def kept(self) -> int:
@@ -354,6 +370,69 @@ def _shown(entry: dict[str, Any], subjects: dict[str, set[str]]) -> str:
     return f"{section}: {sentence}"
 
 
+#: What the model is told about lines printed apart (`Brief.disagreements`).
+DISAGREE = (
+    "These lines come from different documents and may disagree. Do not choose "
+    "between them; where the task depends on one, leave that point out:"
+)
+
+_CHANNEL_WORD = re.compile(
+    r"\b(instagram|linkedin|whatsapp|facebook|twitter|tiktok|youtube|threads|emails?"
+    r"|newsletters?|blogs?|sms|websites?)\b",
+    re.IGNORECASE,
+)
+
+
+def _channels(text: str) -> set[str]:
+    return {match.group(1).lower().rstrip("s") for match in _CHANNEL_WORD.finditer(text)}
+
+
+def _values_by_kind(text: str) -> dict[str, set[str]]:
+    from verilore.check import _values
+
+    found: dict[str, set[str]] = {}
+    for kind, value, _exact in _values(text):
+        found.setdefault(kind, set()).add(value)
+    return found
+
+
+def _disagree(left: dict[str, Any], right: dict[str, Any], reasons: Iterable[str]) -> bool:
+    """Whether a pair `likely_pairs` flagged states a difference a model must not
+    resolve: two values of one kind for the same thing ("Rs 1499" and "Rs
+    1299"), or nearly the same line with "not" in one and not the other.
+
+    Narrower than `review`, which is for a person. Not a disagreement here:
+    lines flagged only for sharing their words (a rule written twice), the same
+    verb with different details ("Mention the estate name", "Mention the
+    price": words cannot tell those from "Use Indian English spelling" and "Use
+    American spelling", so both stay with `review`), lines whose other values
+    differ too (a 250 g tin and a 100 g tin are two things), a line that only
+    says less than the other, and lines about two channels or two named things.
+    """
+    reasons = tuple(reasons)
+    channels = _channels(left["sentence"]), _channels(right["sentence"])
+    if channels[0] and channels[1] and not channels[0] & channels[1]:
+        return False
+    if left["about"] and right["about"] and not left["about"] & right["about"]:
+        return False
+    for one, other in ((left, right), (right, left)):
+        if one["shown"] != one["sentence"]:
+            # Its section names what it is about; the other line must say it too.
+            section = _sections(one["heading"])[-1]
+            if not _terms(section) <= _terms(other["shown"]):
+                return False
+    # One kind of value differs, and every other kind both state is the same.
+    mine, theirs = _values_by_kind(left["sentence"]), _values_by_kind(right["sentence"])
+    shared = [kind for kind in mine if kind in theirs]
+    differing = [kind for kind in shared if mine[kind] - theirs[kind] and theirs[kind] - mine[kind]]
+    same = [kind for kind in shared if mine[kind] == theirs[kind]]
+    differ = len(differing) == 1 and len(same) == len(shared) - 1
+    if differ and any(r.startswith("different numbers") for r in reasons):
+        return True
+    nearly = any(r == "nearly the same words" for r in reasons)
+    return any(r.startswith("one says") for r in reasons) and (nearly or differ)
+
+
 def render_brief(
     response: Any,
     *,
@@ -384,6 +463,11 @@ def render_brief(
     line under `must` that does not fit is counted in `omitted_must`, and the
     last line says so. A line whose `valid_until` has passed is left out and
     counted in `expired`.
+
+    Two kept lines from different documents that state a difference (see
+    `_disagree`) are printed apart, under a line telling the model not to
+    choose between them (`disagreements`). When only one of them is under
+    `must`, that one holds: the other is left out and counted in `overruled`.
     """
     if max_chars is not None and max_tokens is not None:
         raise ValueError("give max_chars or max_tokens, not both")
@@ -511,18 +595,27 @@ def render_brief(
             sum(len(entry["ids"]) for entry in kept if entry["must"]),
         )
 
-    def closing(kept_claims: int, kept_rules: int, kept_must: int) -> list[str]:
-        omitted = total - kept_claims
+    def closing(
+        kept_claims: int,
+        kept_rules: int,
+        kept_must: int,
+        overruled: tuple[int, int, int] = (0, 0, 0),
+    ) -> list[str]:
+        """The last line. `overruled` is the claims, rules and claims under
+        `must` left out for disagreeing with a line under `must`."""
+        omitted = total - kept_claims - overruled[0]
         parts = []
-        if withheld or expired:
+        if withheld or expired or overruled[0]:
             held = [f"{count} {state}" for state, count in withheld.items()]
             if expired:
                 held.append(f"{expired} expired")
+            if overruled[0]:
+                held.append(f"{overruled[0]} that may disagree with a line marked must")
             parts.append(f'Not included: {", ".join(held)}.')
         if omitted:
-            rules = total_rules - kept_rules
+            rules = total_rules - kept_rules - overruled[1]
             which = f", {rules} of them rules" if rules else ""
-            required = total_must - kept_must
+            required = total_must - kept_must - overruled[2]
             if required:
                 which += f", including {required} marked must"
             least = " The lines least related to the task went first." if task else ""
@@ -543,11 +636,23 @@ def render_brief(
             lines += [f'- {entry["shown"]}' for entry in members]
         return lines
 
-    def render(kept: list[dict[str, Any]]) -> str:
-        lines = body(kept)
-        if not lines and not conflict_lines:
+    def render(
+        kept: list[dict[str, Any]],
+        apart: list[tuple[dict[str, Any], dict[str, Any]]] = (),
+        overruled: list[dict[str, Any]] = (),
+    ) -> str:
+        moved = {id(entry) for pair in apart for entry in pair}
+        lines = body([entry for entry in kept if id(entry) not in moved])
+        block: list[str] = []
+        if apart:
+            block = ["", DISAGREE]
+            block += [
+                f'- {a["shown"]} [{a["label"]}]  |  {b["shown"]} [{b["label"]}]' for a, b in apart
+            ]
+        if not lines and not conflict_lines and not block:
             lines = ["", "(no approved memory in this scope)"]
-        return "\n".join(header + lines + conflict_lines + footer(kept))
+        end = closing(*counted(kept), counted(overruled)) if overruled else footer(kept)
+        return "\n".join(header + lines + conflict_lines + block + end)
 
     def without_footer(kept: list[dict[str, Any]]) -> str:
         return "\n".join(header + body(kept) + conflict_lines)
@@ -590,31 +695,70 @@ def render_brief(
         floor = size(without_footer(kept))
         claims_kept, rules_kept, must_kept = after
 
-    printed = sorted(kept, key=lambda entry: entry["position"])
+    # Pairs among the kept lines that state a difference. A line under `must`
+    # holds against one that is not: that one is left out. Any other pair is
+    # printed apart. Both cost room, so the lowest-ranked kept lines give way
+    # until the text fits again.
+    from verilore.review import likely_pairs
+
+    rank = {id(entry): index for index, entry in enumerate(offered)}
+
+    def pairs_in(chosen: list[dict[str, Any]]) -> list[tuple[Any, dict, dict]]:
+        first = {entry["ids"][0]: entry for entry in chosen}
+        found, _settled = likely_pairs(
+            {"id": entry["ids"][0], "claim": entry["sentence"], "path": path}
+            for entry in chosen
+            for path in entry["paths"][:1]
+        )
+        return [(pair, first[pair.left["id"]], first[pair.right["id"]]) for pair in found]
+
+    def settle(chosen: list[dict[str, Any]]):
+        overruled: list[dict[str, Any]] = []
+        for _pair, a, b in pairs_in(chosen):
+            if a["must"] != b["must"] and _disagree(a, b, _pair.reasons):
+                loser = b if a["must"] else a
+                if loser not in overruled:
+                    overruled.append(loser)
+        served = [entry for entry in chosen if entry not in overruled]
+        apart = [
+            (pair, a, b)
+            for pair, a, b in pairs_in(served)
+            if a["must"] == b["must"] and _disagree(a, b, pair.reasons)
+        ]
+        return served, apart, overruled
+
+    served, apart, overruled = settle(kept)
+    while served and size(render(served, [(a, b) for _p, a, b in apart], overruled)) > limit:
+        kept.remove(max(kept, key=lambda entry: rank[id(entry)]))
+        served, apart, overruled = settle(kept)
+
+    moved = {id(entry) for _pair, a, b in apart for entry in (a, b)}
+    printed = sorted(
+        (entry for entry in served if id(entry) not in moved), key=lambda entry: entry["position"]
+    )
     order: dict[str, list[dict[str, Any]]] = {}
     for entry in printed:
         order.setdefault(entry["label"], []).append(entry)
     kept_ids = [
         claim_id for members in order.values() for entry in members for claim_id in entry["ids"]
     ]
-    from verilore.review import likely_pairs
-
-    pairs, _settled = likely_pairs(
-        {"id": entry["ids"][0], "claim": entry["sentence"], "path": path}
-        for entry in printed
-        for path in entry["paths"][:1]
-    )
+    for _pair, a, b in apart:
+        kept_ids += [claim_id for claim_id in a["ids"] + b["ids"] if claim_id not in kept_ids]
+    pairs = [pair for pair, _a, _b in pairs_in(served)]
+    gone = counted(overruled)
     return Brief(
-        text=render(kept),
+        text=render(served, [(a, b) for _p, a, b in apart], overruled),
         corpus=corpus,
         scope=scope,
         claim_ids=tuple(kept_ids),
-        omitted=total - len(kept_ids),
-        omitted_rules=total_rules - sum(len(e["ids"]) for e in kept if e["rule"]),
-        omitted_must=total_must - sum(len(e["ids"]) for e in kept if e["must"]),
+        omitted=total - len(kept_ids) - gone[0],
+        omitted_rules=total_rules - sum(len(e["ids"]) for e in served if e["rule"]) - gone[1],
+        omitted_must=total_must - sum(len(e["ids"]) for e in served if e["must"]) - gone[2],
         withheld=withheld,
         conflicts=len(conflicts),
         expired=expired,
         task=task or None,
         possible_conflicts=tuple(pairs),
+        disagreements=tuple(pair for pair, _a, _b in apart),
+        overruled=gone[0],
     )
