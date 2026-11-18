@@ -3,14 +3,15 @@
 The list of things that must be true before a tag exists, re-run for every
 tag. The owner alone decides when to cut one.
 
-State when `v0.11.0` was prepared, 2026-11-10:
+State when `v0.12.0` was prepared:
 
 | | |
 |---|---|
-| latest tag | **`v0.10.0`**, at `1fad1e8` |
-| `pyproject.toml` version | `0.11.0`, the release being prepared |
+| latest tag | **`v0.11.0`**, at `4b9a360` |
+| `pyproject.toml` version | `0.12.0`, the release being prepared |
 | schema head | `016`, unchanged since `v0.10.0` |
 | migrations shipped since the last tag | none |
+| runtime dependencies added | `pypdf>=4.0` |
 
 ## Before a tag
 
@@ -58,7 +59,8 @@ State when `v0.11.0` was prepared, 2026-11-10:
 - [ ] The wheel builds, and a **bare** install outside the source tree can run
       `verilore-proof verify` on a real receipt with no database and no
       network.
-- [ ] `verilore_errors`, the runtime entry point and the verifier all ship.
+- [ ] The runtime entry point and the verifier ship, and `import verilore_sdk`
+      fails: the shim was removed in v0.12.0.
 - [ ] A plain install serves a real MCP session with all tools documented.
 
 ### The README's first command actually works

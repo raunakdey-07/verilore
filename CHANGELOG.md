@@ -6,6 +6,66 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+## [v0.12.0] - 2026-11-18
+
+Give a model only what a team approved, and check what it wrote. A brief sized
+for a prompt; a check of the draft that names every banned word, every wrong or
+made-up price and date, every promise past a limit and every channel limit it
+breaks, and that names the rules it cannot test; a loop that gives any model one
+chance to fix them; a review of what disagrees and what has ended; Word,
+PowerPoint and PDF beside Markdown; and lines that end on a date.
+
+### Upgrading from v0.11.0
+
+- **No schema change.** There is no new migration; the head stays
+  `016_hoist_scope_initplan`. Nothing to reindex.
+- **Imports.** `verilore_sdk` and `verilore_errors` are removed, as v0.11.0
+  announced. Import from `verilore`: `from verilore import Verilore, VeriloreError`.
+- **A folder sync reads Word, PowerPoint and PDF files.** The next
+  `ingest-repo` or `sync` of a folder that holds `.docx`, `.pptx` or `.pdf` files
+  adds them as documents. `--formats md` (`formats="md"`) keeps the v0.11.0
+  behaviour. A new dependency, `pypdf`, installs with the package.
+- **What an agent saves over MCP is a draft.** `memory_remember` writes
+  `state="draft"` unless it is told otherwise, and a draft is withheld until a
+  person approves it. Pass `state="approved"` for the v0.11.0 behaviour.
+- **On a server, what an app saves over HTTP without a state is a draft.** With
+  `VERILORE_DEPLOYMENT=server`, `POST /api/memory/remember` (and the SDK with
+  `base_url`) stores a write that names no state as a draft. An app that saves
+  what a person approved must pass `state="approved"`; set
+  `VERILORE_DEFAULT_STATE=approved` to keep the v0.11.0 behaviour. Documents,
+  and writes made on the server itself, are unchanged.
+- **Paragraphs are memory.** Re-ingesting a document adds a claim for each
+  sentence of its paragraphs. A document's `prose: off` (or `VERILORE_PROSE=off`)
+  keeps the v0.11.0 behaviour.
+- **Keys of prose and heading-less lines.** They are keyed by their own document
+  now. Archives that hold the old keys read correctly as they are; a document's
+  next re-ingest moves its lines to the new keys and keeps the old ones as
+  history.
+- **A re-ingested `.docx` or `.pdf` reads differently** (Word lists, PDF bullets
+  and labels), so it records a new version.
+- **Bad example copy is withheld.** A section under `## Not like this`, `## Bad
+  examples`, `## Examples to avoid` or `## Don't write like this` is rejected from
+  its document's next ingest. Re-ingest a kit that has one.
+- **A brief orders and fills lines differently.** Lines under `must` come before
+  every other line, with or without `task`; with `task`, the lines the task is
+  about come next, then rules that hold for any task. A line that does not fit is
+  passed over and a shorter one after it is still kept, so a brief can carry more
+  lines than before at the same size. Two lines from different documents that
+  state a difference are printed apart, in a block that tells the model not to
+  choose; one that disagrees with a line under `must` is left out and counted.
+- **`check` reports made-up values.** A price, percentage or date that no
+  approved line states is now a finding, so a pipeline gated on `verilore check`
+  can fail on a draft that passed before. Pass the request with `--task`
+  (`supported_by=`), or `--allow-unsupported` (`unsupported=False`) for the
+  earlier behaviour. With `channel`, it also counts the channel's length,
+  hashtag and emoji limits from the kit, including a minimum ("Hashtags: 5 to
+  8" makes two hashtags a finding), and a price, percentage or duration past a
+  limit a rule sets ("not under 48 hours") is a finding of kind `bound`. The
+  report ends with the rules it could not test, under "Needs a reviewer".
+- **`review` lists dates that have passed**, and `review --strict` counts them
+  as open. Give an ended line a `valid_until`, reject it, or settle it by claim
+  id.
+
 ### Added
 
 **A brief: approved memory as plain lines for a prompt.** `vl.memory.brief(path_prefix=[...])`
@@ -18,7 +78,7 @@ replaced statements are counted in the last line and never quoted; `max_chars`
 (6,000 by default) cuts at a line and says how many lines were left out. The brief's
 `claim_ids` name what it carries, so the proof is one `evidence` call away. No new
 server operation: a brief is `current`, rendered by `verilore/brief.py`, which uses
-the standard library only. MCP now advertises eighteen tools.
+the standard library only.
 
 **A benchmark of the claim itself.** `benchmarks/governed_context/` hands one
 brand kit to a model three ways (every file, the lines `grep` finds, and
@@ -74,7 +134,7 @@ now grouped under the document they come from, and remembered statements under
 "Saved decisions" instead of a generated file name. `claim_ids` still names
 every claim.
 
-**Lines that end (TIME-1).** "Orders close on 5 November" was still served on
+**Lines that end.** "Orders close on 5 November" was still served on
 16 November, because only an authored `claims:` block could say when a line
 stops being true. A document's frontmatter can now: `valid_from` and
 `valid_until` apply to every line in it that does not set its own. `remember`
@@ -87,9 +147,9 @@ a line is not served by `brief`, `current` or `pack`, and is counted in a new
 bytes, and every receipt over them, are unchanged. The CLI and MCP say so when a
 write's `valid_until` has already passed.
 
-**Review: what a person should settle before memory reaches a model
-(REVIEW-1).** Conflicts are detected only between claims sharing a key, and
-lines from two documents never share one, so "Use Indian English spelling" and
+**Review: what a person should settle before memory reaches a model.**
+Conflicts are detected only between claims sharing a key, and lines from two
+documents share one only under the same heading, so "Use Indian English spelling" and
 "Use American spelling in all copy" were both served as approved. `verilore
 review`, `vl.memory.review()` and `verilore.review` list the keyed conflicts,
 the drafts waiting for approval, and pairs of approved lines from different
@@ -103,7 +163,7 @@ the brand kit from the v0.12 review it flags exactly the four pairs a person
 would, and not two campaigns' dates, two table rows or two facts about one
 product; on the 1,413 claims of `content_eval/` it flags 8.
 
-**Check a draft against approved memory (CHECK-1).** A brief controls what a
+**Check a draft against approved memory.** A brief controls what a
 model is given; nothing controlled what it wrote. `vl.memory.check(draft)`,
 `verilore check draft.txt` (or `-` for standard input) and the MCP tool
 `memory_check` report each exact problem with the approved claim it breaks:
@@ -118,26 +178,26 @@ model number keeps the Trail 2 apart from the Trail 3. A rule stated in two
 documents is one finding naming both. The CLI exits 1 on a finding. MCP now
 advertises nineteen tools.
 
-- **A folder of Word, PowerPoint and PDF files syncs like Markdown.**
-  `verilore ingest-repo`, `Verilore.sync()`, `POST /api/corpora/{name}/sync` and the
-  MCP `sync` tool read `.docx`, `.pptx` and `.pdf` beside `.md` by default, and
-  `.txt` with `--formats md,txt` (`formats=` in the SDK, HTTP and MCP). A converted
-  file's claims quote its converted text. A sidecar (`rules.pdf.yaml`) gives a file
-  frontmatter: `status`, `valid_until`, `prose`. A PDF with no text layer, a broken
-  file or an unreadable sidecar fails alone and says why. Word's `~$` lock files
-  and macOS `._` files are skipped. A sync removes only documents of the formats it
-  read. An unsupported format is refused before anything is read (exit 2, or 422).
+**A folder of Word, PowerPoint and PDF files syncs like Markdown.**
+`verilore ingest-repo`, `Verilore.sync()`, `POST /api/corpora/{name}/sync` and the
+MCP `sync` tool read `.docx`, `.pptx` and `.pdf` beside `.md` by default, and
+`.txt` with `--formats md,txt` (`formats=` in the SDK, HTTP and MCP). A converted
+file's claims quote its converted text. A sidecar (`rules.pdf.yaml`) gives a file
+frontmatter: `status`, `valid_until`, `prose`. A PDF with no text layer, a broken
+file or an unreadable sidecar fails alone and says why. Word's `~$` lock files
+and macOS `._` files are skipped. A sync removes only documents of the formats it
+read. An unsupported format is refused before anything is read (exit 2, or 422).
 
-- **A hard benchmark kit, and two measures that need no model.**
-  `benchmarks/governed_context/hard/` is a tea brand's kit written the way brands
-  write: paragraphs, a channel table, product facts under headings, a draft, an
-  ended campaign and old notes, with 47 rules and 13 must-not-serve lines marked
-  by hand. `python -m benchmarks.governed_context.measure` reports how many marked
-  rules become approved lines (46 of 47), and how many applicable rules a brief, a
-  `grep` and the kit dumped whole carry at 250, 500 and 1,000 tokens, with the
-  lines each lets through that must not reach a model. The numbers are committed
-  in `hard/measures.md` and held to the code by a test. `run.py --suite hard`
-  runs the same eight tasks through a model on OpenRouter's free tier.
+**A hard benchmark kit, and two measures that need no model.**
+`benchmarks/governed_context/hard/` is a tea brand's kit written the way brands
+write: paragraphs, a channel table, product facts under headings, a draft, an
+ended campaign and old notes, with 47 rules and 13 must-not-serve lines marked
+by hand. `python -m benchmarks.governed_context.measure` reports how many marked
+rules become approved lines (46 of 47), and how many applicable rules a brief, a
+`grep` and the kit dumped whole carry at 250, 500 and 1,000 tokens, with the
+lines each lets through that must not reach a model. The numbers are committed
+in `hard/measures.md` and held to the code by a test. `run.py --suite hard`
+runs the same eight tasks through a model on OpenRouter's free tier.
 
 **A made-up price, percentage or date is a finding.** `check` reported a value
 that contradicts an approved one, and passed a value with nothing behind it:
@@ -204,10 +264,10 @@ now lists the series, and `tests/test_metrics_endpoint.py` holds that the endpoi
 answers without a credential, counts requests by route template, and puts no corpus
 name, path or query in a label.
 
-- **The README, the PyPI page and the site lead with the loop a content team
-  runs:** sync the kit (Word and PDF included), `brief` for the prompt, `check`
-  the draft, `review` what disagrees. The README quotes the hard benchmark kit's
-  model-free measure, with its source.
+**The README, the PyPI page and the site lead with the loop a content team
+runs:** sync the kit (Word and PDF included), `brief` for the prompt, `check`
+the draft, `review` what disagrees. The README quotes the hard benchmark kit's
+model-free measure, with its source.
 
 ### Changed
 
@@ -248,30 +308,30 @@ The SDK, the CLI and the HTTP route are called by a person or an application
 and keep the server's default. **Upgrading:** an agent that must write approved
 memory has to pass `state="approved"`.
 
-- **Word and PDF conversion keeps more structure.** A bulleted or numbered Word
-  paragraph is now a list item, and every other Word paragraph its own paragraph,
-  so a label such as "Tagline" is no longer read as the first word of the sentence
-  after it. A PDF page is split at bullet glyphs and short labels, and a sentence
-  wrapped across lines stays whole. PDF text is read with `pypdf`, now a dependency
-  (pure Python, small), before `pdftotext`, so the same file reads to the same text
-  on every machine. A `.docx` or `.pdf` ingested before this reads differently
-  now, and its next ingest records a new version.
+**Word and PDF conversion keeps more structure.** A bulleted or numbered Word
+paragraph is now a list item, and every other Word paragraph its own paragraph,
+so a label such as "Tagline" is no longer read as the first word of the sentence
+after it. A PDF page is split at bullet glyphs and short labels, and a sentence
+wrapped across lines stays whole. PDF text is read with `pypdf`, now a dependency
+(pure Python, small), before `pdftotext`, so the same file reads to the same text
+on every machine. A `.docx` or `.pdf` ingested before this reads differently
+now, and its next ingest records a new version.
 
-- **A brief with a task keeps what the task needs, and says what each line is
-  about.** Rules used to take room first whatever the task, so a 250-token brief
-  for an email spent it on "never tag a competitor on Instagram" and left out the
-  campaign's offer. With `task`, the order is now: lines under `must`, the lines
-  the task is about, rules that hold for any task, then the rest, including rules
-  about another named channel or product. A word a line says counts more than a
-  word only its file name shares. A field such as `Price: Rs 520 for a 250 g tin.`
-  under `## Assam Gold` is printed `Assam Gold: Price: ...`. On the hard benchmark
-  kit at 250 tokens, the brief carries 28 of 47 applicable rules, up from 12;
-  at 500, 43, up from 42; nothing that must not be served, at any size. A brief
-  without `task` is unchanged.
-- **`check` reads a claim's section as part of its subject.** "Price: Rs 520 for a
-  250 g tin." under "Assam Gold" is compared only with a draft about Assam Gold;
-  before, any draft with a tin and a price was compared with every price on the
-  sheet.
+**A brief with a task keeps what the task needs, and says what each line is
+about.** Rules used to take room first whatever the task, so a 250-token brief
+for an email spent it on "never tag a competitor on Instagram" and left out the
+campaign's offer. With `task`, the order is now: lines under `must`, the lines
+the task is about, rules that hold for any task, then the rest, including rules
+about another named channel or product. A word a line says counts more than a
+word only its file name shares. A field such as `Price: Rs 520 for a 250 g tin.`
+under `## Assam Gold` is printed `Assam Gold: Price: ...`. On the hard benchmark
+kit at 250 tokens, the brief carries 28 of 47 applicable rules, up from 12;
+at 500, 43, up from 42; nothing that must not be served, at any size. A brief
+without `task` is unchanged.
+**`check` reads a claim's section as part of its subject.** "Price: Rs 520 for a
+250 g tin." under "Assam Gold" is compared only with a draft about Assam Gold;
+before, any draft with a tin and a price was compared with every price on the
+sheet.
 
 **A brief prints lines that disagree apart, and tells the model not to choose.**
 Old workshop notes said "We guarantee delivery within 24 hours", the brand rules
@@ -356,35 +416,35 @@ the wrong cause. It is now 422 `invalid_document` with the archive's reason.
 `docs/authoring.md` no longer says tables are not extracted: each row has been
 a claim since v0.11.
 
-- **Prose and heading-less lines are no longer paired with other documents as
-  conflicts.** Every prose sentence was keyed `md:prose:<n>`, and every line in a
-  document with no heading `md:section-e3b0c442:<n>`, in every document. So the
-  first sentence of a voice guide and the first sentence of an FAQ shared a key:
-  both were reported as a conflict and neither was served as current, and a brief
-  told the model that they disagree. Such lines are now keyed by their own document
-  (`md:file-<path>:prose:<n>`, `md:file-<path>:<n>`), and an archive that already
-  holds the old keys is read without the false conflicts, with nothing to
-  re-ingest. Lines under the same heading in two documents still share a key, and
-  still conflict when they differ.
+**Prose and heading-less lines are no longer paired with other documents as
+conflicts.** Every prose sentence was keyed `md:prose:<n>`, and every line in a
+document with no heading `md:section-e3b0c442:<n>`, in every document. So the
+first sentence of a voice guide and the first sentence of an FAQ shared a key:
+both were reported as a conflict and neither was served as current, and a brief
+told the model that they disagree. Such lines are now keyed by their own document
+(`md:file-<path>:prose:<n>`, `md:file-<path>:<n>`), and an archive that already
+holds the old keys is read without the false conflicts, with nothing to
+re-ingest. Lines under the same heading in two documents still share a key, and
+still conflict when they differ.
 
-- **Lexical recall answers about a decision that was replaced.** Lexical relevance
-  drops the words every candidate shares, and the candidates include the lines a
-  decision replaced. In a corpus whose only live line was a replacement, its subject
-  was dropped and `recall "How often does the support rota run?"` answered that no
-  memory matched "The support rota now runs fortnightly." Words are now dropped as
-  common only when at least two lines are live. Lexical relevance is what runs when
-  the model cannot load, and with `VERILORE_LEXICAL=1`; the model's ranking is
-  unchanged.
-- **`remember` no longer suggests replacing the line it just replaced.** Remembering
-  under a key that already held a line retires that line, and the reply still listed
-  it as a "live claim that reads like this one", with advice to supersede it.
+**Lexical recall answers about a decision that was replaced.** Lexical relevance
+drops the words every candidate shares, and the candidates include the lines a
+decision replaced. In a corpus whose only live line was a replacement, its subject
+was dropped and `recall "How often does the support rota run?"` answered that no
+memory matched "The support rota now runs fortnightly." Words are now dropped as
+common only when at least two lines are live. Lexical relevance is what runs when
+the model cannot load, and with `VERILORE_LEXICAL=1`; the model's ranking is
+unchanged.
+**`remember` no longer suggests replacing the line it just replaced.** Remembering
+under a key that already held a line retires that line, and the reply still listed
+it as a "live claim that reads like this one", with advice to supersede it.
 
-- **A truncated pack says what it left out (#151).** `truncated: true` was the
-  whole report, so a pack holding every current claim and missing one change entry
-  read the same as a pack missing half the answer. Packs now carry `omitted_counts`
-  (`{"changes": 3}`), a diagnostic like `expired_count`: on REST, MCP and the SDK,
-  never in the canonical JSON, the budget or the receipt digest. `recall` prints
-  it: `(truncated to fit the response budget: left out 3 changes)`.
+**A truncated pack says what it left out (#151).** `truncated: true` was the
+whole report, so a pack holding every current claim and missing one change entry
+read the same as a pack missing half the answer. Packs now carry `omitted_counts`
+(`{"changes": 3}`), a diagnostic like `expired_count`: on REST, MCP and the SDK,
+never in the canonical JSON, the budget or the receipt digest. `recall` prints
+it: `(truncated to fit the response budget: left out 3 changes)`.
 
 **A fact with two values agrees with a draft that repeats either.** "Orders below
 Rs 999 pay Rs 79 for shipping" made "free shipping above Rs 999" a finding that

@@ -773,12 +773,19 @@ magnitude below the bound.
   `VERILORE_LEXICAL=1`, or when the model is not installed (the ingest then warns
   `embedding_unavailable`), its text is stored without a vector until
   `verilore reindex` adds one (#173).
-- **No token budgets.** `budget` is a character count of the JSON response.
+- **A pack's budget is characters.** `budget` is a character count of the JSON
+  response. The brief, which is what the prompt gets, takes `max_tokens`.
+- **`check` is exact, not a reader.** Banned words and marks, values that differ,
+  are past a limit or are stated nowhere, and channel limits. Tone, voice, a rule
+  about an action and what a sentence implies stay with the approver, and the
+  report lists those rules under "Needs a reviewer".
 - **No metadata filters.** Scoping is by corpus and `path_prefix`; there is no
   tag or metadata filter parameter.
 - **No single-claim deletion.** Withdrawing a rule is a new `rejected` version
   of the same key; the archive is append-only. The prior claim stays in
   `history`.
-- **No comparative benchmark result.** No number in this repository is evidence
-  of generalisation; the held-out questions have been seen, and no unseen
-  question set exists.
+- **No model result for the brief yet.** The hard benchmark's model-free
+  measures are committed
+  ([measures](../../benchmarks/governed_context/hard/measures.md)); a run of the
+  same tasks through a model is not (#207). The held-out retrieval questions have
+  been seen, and no unseen question set exists.

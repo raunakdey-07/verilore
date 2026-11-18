@@ -9,7 +9,7 @@
 
 Verilore was called Mind Palace until v0.10.0.
 
-[Website](https://verilore.vercel.app/) · [Current release: v0.11.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
+[Website](https://verilore.vercel.app/) · [Current release: v0.12.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
 
 
 **Give a model only what your team approved, and check what it wrote.**
@@ -85,12 +85,14 @@ uv tool install --python 3.13 verilore
 With a Python from 3.11 to 3.14, `pipx install verilore` works too. Fedora's uv
 downloads a Python only when asked, so run `uv python install 3.13` first.
 
+<!-- quickstart-commands: the five-minute path runs every command in the bash blocks below, verbatim -->
+
 **2. Set up.** With Podman or Docker installed, `init` starts a local PostgreSQL
 (its image downloads once), applies the schema, creates your first corpus and
 records the database for every later command. Running it again changes nothing.
 
 ```bash
-$ verilore init
+verilore init
 ```
 
 **3. Ingest a document.** No frontmatter and no `claims:` block are needed:
@@ -99,37 +101,39 @@ file it came from. `docs/adr/001-datastore.md` is the worked example; point this
 at your own folder.
 
 ```bash
-$ verilore ingest-repo ./docs/adr --corpus project
+verilore ingest-repo ./docs/adr --corpus project
 ```
 
 **4. Ask.** An ambiguous answer lists the claims it could not separate, with
 their ids.
 
 ```bash
-$ verilore recall "What is the primary datastore?" --corpus project
+verilore recall "What is the primary datastore?" --corpus project
 ```
 
 **5. Record what replaces it.** `--topic-key` retires whatever is live under that
 key, across files, so the new statement can come from a different document.
 
 ```bash
-$ verilore remember "The primary datastore is PostgreSQL 16." \
+verilore remember "The primary datastore is PostgreSQL 16." \
   --corpus project --key architecture.datastore --topic-key architecture.datastore
 ```
 
 **6. See what is true now, and what it displaced.**
 
 ```bash
-$ verilore recall "What is the primary datastore?" --corpus project
-$ verilore history "" --corpus project
+verilore recall "What is the primary datastore?" --corpus project
+verilore history "" --corpus project
 ```
 
 **7. Verify the answer offline**, with no database, model or network.
 
 ```bash
-$ verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
-$ verilore verify receipt.json
+verilore receipt "What is the primary datastore?" --corpus project -o receipt.json
+verilore verify receipt.json
 ```
+
+<!-- /quickstart-commands -->
 
 Nothing needs exporting. `init` records the database in `~/.verilore/config.toml`
 (mode 0600), and every command and `verilore-mcp` read it; an exported
@@ -178,7 +182,8 @@ read. The JSON for OpenCode, Zed and Claude Code is in [connecting an agent](doc
 to `~/.verilore/logs/queries.jsonl` and changes nothing else.
 
 ```bash
-verilore feedback <query_id> --verdict wrong --note "meant the cache"
+query_id=b062424783ba   # the query_id that recall printed
+verilore feedback "$query_id" --verdict wrong --note "meant the cache"
 verilore feedback-summary
 ```
 
@@ -268,8 +273,8 @@ print(f"{memory.claim}  [{memory.status}]")
 - **It does not decide what is true.** It records what was written, attributed.
   Correctness of the original source is never established — only its provenance.
 - **It does not infer claims.** Every claim is a line from a document (a list
-  item, a `Key: Value` line, or, in a document with no list items, a rule-like
-  sentence) or a statement you gave it, quoted back unchanged.
+  item, a table row, a `Key: Value` line or a sentence of a paragraph) or a
+  statement you gave it, quoted back unchanged.
 - **It is not a vector store.** Retrieval is one stage of a pipeline that ends in
   provenance, not the product.
 - **It does not authenticate its own history.** A receipt proves internal
@@ -277,13 +282,21 @@ print(f"{memory.claim}  [{memory.status}]")
 - **A draft section of an approved document is searchable.** Search and the
   other chunk routes skip draft, rejected and superseded documents, but not a
   `## Brainstorm` section inside an approved one (#138).
-- **No token budgets.** The `budget` argument is a character count of the JSON
-  response, not a token count.
+- **A pack's budget is characters.** `pack`'s `budget` is a character count of
+  the JSON response. A brief, which is what a prompt gets, takes `max_tokens`.
+- **`check` is exact, not a reader.** It finds banned words and marks, values
+  that differ from approved ones, are past a limit or are stated nowhere, and
+  channel limits. Tone, voice, a rule about an action ("Never claim health
+  benefits") and what a sentence implies stay with a reviewer; its report lists
+  those rules under "Needs a reviewer".
 - **No metadata filters.** Scoping is by corpus and `path_prefix`.
 - **No single-claim deletion.** Withdrawal is a new `rejected` version of the
   same key; the archive is append-only.
-- **No comparative benchmark result.** No number in this repository is evidence
-  of generalisation.
+- **No model result for the brief yet.** The hard benchmark's model-free
+  measures are committed ([measures](benchmarks/governed_context/hard/measures.md)):
+  what a brief, a `grep` and the whole kit carry at a fixed size. The same tasks
+  run through a model, which would show the difference in what it writes, are
+  not committed yet (#207).
 - **Every sentence in a paragraph becomes a claim.** Verilore reads prose
   sentence by sentence and cannot tell a rule from a remark. Notes written as
   narrative will add lines nobody meant as rules; give such a document

@@ -24,7 +24,7 @@ import sys
 try:  # The distribution is installed (editable or wheel) in every real environment.
     __version__ = importlib.metadata.version("verilore")
 except importlib.metadata.PackageNotFoundError:  # pragma: no cover - source tree without install
-    __version__ = "0.11.0"
+    __version__ = "0.12.0"
 
 #: Lazy public names -> the submodule that defines them. Imported on first access.
 _LAZY = {

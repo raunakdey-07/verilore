@@ -1043,8 +1043,9 @@ jobs:
       # tests what the author remembers rather than what a reader would run --
       # which is why scripts/cleanroom_quickstart.py existed with no caller.
       #
-      # This runs the `$ ` lines extracted from README.md and docs/authoring.md,
-      # verbatim, against a wheel installed outside the source tree, in a
+      # This runs the commands extracted from README.md (the ```bash blocks between
+      # its quickstart markers) and docs/authoring.md (the `$ ` lines of its
+      # transcripts), verbatim, against a wheel installed outside the source tree, in a
       # workdir that is not the repository. It is the same job, not a new one:
       # it reuses the wheel and the Postgres service this job already built.
       #
