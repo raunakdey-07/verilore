@@ -190,6 +190,7 @@ def test_brand_kit_lifecycle(live_server, capsys):  # noqa: F811
         key="brand.voice",
         scope="brand",
         supersedes_claim_id=voice_id,
+        state="approved",
     )
     p4 = mp.memory.pack(query="", budget=16000, path_prefix=SCOPE)
     blob4 = p4.model_dump_json()
@@ -220,6 +221,7 @@ def test_brand_kit_lifecycle(live_server, capsys):  # noqa: F811
         statement="Never mention competitors by name.",
         key="brand.rule.competitors",
         scope="brand",
+        state="approved",
     )
     p6 = mp.memory.pack(query="", budget=16000, path_prefix=SCOPE)
     assert any(

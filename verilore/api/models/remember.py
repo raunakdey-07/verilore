@@ -72,9 +72,11 @@ class RememberRequest(BaseModel):
         ),
     )
     state: str | None = None
-    """The decision state of the claim: "approved" (default), "draft" or
-    "rejected". Any other value is 422 `invalid_state`. Supersession stays
-    explicit through `supersedes_claim_id` and `topic_key`."""
+    """The decision state of the claim: "approved", "draft" or "rejected".
+    Without it: a draft on a server deployment (`VERILORE_DEPLOYMENT=server`),
+    otherwise approved; `VERILORE_DEFAULT_STATE` overrides both. Any other
+    value is 422 `invalid_state`. Supersession stays explicit through
+    `supersedes_claim_id` and `topic_key`."""
     scope: str | None = None
     """An optional relative folder the document is filed under, e.g.
     "campaigns/spring". The document is stored at

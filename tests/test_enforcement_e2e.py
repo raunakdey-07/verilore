@@ -279,6 +279,7 @@ async def test_admin_creates_a_corpus(world):
         headers=reader_headers,
         json={
             "statement": "ENFORCEMENT_NEW_CORPUS_FACT the launch date is March 15.",
+            "state": "approved",
             "corpus": corpus_name,
             "key": "new-corpus-1",
         },
@@ -324,6 +325,7 @@ async def test_ingest_a_document(world):
         "alpha-creator",
         json={
             "statement": "ENFORCEMENT_INGEST_FACT the launch date is March 15.",
+            "state": "approved",
             "corpus": ALPHA_CORPORA["brand"],
             "key": "enforce-ingest-1",
         },
@@ -344,6 +346,7 @@ async def test_recall_and_context_pack_return_claims(world):
         "alpha-creator",
         json={
             "statement": "ENFORCEMENT_RECALL_FACT the launch date is March 15.",
+            "state": "approved",
             "corpus": ALPHA_CORPORA["brand"],
             "key": "enforce-recall-1",
         },
@@ -477,6 +480,7 @@ async def test_erasure_removes_rows(world):
             json={
                 "corpus": target_name,
                 "statement": f"erasure target fact {i} about alpha widgets.",
+                "state": "approved",
                 "key": f"erase-t-{i}",
             },
         )
@@ -487,6 +491,7 @@ async def test_erasure_removes_rows(world):
             json={
                 "corpus": neighbour_name,
                 "statement": f"erasure neighbour fact {i} about beta gadgets.",
+                "state": "approved",
                 "key": f"erase-n-{i}",
             },
         )
@@ -587,6 +592,7 @@ async def test_tenant_a_cannot_reach_tenant_b(world):
         json={
             "corpus": beta_brand,
             "statement": "ENFORCEMENT_LEAK alpha leak",
+            "state": "approved",
             "key": "leak",
         },
     )

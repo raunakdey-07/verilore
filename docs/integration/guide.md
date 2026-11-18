@@ -384,6 +384,7 @@ r2 = mp.memory.remember(
     key="brand.voice",
     scope="brand",
     supersedes_claim_id=voice_id,
+    state="approved",  # a person approved it; on a server, no state means draft
 )
 assert r2.event == "NEW", r2.event
 ```
@@ -430,13 +431,18 @@ that does not say `approved` is a draft, counted in `withheld_counts` and never
 quoted. A reviewer approving a line is then the only way it reaches a prompt.
 Nothing already stored changes until its document is ingested again.
 
-| Who wrote it | Default mode | `VERILORE_DEFAULT_STATE=draft` |
-|---|---|---|
-| A document with `status: approved` | approved | approved |
-| A document with no status | approved | draft |
-| `remember(...)` from the SDK, the CLI or HTTP, no `state` | approved | draft |
-| `memory_remember` over MCP, no `state` | draft | draft |
-| Anything with `state="approved"` | approved | approved |
+| Who wrote it | Local | Server (`VERILORE_DEPLOYMENT=server`) | `VERILORE_DEFAULT_STATE=draft` |
+|---|---|---|---|
+| A document with `status: approved` | approved | approved | approved |
+| A document with no status | approved | approved | draft |
+| `remember(...)` over HTTP (the SDK with `base_url`), no `state` | approved | draft | draft |
+| `remember(...)` in-process (the CLI, the SDK without a server), no `state` | approved | approved | draft |
+| `memory_remember` over MCP, no `state` | draft | draft | draft |
+| Anything with `state="approved"` | approved | approved | approved |
+
+On a server, then, an app that saves a correction a person approved says so:
+`remember(..., state="approved")`. One that saves a suggestion leaves `state`
+out, and the suggestion waits in `review` until someone approves it.
 
 `include_states` names states the caller wants to see anyway. `withheld_counts`
 reports how many were held back, per state.
@@ -561,6 +567,7 @@ r_rule = mp.memory.remember(
     statement="Never mention competitors by name.",
     key="brand.rule.competitors",
     scope="brand",
+    state="approved",
 )
 assert r_rule.event == "NEW", r_rule.event
 

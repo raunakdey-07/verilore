@@ -332,6 +332,25 @@ DECISION_STATES = ("approved", "draft", "rejected")
 _SCOPE_SEGMENT = re.compile(r"[A-Za-z0-9._-]+")
 
 
+def state_for_request(state: str | None) -> str | None:
+    """The state for a write that arrived over HTTP, before `check_state`.
+
+    A server deployment (`VERILORE_DEPLOYMENT=server`) stores an HTTP write that
+    names no state as a draft: an app or an agent proposes, and a person approves
+    by writing the same key with `state="approved"`. A write made in-process (the
+    CLI, the SDK without a server, an operator's script) is left to
+    `check_state`, as is every write when `VERILORE_DEFAULT_STATE` is set.
+    """
+    import os
+
+    from verilore.api.services.authz import DEPLOYMENT_SERVER, deployment_mode
+    from verilore.api.services.markdown_claims import DEFAULT_STATE_ENV
+
+    if state is not None or os.getenv(DEFAULT_STATE_ENV, "").strip():
+        return state
+    return "draft" if deployment_mode() == DEPLOYMENT_SERVER else None
+
+
 def check_state(state: str | None) -> str:
     """Validate and normalise a decision state.
 

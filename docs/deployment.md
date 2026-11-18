@@ -311,6 +311,14 @@ the connected role is a superuser or has `BYPASSRLS`, if a tenant table is
 missing its row-level policy, if the role can enumerate credential hashes, or if
 it holds `DELETE` on the archive.
 
+In that profile a `remember` sent over HTTP that names no state is also a draft:
+an app or an agent writing to the server proposes a line, and it reaches a brief
+only when the app writes it again with `state="approved"`, which is what a
+person approving it means. A write made on the server itself (the CLI, a script)
+is approved as before. Documents are not affected; a brand kit ingested without a status is still
+approved. `VERILORE_DEFAULT_STATE=approved` restores approved writes, and
+`VERILORE_DEFAULT_STATE=draft` makes documents drafts too (strict mode).
+
 An API-only deployment — REST and the SDK, never the two filesystem routes —
 should use `VERILORE_INGEST_ROOTS=none` rather than inventing a directory it
 never reads. Both routes then answer `403` and name the setting; `ingest/file` is

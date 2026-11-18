@@ -550,8 +550,11 @@ class MemoryClient:
         creates a second version.
         Remembering the same ``key`` with new text supersedes the previous value.
 
-        ``state`` is the decision state of the claim: "approved" (default),
-        "draft" or "rejected". ``scope`` is an optional relative folder, e.g.
+        ``state`` is the decision state of the claim: "approved", "draft" or
+        "rejected". Without it: approved, except through a server deployment
+        (`VERILORE_DEPLOYMENT=server`), which stores it as a draft until the
+        same key is written with ``state="approved"``. ``scope`` is an
+        optional relative folder, e.g.
         "campaigns/spring", prepended to the document path so the same key in two
         scopes is two documents. With scope, the stored claim key is
         f"{scope}/{key}"; the response's key is that full key, so sending it back
@@ -1575,8 +1578,11 @@ class Verilore:
         ``key`` is how you tell Verilore that two statements are about the same
         fact. Omit it and each distinct statement is its own memory.
 
-        ``state`` is the decision state of the claim: "approved" (default),
-        "draft" or "rejected". ``scope`` is an optional relative folder, e.g.
+        ``state`` is the decision state of the claim: "approved", "draft" or
+        "rejected". Without it: approved, except through a server deployment
+        (`VERILORE_DEPLOYMENT=server`), which stores it as a draft until the
+        same key is written with ``state="approved"``. ``scope`` is an
+        optional relative folder, e.g.
         "campaigns/spring", prepended to the document path so the same key in two
         scopes is two documents. With scope, the stored claim key is
         f"{scope}/{key}"; the response's key is that full key, so sending it back
