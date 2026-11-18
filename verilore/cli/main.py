@@ -1101,6 +1101,22 @@ def check(
     # only the banned word or the number it found. It is bounded because a draft
     # is a post or a page, and a check of a whole book is a mistake.
     limit = _MAX_DRAFT_BYTES
+    if draft != "-":
+        named = Path(draft)
+        if named.is_dir():
+            typer.echo(
+                f'[ERROR] "{draft[:80]}" is a folder, not a file. `verilore check` reads the '
+                "draft from a file: give its path, or - to read it from standard input.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        if not named.exists():
+            typer.echo(
+                f'[ERROR] No file named "{draft[:80]}". `verilore check` reads the draft from a '
+                "file: give its path, or - to read it from standard input.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
     try:
         if draft == "-":
             raw = sys.stdin.buffer.read(limit + 1)

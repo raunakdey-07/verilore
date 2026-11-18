@@ -620,8 +620,10 @@ async def memory_check(
     duration that differs from an approved fact, and a price, percentage or date
     that no approved line states. When there are problems, the result ends with
     exactly what to change: make those changes, change nothing else, and check
-    again. "No problems found" covers only these exact checks; tone and voice
-    are still the reader's call. `channel` (e.g. "Instagram") skips bans written
+    again. "No problems found" covers only these exact checks; the rules no
+    exact check can test ("Never claim health benefits") are listed after it,
+    under "Needs a reviewer": follow them yourself, and leave the judgement to
+    the person who approves the draft. `channel` (e.g. "Instagram") skips bans written
     for another channel. `task` is the request you were given: values it states
     count as approved.
     """
