@@ -71,9 +71,9 @@ the existing `M015` / `M015.1` pattern for the same release line and is recorded
 
 ## Current release
 
-**The release being prepared is `v0.12.0`.** `pyproject.toml` says `0.12.0`
-and `CHANGELOG.md` has a `[v0.12.0]` entry; the owner tags it on `main`, and the
-tag publishes it to PyPI. Install it from PyPI:
+**The current release is `v0.12.0`**, tagged at `0918618` and published on PyPI.
+`pyproject.toml` says `0.12.0` and `CHANGELOG.md` has its `[v0.12.0]` entry.
+Install it from PyPI:
 
 ```
 uv tool install --python 3.13 verilore
