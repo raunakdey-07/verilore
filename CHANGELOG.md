@@ -389,6 +389,15 @@ brief also stopped at the first line that did not fit; each line is now kept if 
 still fits, so a short required line after a long one is kept. On the hard kit at
 500 tokens the brief carries 44 of 47 applicable rules (was 43).
 
+**A channel limit written as a range or a minimum is read.** Channel tables write
+"Hashtags: 5 to 8", and `check` read only "at most" and "up to": an Instagram draft
+with twelve hashtags passed. A range ("5 to 8", "100–150 characters", "between 80
+and 120 words") is now a maximum and a minimum, and "at least 3 hashtags" or "3 or
+more" a minimum; a draft with too few is a finding of kind `limit` ("The draft has
+2 hashtags; Instagram asks for 5 to 8") whose instruction says to add ("Use at
+least 5 hashtags; it has 2"). `channel_limits` still gives the maximum, and
+`channel_minimums` the minimum.
+
 ### Security
 
 **A converted file is held to limits, and fails alone.** A Word or PowerPoint file

@@ -526,7 +526,10 @@ ban written for one channel ("Never use hashtags on LinkedIn", or "in emails") i
 skipped when `channel` names another. With `channel`, the channel's own limits
 are counted too: a row such as `Instagram: Length: 150 characters; Hashtags: 3 at
 most`, or a sentence such as "Keep LinkedIn posts under 120 words", makes a longer
-draft, or one with more hashtags or emojis, a finding of kind `limit`. `verilore check draft.txt` does the same from a file or
+draft, or one with more hashtags or emojis, a finding of kind `limit`. A range
+("Hashtags: 5 to 8", "Length: 100–150 characters", "between 80 and 120 words")
+or a minimum ("at least 3 hashtags") counts the other way too: a draft with too
+few is a finding, and the instruction says to add. `verilore check draft.txt` does the same from a file or
 from standard input (`-`) and exits 1 on a finding, so it can gate a pipeline;
 `--feedback` prints the instruction instead of the report, `--task` names the
 request, `--allow-unsupported` turns off the made-up value check. Over MCP,
