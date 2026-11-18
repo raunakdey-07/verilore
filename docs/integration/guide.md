@@ -577,6 +577,9 @@ guide written as prose and the message paragraph under a campaign's bullets
 both become memory. A question, a lead-in that ends in a colon and a line of
 one or two words state nothing and are left out. A paragraph under a heading
 such as `## Draft` or `## Rejected` takes that state, like the bullets beside it.
+Copy a model must not imitate goes under `## Not like this` or `## Bad examples`
+(or `## Examples to avoid`, `## Don't write like this`): it is stored as rejected
+and never reaches a brief. Copy under `## Write like this` is an approved line.
 
 Every sentence counts, so narrative notes add lines nobody meant as rules. A
 document can say how its prose is read, in its frontmatter:
