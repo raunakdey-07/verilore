@@ -187,6 +187,15 @@ that says what the rule allows ("48 hours or more"); "1 day" counts as 24 hours.
 banned by two rules worded differently, as a Word guide and a Markdown file often
 do, is now one finding and one instruction, not two.
 
+**`review` lists lines whose date has passed.** "Orders close on 5 November 2026"
+was in Team 052's brief on 17 November: only a `valid_until` ends a line, and a
+real campaign brief rarely has one. `review` now lists every approved line whose
+latest full date (a day, a month and a year, or `2026-11-05`) is before today and
+which has no `valid_until`, under "Dates that have passed", in the text, the page
+and `Review.past`, and counts them as open. Nothing ends them on its own, because
+a date can be history; a person gives the document a `valid_until`, rejects the
+line, or passes its claim id in `review(settled=[...])`.
+
 ### Documented
 
 **`GET /metrics` (#113).** The server has always served Prometheus metrics; nothing

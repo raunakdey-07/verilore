@@ -463,9 +463,17 @@ from verilore.review import render_review, render_review_html
 
 review = mp.memory.review(path_prefix=["brand", "campaigns/spring"])
 print(render_review(review))
-assert review.open_items == len(review.pairs) + len(review.drafts) + len(review.conflicts)
+assert review.open_items == (
+    len(review.pairs) + len(review.drafts) + len(review.conflicts) + len(review.past)
+)
 page = render_review_html(review)  # one self-contained page for a brand owner
 ```
+
+`review.past` lists approved lines whose latest full date has passed ("Orders
+close on 5 November 2026"). They are still served: only a `valid_until` ends a
+line, and a campaign brief rarely has one. Give an ended one `valid_until:` in
+its front matter, or reject it; a line that is history ("opened its first café on
+12 June 1998") can stay, its claim id passed in `review(settled=[...])`.
 
 From the command line, `verilore review --corpus <name> --html review.html`
 prints the same list and writes the page; `--strict` exits 1 while anything is

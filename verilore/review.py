@@ -40,6 +40,7 @@ import math
 import posixpath
 import re
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
 __all__ = [
@@ -169,13 +170,17 @@ class Review:
     pairs: tuple[Pair, ...] = ()
     drafts: tuple[dict[str, str], ...] = ()
     conflicts: tuple[dict[str, Any], ...] = ()
-    #: Pairs a person already marked as agreeing, by `pair_id`; not listed again.
+    #: Items a person already settled, not listed again: pairs marked as
+    #: agreeing, by `pair_id`, and dated lines kept as history, by claim id.
     settled: int = 0
     approved: int = 0
+    #: Approved lines whose latest full date has passed (`past_dates`). Still
+    #: served: nothing ends a line but its `valid_until` or a person.
+    past: tuple[dict[str, str], ...] = ()
 
     @property
     def open_items(self) -> int:
-        return len(self.pairs) + len(self.drafts) + len(self.conflicts)
+        return len(self.pairs) + len(self.drafts) + len(self.conflicts) + len(self.past)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -194,6 +199,7 @@ class Review:
             ],
             "drafts": list(self.drafts),
             "conflicts": list(self.conflicts),
+            "past": list(self.past),
             "settled": self.settled,
         }
 
@@ -296,22 +302,82 @@ def likely_pairs(
     return found[:limit], skipped
 
 
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+_MONTHS = "jan feb mar apr may jun jul aug sep oct nov dec".split()
+
+
+def _full_dates(text: str) -> list[tuple[date, str]]:
+    """Every date with a day, a month and a year in `text`, with how it is written."""
+    from verilore.check import _values
+
+    found: list[tuple[date, str]] = []
+    for kind, value, exact in _values(text):
+        parts = value.split()
+        if kind != "date" or len(parts) != 3 or parts[1] not in _MONTHS:
+            continue
+        try:
+            found.append((date(int(parts[2]), _MONTHS.index(parts[1]) + 1, int(parts[0])), exact))
+        except ValueError:
+            continue
+    for match in _ISO_DATE.finditer(text):
+        try:
+            year, month, day = (int(part) for part in match.groups())
+            found.append((date(year, month, day), match.group(0)))
+        except ValueError:
+            continue
+    return found
+
+
+def past_dates(claims: Iterable[Any], *, today: date | None = None) -> list[dict[str, str]]:
+    """Approved lines whose latest full date is before `today`, for a person.
+
+    "Orders close on 5 November 2026" is still served on 17 November: only a
+    `valid_until` ends a line, and campaign briefs rarely have one. Nothing here
+    ends anything, because "Kaveri opened its first café on 12 June 1998" is
+    history, not a deadline. A line that already has a `valid_until`, or names
+    no year ("ends on 31 January"), is not listed. Each item is the line's
+    `{"id", "claim", "path"}` and the `date` as written.
+    """
+    today = today or datetime.now(timezone.utc).date()
+    found: list[dict[str, str]] = []
+    for claim in claims:
+        if _get(claim, "valid_until"):
+            continue
+        dates = _full_dates(str(_get(claim, "claim", "")))
+        if not dates:
+            continue
+        latest, written = max(dates, key=lambda pair: pair[0])
+        if latest < today:
+            found.append({**_line(claim), "date": written})
+    return found
+
+
 def build_review(
     current: Any,
     with_drafts: Any = None,
     *,
     path_prefix: str | Iterable[str] | None = None,
     settled: Iterable[str] = (),
+    today: date | None = None,
 ) -> Review:
     """A `Review` from a `current` response, and optionally one that kept drafts.
 
     `current` is what a brief is built from: approved, in scope. `with_drafts`
     is the same request with `include_states=["draft"]`, so the drafts waiting
-    for a person can be listed. Either may be the model or its JSON.
+    for a person can be listed. Either may be the model or its JSON. `settled`
+    names pairs, by `pair_id`, and dated lines, by claim id, that a person has
+    already looked at. `today` is the date lines are compared with (UTC today).
     """
     scope = (path_prefix,) if isinstance(path_prefix, str) else tuple(path_prefix or ())
     approved = list(_get(current, "current_memories", []) or [])
+    settled = set(settled)
     pairs, skipped = likely_pairs(approved, settled=settled)
+    past = []
+    for line in past_dates(approved, today=today):
+        if line["id"] in settled:
+            skipped += 1
+        else:
+            past.append(line)
     drafts: list[dict[str, str]] = []
     if with_drafts is not None:
         for claim in _get(with_drafts, "current_memories", []) or []:
@@ -332,6 +398,7 @@ def build_review(
         conflicts=tuple(conflicts),
         settled=skipped,
         approved=len(approved),
+        past=tuple(past),
     )
 
 
@@ -362,6 +429,15 @@ def render_review(review: Review) -> str:
         out += ["", f"Drafts waiting for approval ({len(review.drafts)}): not served."]
         for draft in review.drafts:
             out.append(f'  - {draft["claim"]}  [{draft["path"]}, {draft["id"][:12]}]')
+    if review.past:
+        out += ["", f"Dates that have passed ({len(review.past)}): still served as approved."]
+        for line in review.past:
+            out.append(f'  - {line["claim"]}  [{line["path"]}, {line["id"][:12]}]')
+        out += [
+            "  To end one, give its document `valid_until:` in its front matter (or remember",
+            "  it with `valid_until`), or reject it. A line that is history can stay: list",
+            "  its id in `review(settled=[...])` so it is not shown again.",
+        ]
     if not review.open_items:
         out += ["", "Nothing to review."]
     if review.pairs or review.conflicts:
@@ -373,7 +449,7 @@ def render_review(review: Review) -> str:
             "`review(settled=[...])` so it is not shown again.",
         ]
     if review.settled:
-        out += ["", f"{review.settled} pair(s) already marked as agreeing are not listed."]
+        out += ["", f"{review.settled} item(s) already settled are not listed."]
     return "\n".join(out)
 
 
@@ -446,6 +522,17 @@ def render_review_html(review: Review) -> str:
         sections.append(
             "<h2>Drafts waiting for approval</h2><p class='note'>Not served.</p>"
             f"<ul>{items}</ul>"
+        )
+    if review.past:
+        items = "".join(
+            f'<li class="item"><span class="why">{html.escape(line["date"])} has passed</span>'
+            f"{_side(line)}</li>"
+            for line in review.past
+        )
+        sections.append(
+            "<h2>Dates that have passed</h2><p class='note'>Still served as approved. "
+            "Give an ended line a <code>valid_until</code>, or reject it; a line that is "
+            f"history can stay.</p><ul>{items}</ul>"
         )
     if not sections:
         sections.append("<p>Nothing to review.</p>")
