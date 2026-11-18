@@ -2,6 +2,29 @@
 
 > See the [integration guide](guide.md) for wiring Verilore into a content-generation app.
 
+## Status at v0.12.0
+
+The matrix in §1 is the analysis of 1 November, against `023bead`. These rows
+changed in v0.12.0; each is held by the test named.
+
+| ID | Requirement | Was | Now | Held by |
+|---|---|---|---|---|
+| MP-SE-07, 22 | Bounded, token-aware context | chars only; absent | `brief(max_tokens=...)` with no tokenizer; lines under `must` kept before any other, then what the task is about; a line that does not fit is passed over, not the end; a `must` line that did not fit is counted in `omitted_must` and named in the last line | `test_brief.py`, `test_brief_must.py` |
+| MP-SE-14 | Taking in what a team has | Markdown bullets only | paragraphs in every document, tables, Word, PowerPoint and PDF; a bad file fails alone | `test_prose_in_every_document.py`, `test_sync_formats.py`, `test_source_limits.py` |
+| MP-SE-17, 20 | Authority; approved vs rejected | state not used as a filter | drafts, rejected and replaced lines withheld and counted; copy under `## Not like this` or `## Bad examples` is rejected; an MCP write is a draft, and on a server so is an HTTP write without a state; `VERILORE_DEFAULT_STATE=draft` makes every unmarked line a draft | `test_strict_mode_and_agent_writes.py`, `test_example_headings.py`, `test_server_writes_are_drafts.py` |
+| MP-SE-05 | Conflicts without a shared key | keyed only | `review` lists pairs from different documents that may disagree, for a person; nothing is resolved. A brief prints a pair that states a difference (two values for one thing, or a "not") apart, telling the model not to choose; the same instruction with other details ("Indian" or "American" spelling) is left to `review` | `test_review.py`, `test_brief_disagree.py` |
+| MP-SE-19 | Correction workflow | primitives only | `remember(state="draft")` proposes, the same key with `"approved"` promotes and with `"rejected"` withdraws; `valid_until` ends a line, and `review` lists lines whose date has passed | `test_remember_decisions.py`, `test_validity_windows.py`, `test_review_dates.py` |
+| MP-SE-23 | Generation integration | pack only | `write(task, generate)`: brief, your model, `check`, one exact fix; `check` finds banned words, wrong, made-up and out-of-limit values and channel limits (ranges and minimums too), and lists the rules it cannot test under "Needs a reviewer" | `test_write.py`, `test_check*.py` |
+| MP-SE-26 | Memory down | driver exceptions | one `VeriloreError`, code `database_unavailable`, retryable; the SDK reads `config.toml` | `test_sdk_local_config.py` |
+| MP-SE-27 | Marketing benchmark | absent | the hard kit: 46 of 47 marked rules extracted; at 500 tokens a brief carries 44 of 47 applicable rules and 0 of 13 must-not-serve lines | `test_governed_context_measures.py` |
+| MP-SE-32 | Monitoring | no metrics endpoint | `GET /metrics` documented and tested | `test_metrics_endpoint.py` |
+| MP-SE-33 | Integration guide | partial | [guide.md](guide.md): layout, credentials, brief, write, check, remember, failure handling | doc |
+
+Still open: label filters (MP-SE-21, #108), correction classification
+(MP-SE-18, the app's), an outbox (MP-SE-25, the app's), archive scaling
+(MP-SE-30, #112), permanent erasure of retained copies (MP-SE-29), and a
+committed model result for the brief (#207).
+
 ## Status banner
 
 **STATIC ANALYSIS + LIVE PROBES.** Sections §1-§5 derived from code reading.

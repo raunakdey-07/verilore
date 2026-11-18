@@ -9,7 +9,7 @@
 
 Verilore was called Mind Palace until v0.10.0.
 
-[Website](https://verilore.vercel.app/) · [Current release: v0.11.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
+[Website](https://verilore.vercel.app/) · [Current release: v0.12.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
 
 
 **Give a model only what your team approved, and check what it wrote.**
@@ -268,8 +268,8 @@ print(f"{memory.claim}  [{memory.status}]")
 - **It does not decide what is true.** It records what was written, attributed.
   Correctness of the original source is never established — only its provenance.
 - **It does not infer claims.** Every claim is a line from a document (a list
-  item, a `Key: Value` line, or, in a document with no list items, a rule-like
-  sentence) or a statement you gave it, quoted back unchanged.
+  item, a table row, a `Key: Value` line or a sentence of a paragraph) or a
+  statement you gave it, quoted back unchanged.
 - **It is not a vector store.** Retrieval is one stage of a pipeline that ends in
   provenance, not the product.
 - **It does not authenticate its own history.** A receipt proves internal
@@ -277,13 +277,21 @@ print(f"{memory.claim}  [{memory.status}]")
 - **A draft section of an approved document is searchable.** Search and the
   other chunk routes skip draft, rejected and superseded documents, but not a
   `## Brainstorm` section inside an approved one (#138).
-- **No token budgets.** The `budget` argument is a character count of the JSON
-  response, not a token count.
+- **A pack's budget is characters.** `pack`'s `budget` is a character count of
+  the JSON response. A brief, which is what a prompt gets, takes `max_tokens`.
+- **`check` is exact, not a reader.** It finds banned words and marks, values
+  that differ from approved ones, are past a limit or are stated nowhere, and
+  channel limits. Tone, voice, a rule about an action ("Never claim health
+  benefits") and what a sentence implies stay with a reviewer; its report lists
+  those rules under "Needs a reviewer".
 - **No metadata filters.** Scoping is by corpus and `path_prefix`.
 - **No single-claim deletion.** Withdrawal is a new `rejected` version of the
   same key; the archive is append-only.
-- **No comparative benchmark result.** No number in this repository is evidence
-  of generalisation.
+- **No model result for the brief yet.** The hard benchmark's model-free
+  measures are committed ([measures](benchmarks/governed_context/hard/measures.md)):
+  what a brief, a `grep` and the whole kit carry at a fixed size. The same tasks
+  run through a model, which would show the difference in what it writes, are
+  not committed yet (#207).
 - **Every sentence in a paragraph becomes a claim.** Verilore reads prose
   sentence by sentence and cannot tell a rule from a remark. Notes written as
   narrative will add lines nobody meant as rules; give such a document

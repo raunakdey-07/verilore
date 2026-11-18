@@ -165,7 +165,10 @@ def main() -> None:
 
     # v0.10.0 was once staged during M016 and folded into v0.9.0; it is now a real
     # release, so the absence checks were removed.
-    require(pyproject, r'^version = "0\.11\.0"$', "package version is v0.11.0")
+    require(pyproject, r'^version = "0\.12\.0"$', "package version is v0.12.0")
+    require(changelog, r"^## \[v0\.12\.0\]", "v0.12.0 changelog entry")
+    require(changelog, r"^### Upgrading from v0\.11\.0$", "v0.12.0 leads with its upgrade notes")
+    require_absent(changelog, r"RELEASE-DATE", "the v0.12.0 entry has no date yet")
     require(changelog, r"^## \[v0\.11\.0\]", "v0.11.0 changelog entry")
     require(changelog, r"^## \[v0\.10\.0\]", "v0.10.0 changelog entry")
     require(changelog, r"^## \[v0\.9\.3\]", "v0.9.3 changelog entry")
@@ -181,7 +184,7 @@ def main() -> None:
     )
     require(
         readme,
-        r"\[Current release: v0\.11\.0\]\(docs/release-map\.md\)",
+        r"\[Current release: v0\.12\.0\]\(docs/release-map\.md\)",
         "README release-map link",
     )
     # v0.11.0 is the first release on PyPI. The README installs it by name, and a
@@ -249,6 +252,10 @@ def main() -> None:
         "README opens on the Quickstart",
     )
     require(readme, r"verilore remember", "README shows the documented command")
+    # v0.12.0 is the release for a content team: the README has to show the loop.
+    require(readme, r"verilore brief ", "README shows the brief")
+    require(readme, r"verilore check ", "README shows the check")
+    require(readme, r"verilore review ", "README shows the review")
     require(readme, r"verilore verify", "README shows offline verification")
     require(release_map, r"\| M015\.2\b.*\| `v0\.9\.0` \|", "M015.2 release mapping")
 

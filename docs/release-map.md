@@ -27,6 +27,7 @@ relationship between the two numbering systems.
 | M016.1 | Final limitation audit: reproducible CI, a smaller wheel, Python 3.15 evaluated | `v0.9.1` |
 | M017 | Prose ingestion, authority states, task-aware retrieval, tenant hardening, benchmark | `v0.10.0` |
 | — | First PyPI release; one-command setup; every platform tested; claim-key, withholding and extraction fixes | `v0.11.0` |
+| — | Brief, check and review; Word, PowerPoint and PDF; lines that end; drafts from agents | `v0.12.0` |
 
 ### The trust boundary, stated here
 
@@ -70,23 +71,65 @@ the existing `M015` / `M015.1` pattern for the same release line and is recorded
 
 ## Current release
 
-**The latest tagged public release is `v0.11.0`**, tagged by the owner on
-`main` and the first release published on PyPI.
-
-`pyproject.toml` says `0.11.0` and `CHANGELOG.md` has a `[v0.11.0]` entry.
-Install it from PyPI:
+**The release being prepared is `v0.12.0`.** `pyproject.toml` says `0.12.0`
+and `CHANGELOG.md` has a `[v0.12.0]` entry; the owner tags it on `main`, and the
+tag publishes it to PyPI. Install it from PyPI:
 
 ```
 uv tool install --python 3.13 verilore
 ```
 
-`v0.10.0` remains the previous tagged release, tagged at `1fad1e8`; it was never
-published on PyPI and installs from its tag
+`v0.11.0` is the previous release, tagged at `4b9a360` and the first published
+on PyPI. `v0.10.0`, tagged at `1fad1e8`, was never published on PyPI and
+installs from its tag
 (`uv tool install git+https://github.com/raunakdey-07/verilore@v0.10.0`).
-`v0.9.3` is the release before that, tagged at `039c541`.
 
-`v0.11.0` has no milestone identifier: its work was tracked as GitHub issues,
-which the changelog names entry by entry.
+`v0.11.0` and `v0.12.0` have no milestone identifier: their work was tracked as
+GitHub issues, which the changelog names entry by entry.
+
+### What v0.12.0 changed
+
+**From a brand kit to a prompt, and back.** `brief` turns the approved, current
+lines in scope into plain text sized for a prompt, keeping what a `task` needs
+first. `check` reads a draft against them and names each rule it breaks: a
+banned word, a wrong price or date. `review` lists lines in two documents that
+likely disagree, drafts waiting and keyed conflicts, for a person; `--html`
+writes one page for a brand owner.
+
+**A kit as it arrives.** A folder sync reads Word, PowerPoint and PDF files beside
+Markdown, and a sidecar gives a file the frontmatter it cannot carry. Paragraphs
+are memory, sentence by sentence; copy under `## Not like this` or `## Bad
+examples` is rejected, never served.
+
+**Lines that end.** `valid_until` in a document's frontmatter, or on `remember`,
+stops a line being served after its date, and the brief counts it. `review`
+lists lines whose date has passed, for a person to end.
+
+**Agents write drafts.** What an agent saves over MCP waits for a person, and so,
+on a server, does what an app saves over HTTP without a state.
+`VERILORE_DEFAULT_STATE=draft` makes every unmarked document wait.
+
+**A brief a weak model can follow.** Every line under `must` comes first, and one
+that did not fit is named. Two lines from different documents that state a
+difference are printed apart, with an instruction not to choose.
+
+**A model's draft, checked and fixed.** `check` reports a price, percentage or
+date nothing approved states, a value past a limit a rule sets ("not under 48
+hours"), and a draft over or under its channel's length, hashtag or emoji limits,
+and says exactly what to change; it lists the rules it cannot test. `write` runs the
+loop with any model: brief, draft, check, one revision, and the draft with its
+findings for a person. Over MCP the server tells the model that procedure, and
+`VERILORE_MCP_TOOLS=writer` offers only the five tools it needs.
+
+**A synced file is untrusted.** Word, PowerPoint and PDF files are held to size
+and unpacking limits, and one that breaks them fails alone.
+
+**Measured without a model.** On the hard benchmark kit, a 500-token brief
+carries 44 of 47 applicable rules and none of the lines that must not be served
+([measures](../benchmarks/governed_context/hard/measures.md)).
+
+**Upgrade.** No new migration. `verilore_sdk` and `verilore_errors` are removed.
+The changelog's "Upgrading from v0.11.0" lists every behaviour that changed.
 
 `v0.9.0` is therefore the release in which a developer can adopt Verilore —
 seven commands that take a statement and a question, answers that arrive fast, outputs
