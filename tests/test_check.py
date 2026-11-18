@@ -122,10 +122,14 @@ def test_a_draft_that_agrees_with_memory_has_no_findings():
 
 
 def test_a_number_about_something_else_is_not_compared():
-    # Rs 99 is the shipping fee, not the gift box's price; 24 hours is under a
-    # limit rule ("not under 48 hours"), which a value check would get backwards.
+    # Rs 99 is the shipping fee, not the gift box's price, and 2 kg is not the
+    # bike's weight. 24 hours is not compared as a value either, which would
+    # get the direction backwards: it breaks "not under 48 hours" as a limit
+    # (CHECK-3), and that finding says what the rule allows.
     result = _check("Shipping is Rs 99. Gift box delivery in 24 hours, 2 kg.")
-    assert result.ok, _details(result)
+    assert [(f.kind, f.quote, f.expected) for f in result.findings] == [
+        ("bound", "24 hours", "48 hours or more")
+    ], _details(result)
 
 
 def test_a_price_is_compared_by_the_product_it_names_and_not_by_the_word_price():
