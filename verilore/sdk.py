@@ -1298,10 +1298,13 @@ class MemoryClient:
         approval, and pairs of approved lines from different documents that may
         disagree (two numbers for one fact, one saying "not", the same
         instruction with different details, or nearly the same words). Nothing
-        is resolved: a person rejects or replaces the wrong line. `settled`
-        names pair ids (`Pair.id`) already judged to agree, so they are not
-        listed again. `verilore.review.render_review_html(review)` is the same
-        as one page a brand owner can open.
+        is resolved: a person rejects or replaces the wrong line. It also lists
+        approved lines whose latest date has passed ("Orders close on 5 November
+        2026"), still served until a person ends them (`Review.past`). `settled`
+        names pair ids (`Pair.id`) already judged to agree, and claim ids of
+        dated lines that are history, so they are not listed again.
+        `verilore.review.render_review_html(review)` is the same as one page a
+        brand owner can open.
         """
         from verilore.review import build_review
 
