@@ -521,7 +521,11 @@ print(render_feedback(made_up))  # one exact instruction per finding, for a mode
 `render_feedback` turns the findings into an instruction a model can follow:
 remove this word, replace this value with that one, remove a value nothing
 states. `result.ok` is true when there is nothing to report, which covers only
-these exact checks: tone, voice and what a line implies stay with the reviewer. A
+these exact checks: tone, voice and what a line implies stay with the reviewer.
+`result.untested` lists the approved rules no exact check can test ("Never claim
+health benefits", "Use Indian English spelling"), and the report prints them
+under "Needs a reviewer", so a clean result is not read as "every rule passed";
+`--json` carries them as `needs_review`. A
 ban written for one channel ("Never use hashtags on LinkedIn", or "in emails") is
 skipped when `channel` names another. With `channel`, the channel's own limits
 are counted too: a row such as `Instagram: Length: 150 characters; Hashtags: 3 at

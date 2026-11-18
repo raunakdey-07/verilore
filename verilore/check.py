@@ -94,6 +94,10 @@ class Check:
     banned_rules: int = 0
     #: Whether prices, percentages and dates were required to be in memory.
     unsupported_checked: bool = False
+    #: Approved rules no exact check can test ("Never claim health benefits"),
+    #: as `{"id", "claim", "path"}`: a clean result says nothing about them.
+    #: Rules for another channel than `channel` are not among them.
+    untested: tuple[dict[str, str], ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -107,6 +111,7 @@ class Check:
             "banned_rules": self.banned_rules,
             "unsupported_checked": self.unsupported_checked,
             "findings": [finding.as_dict() for finding in self.findings],
+            "needs_review": list(self.untested),
         }
 
 
@@ -862,8 +867,11 @@ def check_draft(
     # The section a claim sits under names what it is about when the claim does
     # not: "Price: Rs 520 for a 250 g tin." under "Products > Assam Gold".
     sections: dict[str, str] = {}
+    headings: dict[str, str] = {}
     for evidence in _get(current, "evidence", []) or []:
-        parts = str(_get(evidence, "heading", "") or "").split(" > ")
+        heading = str(_get(evidence, "heading", "") or "")
+        headings.setdefault(str(_get(evidence, "claim_id", "")), heading)
+        parts = heading.split(" > ")
         if len(parts) > 1:
             sections.setdefault(str(_get(evidence, "claim_id", "")), " ".join(parts[1:]))
     claims = [
@@ -950,14 +958,84 @@ def check_draft(
         checked=len(claims),
         banned_rules=banned_rules,
         unsupported_checked=unsupported,
+        untested=tuple(_untested(claims, headings, channel)),
     )
 
 
+def _untested(
+    claims: list[dict[str, str]], headings: dict[str, str], channel: str | None
+) -> list[dict[str, str]]:
+    """The rules among `claims` that no check here can test exactly.
+
+    A rule is what a brief calls one (`verilore.brief.is_rule`), or a line that
+    opens with an instruction ("Use Indian English spelling", "Keep sentences
+    under 20 words"). It is tested when it bans text or a kind of mark, sets a
+    limit on a value, or states values a draft is compared with. A channel's
+    line ("Instagram: Length: 150 characters") is tested when `channel` names
+    it, and untested without `channel`. A rule for another channel than
+    `channel` is not listed: it cannot apply.
+    """
+    from verilore.brief import is_rule
+    from verilore.review import _instruction
+
+    found: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for claim in claims:
+        text = claim["claim"]
+        if text.casefold() in seen:
+            continue
+        named, _bounds = _channel_bounds(text)
+        mentioned = named or rule_channel(text) or _channel_in(text)
+        if channel and mentioned and mentioned.lower().rstrip("s") not in channel.lower():
+            continue
+        if named:
+            if channel:
+                continue
+        elif not (is_rule(text, headings.get(claim["id"])) or _instruction(text)):
+            continue
+        elif banned_text(text) or bound_rule(text, claim.get("section", "")):
+            continue
+        elif _values(text) and not _NEGATION.search(text):
+            continue
+        seen.add(text.casefold())
+        found.append({"id": claim["id"], "claim": text, "path": claim["path"]})
+    return found
+
+
+_CHANNEL_IN = re.compile(
+    r"\b(Instagram|LinkedIn|WhatsApp|Facebook|Twitter|TikTok|YouTube|Threads|emails?|"
+    r"newsletters?|blogs?|SMS|websites?)\b",
+    re.IGNORECASE,
+)
+
+
+def _channel_in(text: str) -> str | None:
+    """The first channel a line names anywhere, "Instagram" or "emails"."""
+    match = _CHANNEL_IN.search(text)
+    return match.group(1) if match else None
+
+
+def _needs_review(check: Check) -> list[str]:
+    if not check.untested:
+        return []
+    count = len(check.untested)
+    lines = [
+        f"Needs a reviewer: check cannot test {'these' if count != 1 else 'this'} "
+        f"{count} rule{'s' if count != 1 else ''} exactly."
+    ]
+    lines += [f'- {line["claim"]}  [{line["path"]}]' for line in check.untested]
+    return lines
+
+
 def render_check(check: Check) -> str:
+    """The result for a person: the findings, then the rules nothing tested."""
     if check.ok:
-        return (
-            f"No problems found against {check.checked} approved lines "
-            f"({check.banned_rules} name banned text). Tone and voice are a reviewer's call."
+        return "\n".join(
+            [
+                f"No problems found against {check.checked} approved lines "
+                f"({check.banned_rules} name banned text). Tone and voice are a reviewer's call.",
+                *_needs_review(check),
+            ]
         )
     out = [f"{len(check.findings)} problem(s) against {check.checked} approved lines:"]
     for finding in check.findings:
@@ -969,7 +1047,7 @@ def render_check(check: Check) -> str:
             )
         else:
             out.append("    rule: none; state it only if a person approves it")
-    return "\n".join(out)
+    return "\n".join(out + _needs_review(check))
 
 
 _CLASS_NAMES = {

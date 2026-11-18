@@ -111,8 +111,9 @@ than it asks for ("Hashtags: 5 to 8"). The
 result ends with exactly
 what to change; an agent makes those changes, nothing else, and checks again.
 Pass `task`, the request the agent was given, so values the person asked for are
-not reported. "No problems found" covers only these exact checks; tone and voice
-are a reviewer's.
+not reported. "No problems found" covers only these exact checks; the rules none
+of them can test ("Never claim health benefits", "Use Indian English spelling")
+are listed after it under "Needs a reviewer", and tone and voice are a reviewer's.
 
 ## What comes back
 

@@ -1227,8 +1227,10 @@ class MemoryClient:
         (the default), a price, percentage or date that no approved line in
         scope states is a finding too: the draft made it up. `supported_by` is
         text whose values count as stated, such as the task a person wrote.
-        `check.ok` is true when there are no findings. Only exact checks: tone
-        and voice stay with the reviewer.
+        `check.ok` is true when there are no findings. Only exact checks:
+        `check.untested` lists the approved rules none of them can test ("Never
+        claim health benefits"), and `render_check` prints them under "Needs a
+        reviewer". Tone and voice stay with the reviewer.
         `channel` skips bans written for another channel. For a model to fix
         its own draft, `verilore.check.render_feedback(check)` says exactly what
         to change.

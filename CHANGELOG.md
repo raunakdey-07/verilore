@@ -282,6 +282,17 @@ together ("Mention the estate name", "Mention the price"), so it is left to
 the other is left out, counted in `Brief.overruled` and in the last line ("1 that
 may disagree with a line marked must").
 
+**`check` names the rules it cannot test.** A draft that said "Coffee boosts your
+immunity" got "No problems found against 29 approved lines", which reads as if
+"Never claim health benefits" had passed; no exact check can test it. Every
+approved rule `check` cannot test exactly (one that bans no word or mark, sets no
+limit on a value and states no value to compare) is now in `Check.untested`, in
+`needs_review` in the JSON, and listed after the result under "Needs a reviewer",
+clean or not; a channel line counts as untested when no `channel` was given, and a
+rule for another channel is not listed. The instruction for a model is unchanged.
+`verilore check "some text"` said "No such file"; it now says the draft is read
+from a file, or from standard input with `-`.
+
 ### Removed
 
 **The `verilore_sdk` and `verilore_errors` shims.** v0.11 kept them for one
