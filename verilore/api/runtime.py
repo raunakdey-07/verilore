@@ -49,6 +49,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import hashlib
 import hmac
 import json
 import os
@@ -209,17 +210,79 @@ def state_dir() -> Path:
     return Path(os.getenv("LOCALAPPDATA") or Path.home() / ".cache") / "verilore"
 
 
+#: sun_path is ~104 bytes on Linux and macOS and 260 on Windows.
+_SOCKET_LIMIT = 100 if sys.platform != "win32" else 250
+
+
 def socket_path() -> Path:
-    """Where the Unix socket lives, on a filesystem that permits short names."""
+    """Where the Unix socket lives, on a filesystem that permits short names.
+
+    `runtime.sock` in `state_dir()` when the path fits in a socket address. A
+    long home folder does not fit, and then the socket is in a private folder
+    under the temporary directory, `verilore-<uid>/`, named by a hash of the
+    state folder. Every process with the same state folder computes the same
+    name, so the command that starts the runtime and the one that calls it
+    meet. (It used to take the process id and a random suffix, so no client
+    ever found the server, and every start left a socket behind.)
+    """
     path = state_dir() / "runtime.sock"
-    text = str(path)
-    # sun_path is ~104 bytes on Linux and 260 on Windows. A long TMPDIR is common
-    # enough that assuming otherwise produces a socket that binds and then fails on
-    # connect, which is worse than no socket.
-    limit = 100 if sys.platform != "win32" else 250
-    if len(text.encode()) <= limit:
+    if len(str(path).encode()) <= _SOCKET_LIMIT:
         return path
-    return Path(os.getenv("TMPDIR", "/tmp")) / f"mp-{os.getpid()}-{uuid.uuid4().hex[:6]}.sock"
+    digest = hashlib.sha256(str(state_dir().resolve()).encode()).hexdigest()[:16]
+    for base in (os.getenv("TMPDIR") or "/tmp", "/tmp"):
+        folder = Path(base) / f"verilore-{_uid()}"
+        candidate = folder / f"{digest}.sock"
+        if len(str(candidate).encode()) <= _SOCKET_LIMIT and _private_folder(folder):
+            return candidate
+    # Nowhere short and private: the long path, which fails to bind with a
+    # reason the runtime log records, rather than a socket another user owns.
+    return path
+
+
+def _uid() -> str:
+    return str(os.getuid()) if hasattr(os, "getuid") else "user"
+
+
+def _private_folder(folder: Path) -> bool:
+    """Create `folder` as 0700, or check an existing one is this user's and 0700.
+
+    The socket is the authorisation boundary and the client sends it the token,
+    so a folder another user made first, or one others can write to, is not used.
+    """
+    try:
+        folder.mkdir(mode=0o700, exist_ok=True)
+        info = folder.lstat()
+    except OSError:
+        return False
+    if not stat.S_ISDIR(info.st_mode):
+        return False
+    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        return False
+    return stat.S_IMODE(info.st_mode) & 0o077 == 0
+
+
+def log_path() -> Path:
+    """Where a background runtime writes what went wrong: `runtime.log` in `state_dir()`."""
+    return state_dir() / "runtime.log"
+
+
+#: How much of an old log a new start keeps: enough for the last failure.
+_LOG_KEEP = 16_000
+
+
+def last_error() -> str | None:
+    """The last line the latest runtime wrote to its log, or None when it wrote nothing."""
+    try:
+        lines = log_path().read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    since: list[str] = []
+    for line in lines:
+        if line.startswith("--- start "):
+            since = []
+        elif line.strip():
+            since.append(line.strip())
+    return since[-1] if since else None
 
 
 def token_path() -> Path:
@@ -418,17 +481,41 @@ def spawn() -> bool:
         )
     else:
         kwargs["start_new_session"] = True
+    # What the runtime prints on its way down goes to a log `verilore doctor`
+    # and `verilore runtime status` show. It went to /dev/null, so a runtime
+    # that could not bind its socket exited with no word to anyone.
+    try:
+        log = _open_log()
+    except OSError:
+        log = None
     try:
         subprocess.Popen(
             argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=log if log is not None else subprocess.DEVNULL,
             **kwargs,
         )
     except Exception:  # noqa: BLE001 - no runtime is a valid outcome, not a failure
         return False
+    finally:
+        if log is not None:
+            log.close()
     return True
+
+
+def _open_log():
+    """The runtime log, cut to its last `_LOG_KEEP` bytes, open for appending. 0600."""
+    path = log_path()
+    with contextlib.suppress(OSError):
+        if path.stat().st_size > _LOG_KEEP:
+            tail = path.read_bytes()[-_LOG_KEEP:]
+            path.write_bytes(tail)
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+    log = os.fdopen(fd, "ab")
+    log.write(f"--- start {time.strftime('%Y-%m-%d %H:%M:%S')}\n".encode())
+    log.flush()
+    return log
 
 
 def _ensure_token() -> None:

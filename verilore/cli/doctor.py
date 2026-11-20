@@ -264,9 +264,23 @@ def check_runtime() -> tuple[bool, str, str]:
     try:
         status = runtime_module.status()
         state = getattr(status, "state", str(status))
-        return True, f"runtime {state}", ""
     except Exception:  # noqa: BLE001 - a missing runtime is information
-        return True, "runtime not running (optional)", ""
+        state = "unreachable"
+    if state != "unreachable":
+        return True, f"runtime {state}", ""
+    # Optional, so never a failure; but a runtime that died says why.
+    try:
+        error = runtime_module.last_error()
+    except Exception:  # noqa: BLE001
+        error = None
+    if error:
+        return (
+            True,
+            f"runtime not running (optional); it last stopped with: {error} "
+            f"(log: {runtime_module.log_path()})",
+            "",
+        )
+    return True, "runtime not running (optional)", ""
 
 
 # --- the ordered list --------------------------------------------------------

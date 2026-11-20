@@ -1015,6 +1015,11 @@ def test_no_request_serving_surface_reads_a_raw_file():
         ("verilore/api/runtime.py", "build_hash"): "the runtime hashes its own source files",
         ("verilore/api/runtime.py", "_read_token"): "the runtime's own token file",
         ("verilore/api/runtime.py", "_ensure_token"): "the runtime writes its own token, 0600",
+        (
+            "verilore/api/runtime.py",
+            "last_error",
+        ): "the runtime's own log, in its 0700 state folder",
+        ("verilore/api/runtime.py", "_open_log"): "the runtime writes its own log, 0600",
         ("verilore/api/services/query_log.py", "record"): (
             "appends to the operator's own query log, at the path "
             "VERILORE_QUERY_LOG names. Not caller input, and append-only, so "

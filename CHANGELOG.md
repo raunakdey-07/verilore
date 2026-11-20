@@ -23,6 +23,15 @@ through [`docs/release-map.md`](docs/release-map.md).
   `path_prefix`, the note's old price reached the brief and `recall` as a
   current, approved fact. The note is now a draft (see the upgrade note), and
   `verilore reindex` keeps it out of search.
+- **The background runtime is reachable from a long home folder.** When the
+  state folder's socket path was too long for a socket address, the fallback
+  name took the process id and a random suffix, so no command ever found the
+  runtime another had started, and each start left a socket in `/tmp`. The
+  fallback is now one name per state folder, in a private `verilore-<uid>`
+  folder under the temporary directory.
+- **A runtime that stops says why.** What a background runtime prints goes to
+  `runtime.log` in its state folder, not to `/dev/null`; `verilore runtime
+  status` and `verilore doctor` show its last line.
 
 - **`check` no longer calls a correct price wrong because a sibling line has
   another.** "Monzo Perks costs £9 a month." was reported as differing from
