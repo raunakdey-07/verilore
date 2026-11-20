@@ -83,6 +83,11 @@ class SyncSummary:
     #: Only the warnings, as `path: code`. A document with a warning was still
     #: ingested; `failed` counts the ones that were not.
     warnings: list[str] = field(default_factory=list)
+    #: Documents that declare no status in a folder where others declare
+    #: `status: approved`. They are held as drafts until someone marks them
+    #: `status: approved` (or archived). Empty when the folder marks nothing
+    #: approved, or when `VERILORE_DEFAULT_STATE` is set.
+    unmarked: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -1544,6 +1549,7 @@ class Verilore:
                 f"{warning.get('path', '')}: {warning.get('code', '')}"
                 for warning in result.get("warnings", [])
             ],
+            unmarked=list(result.get("unmarked", [])),
         )
 
     def remember(
