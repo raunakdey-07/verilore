@@ -273,6 +273,16 @@ why the CI step for this mode asserts that a *discriminating* question is answer
 rather than only that the command exits successfully — a mode that abstained on
 everything would otherwise pass.
 
+#### A question about something the corpus never names
+
+Token overlap cannot tell the words that name a subject from words a question
+shares with the corpus by accident. A question that names something -- a
+capitalised word after the first, or an identifier such as `X200` -- that no
+claim mentions abstains in lexical mode, unless a claim matched it strongly.
+"What does the Nimbus router cost?" abstains on a corpus with no Nimbus, however
+many other words it shares; "How long can a LinkedIn post be?" is answered from
+the LinkedIn line as before.
+
 ### Interacting with the runtime
 
 A lexical read **bypasses the runtime**. A runtime exists to hold the model, and a
