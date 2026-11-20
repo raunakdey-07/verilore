@@ -147,6 +147,9 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/
+          # A TestPyPI upload cannot be replaced. Running again for the same tag,
+          # to check the install again, skips the upload rather than failing on it.
+          skip-existing: true
 
   publish-pypi:
     name: Publish to PyPI
@@ -168,10 +171,13 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@v1.14.3
 
-  # The version just published, installed back from TestPyPI the way a person
-  # would. PyPI is the extra index, which uv asks first for every package, so only
-  # verilore can come from TestPyPI, where anyone may upload a look-alike of a real
-  # dependency. A new upload can take a few minutes to become installable.
+  # The version just published, installed back from TestPyPI. verilore alone is
+  # downloaded from TestPyPI, where anyone may upload a look-alike of a real
+  # dependency; it is then installed with its dependencies from PyPI only.
+  # (Giving uv both indexes cannot do that: uv keeps to the first index that has
+  # a package, and asks the extra one first, so once verilore was on PyPI a
+  # version only on TestPyPI was never found.) A new upload can take a few
+  # minutes to become downloadable.
   verify-testpypi:
     name: Installs from TestPyPI (${{ matrix.os }})
     needs: [build, publish-testpypi]
@@ -193,20 +199,22 @@ jobs:
           set -euo pipefail
           python -m pip install --quiet uv
           export UV_TOOL_DIR="$RUNNER_TEMP/tools" UV_TOOL_BIN_DIR="$RUNNER_TEMP/bin"
+          wheels="$RUNNER_TEMP/testpypi"
           for attempt in $(seq 1 20); do
-            if uv tool install --no-cache --python 3.13 \
-                --index-url https://test.pypi.org/simple/ \
-                --extra-index-url https://pypi.org/simple \
-                verilore=="$VERSION"; then
+            if python -m pip download --quiet --no-cache-dir --no-deps --only-binary :all: --index-url https://test.pypi.org/simple/ --dest "$wheels" verilore=="$VERSION"; then
               break
             fi
             if [ "$attempt" -eq 20 ]; then
-              echo "::error::verilore $VERSION never became installable from TestPyPI"
+              echo "::error::verilore $VERSION never became downloadable from TestPyPI"
               exit 1
             fi
-            echo "not installable yet (attempt $attempt of 20); retrying in 30 s"
+            echo "not downloadable yet (attempt $attempt of 20); retrying in 30 s"
             sleep 30
           done
+          wheel="$(ls "$wheels"/verilore-"$VERSION"-*.whl)"
+          echo "downloaded $(basename "$wheel") from TestPyPI"
+          # Its dependencies come from PyPI, the default and only index here.
+          uv tool install --no-cache --python 3.13 "$wheel"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: The installed commands run
         env:

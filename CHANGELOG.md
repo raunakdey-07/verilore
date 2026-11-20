@@ -6,6 +6,17 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
+  uv keeps to the first index that has a package: once verilore was on PyPI, a
+  version only on TestPyPI was never found (v0.12.1's check failed though the
+  upload succeeded), and a version already on PyPI was installed from there
+  without TestPyPI being tried (v0.11.0's check passed that way). verilore is
+  now downloaded from TestPyPI by itself and installed with its dependencies
+  from PyPI. Running the check again for a tag skips the upload instead of
+  failing on it.
+
 ## [v0.12.1] - 2026-11-20
 
 The fixes from Team 052's evaluation. `check` no longer calls a correct price

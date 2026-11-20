@@ -113,8 +113,34 @@ def test_each_publication_is_installed_back_from_its_index():
             assert command in text, (verify, command)
         if index:
             assert index in text, (verify, index)
-            # PyPI is asked first for every package, so only verilore can come from
-            # TestPyPI, where anyone may upload a look-alike of a real dependency.
-            assert "--extra-index-url https://pypi.org/simple" in text, verify
+            # verilore alone comes from TestPyPI, where anyone may upload a
+            # look-alike of a real dependency; every dependency comes from PyPI.
+            # Mixing the two indexes cannot do that: uv asks the extra index
+            # first and keeps to the first index that has a package, so once
+            # verilore was on PyPI, a version only on TestPyPI was never found
+            # (v0.12.1), and a version already on PyPI was installed from PyPI
+            # and passed without TestPyPI being tried (v0.11.0).
+            download = [line for line in text.splitlines() if "pip download" in line]
+            assert download, f"{verify} must fetch verilore by itself"
+            block = text[text.index("pip download") :]
+            assert "--no-deps" in block.split("then")[0], verify
+            installs = [line for line in text.splitlines() if "uv tool install" in line]
+            assert installs and all(".whl" in line or "$wheel" in line for line in installs), (
+                verify,
+                installs,
+            )
+            for flag in ("--extra-index-url", "--index-strategy", "unsafe-best-match"):
+                assert flag not in text, (verify, flag)
         else:
             assert "test.pypi.org" not in text, verify
+
+
+def test_a_testpypi_check_can_be_run_again_for_a_version_already_uploaded():
+    """A TestPyPI upload cannot be replaced, so a second run for the same tag (to
+    check the install again) skips the upload instead of failing on it. PyPI is
+    never re-run: its upload must be the one and only."""
+    jobs = _workflow()["jobs"]
+    testpypi = [s for s in jobs["publish-testpypi"]["steps"] if "pypi-publish" in s.get("uses", "")]
+    pypi = [s for s in jobs["publish-pypi"]["steps"] if "pypi-publish" in s.get("uses", "")]
+    assert testpypi[0]["with"].get("skip-existing") is True
+    assert "skip-existing" not in pypi[0].get("with", {})
