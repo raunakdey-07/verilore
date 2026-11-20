@@ -6,6 +6,16 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`check` no longer calls a correct price wrong because a sibling line has
+  another.** "Monzo Perks costs £9 a month." was reported as differing from
+  "Monzo Extra costs £3 a month.": the words every price line shares outvoted
+  the one that tells the plans apart. A word all the lines share now weighs
+  little, a value any approved line about the statement states is correct, and
+  a wrong value is one finding, against the line the statement names best. A
+  price for another period ("£9 a year" for "£9 a month") is a finding.
+
 ## [v0.12.0] - 2026-11-18
 
 Give a model only what a team approved, and check what it wrote. A brief sized
