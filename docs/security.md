@@ -8,7 +8,7 @@ boundary. It is not. A corpus is a *namespace*; whether a caller may address one
 is a separate decision, and **before the 0.9.x train** there was no code making
 that decision at all.
 
-> **Which release this describes.** Everything below describes `v0.12.0`, whose
+> **Which release this describes.** Everything below describes `v0.12.1`, whose
 > schema is migrations `001` to `016`, unchanged since `v0.10.0`. Migrations `008` to `010` (the `{*}`
 > handling and the tenant scope binding) first shipped in `v0.9.1`, and `015` and
 > `016` (verified scope tokens in the row-level policies, evaluated once per

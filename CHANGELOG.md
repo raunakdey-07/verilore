@@ -6,8 +6,18 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+## [v0.12.1] - 2026-11-20
+
+The fixes from Team 052's evaluation. `check` no longer calls a correct price
+wrong because another plan's line has another, and it reads eight more kinds of
+rule. An old note synced beside an approved brand kit is no longer served as
+approved. The background runtime starts from a long home folder and says why
+when it stops, and a contributor without the model gets a clean test run.
+
 ### Upgrading from v0.12.0
 
+- **No schema change.** There is no new migration; the head stays
+  `016_hoist_scope_initplan`. Nothing to reindex.
 - **A file with no status, synced beside files marked approved, is a draft.**
   When any document in a folder sync declares `status: approved`, a document
   that declares no status is held as a draft until someone marks it. The next
@@ -15,14 +25,41 @@ through [`docs/release-map.md`](docs/release-map.md).
   (`SyncSummary.unmarked`), and `verilore ingest-repo` prints them. A folder
   that marks nothing approved is unchanged. `VERILORE_DEFAULT_STATE=approved`
   keeps the v0.12.0 behaviour.
+- **`check` reports some drafts it passed.** A banned word in the plural, the
+  wordings listed under Fixed, a price for another period, and, with
+  `channel`, a draft for a channel the kit does not list, when the kit says
+  which channel's rules to follow. It no longer reports a correct price as
+  differing from another plan's.
+- **Lexical recall abstains a little more.** In `VERILORE_LEXICAL=1` mode, a
+  question that names something no claim mentions abstains.
 
 ### Fixed
 
+- **`check` no longer calls a correct price wrong because a sibling line has
+  another.** "Monzo Perks costs £9 a month." was reported as differing from
+  "Monzo Extra costs £3 a month.": the words every price line shares outvoted
+  the one that tells the plans apart. A word all the lines share now weighs
+  little, a value any approved line about the statement states is correct, and
+  a wrong value is one finding, against the line the statement names best. A
+  price for another period ("£9 a year" for "£9 a month") is a finding.
+- **`check` reads eight more kinds of rule as bans.** "Retire …, such as X"
+  and "Stop using X"; "Never more than one exclamation point at a time" (two in
+  a row); "Write email, not e-mail" and "Write Mailchimp, not MailChimp" (the
+  other spelling, with its capitals when only they differ); an emoji named in
+  words ("the wand emoji"); "never as ₹520.00 or INR 520" (a price written with
+  ₹ or INR); and a banned word in the plural. A line such as "When a channel is
+  not listed here, follow the email rules" makes a draft for an unlisted channel
+  follow the email lines; `Check.rules_from` names the channel.
 - **An unscoped brief no longer serves old notes as approved.** Team 052's kit
   marked `brand/` approved and left `notes/2025-pricing.md` unmarked; without a
   `path_prefix`, the note's old price reached the brief and `recall` as a
   current, approved fact. The note is now a draft (see the upgrade note), and
   `verilore reindex` keeps it out of search.
+- **Lexical recall abstains on a question about something the corpus never
+  names.** In `VERILORE_LEXICAL=1` mode, a question that named a product no
+  claim mentions was answered with an unrelated claim that shared a few other
+  words. A capitalised word or an identifier no claim carries now makes the
+  question abstain, unless a claim matched it strongly.
 - **The background runtime is reachable from a long home folder.** When the
   state folder's socket path was too long for a socket address, the fallback
   name took the process id and a random suffix, so no command ever found the
@@ -42,32 +79,11 @@ through [`docs/release-map.md`](docs/release-map.md).
 - **Offline contributors get a clean run.** `VERILORE_TEST_OFFLINE=1` reports a
   test that failed only because the model could not be fetched as skipped,
   with the reason. CI does not set it.
-- **Lexical recall abstains on a question about something the corpus never
-  names.** In `VERILORE_LEXICAL=1` mode, a question that named a product no
-  claim mentions was answered with an unrelated claim that shared a few other
-  words. A capitalised word or an identifier no claim carries now makes the
-  question abstain, unless a claim matched it strongly.
 - **The old name is gone from what is not a database object.** The runtime's
   socket and the test database are named `verilore`. The SQL functions, the
   `mindpalace.*` settings and the `mindpalace_owner` / `mindpalace_runtime`
   roles keep their names: they are part of the schema that migrations 001 to
   016 create and secure, and renaming them is a migration of its own.
-
-- **`check` no longer calls a correct price wrong because a sibling line has
-  another.** "Monzo Perks costs £9 a month." was reported as differing from
-  "Monzo Extra costs £3 a month.": the words every price line shares outvoted
-  the one that tells the plans apart. A word all the lines share now weighs
-  little, a value any approved line about the statement states is correct, and
-  a wrong value is one finding, against the line the statement names best. A
-  price for another period ("£9 a year" for "£9 a month") is a finding.
-- **`check` reads eight more kinds of rule as bans.** "Retire …, such as X"
-  and "Stop using X"; "Never more than one exclamation point at a time" (two in
-  a row); "Write email, not e-mail" and "Write Mailchimp, not MailChimp" (the
-  other spelling, with its capitals when only they differ); an emoji named in
-  words ("the wand emoji"); "never as ₹520.00 or INR 520" (a price written with
-  ₹ or INR); and a banned word in the plural. A line such as "When a channel is
-  not listed here, follow the email rules" makes a draft for an unlisted channel
-  follow the email lines; `Check.rules_from` names the channel.
 
 ## [v0.12.0] - 2026-11-18
 

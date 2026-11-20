@@ -28,6 +28,7 @@ relationship between the two numbering systems.
 | M017 | Prose ingestion, authority states, task-aware retrieval, tenant hardening, benchmark | `v0.10.0` |
 | — | First PyPI release; one-command setup; every platform tested; claim-key, withholding and extraction fixes | `v0.11.0` |
 | — | Brief, check and review; Word, PowerPoint and PDF; lines that end; drafts from agents | `v0.12.0` |
+| — | Team 052's evaluation: sibling prices, eight more rules, unmarked files, the runtime | `v0.12.1` |
 
 ### The trust boundary, stated here
 
@@ -71,21 +72,33 @@ the existing `M015` / `M015.1` pattern for the same release line and is recorded
 
 ## Current release
 
-**The current release is `v0.12.0`**, tagged at `0918618` and published on PyPI.
-`pyproject.toml` says `0.12.0` and `CHANGELOG.md` has its `[v0.12.0]` entry.
-Install it from PyPI:
+**The release being prepared is `v0.12.1`**: `pyproject.toml` says `0.12.1` and
+`CHANGELOG.md` has its `[v0.12.1]` entry. The owner tags it. The current release
+on PyPI is `v0.12.0`, tagged at `0918618`. Install from PyPI:
 
 ```
 uv tool install --python 3.13 verilore
 ```
 
-`v0.11.0` is the previous release, tagged at `4b9a360` and the first published
+`v0.11.0` is the release before, tagged at `4b9a360` and the first published
 on PyPI. `v0.10.0`, tagged at `1fad1e8`, was never published on PyPI and
 installs from its tag
 (`uv tool install git+https://github.com/raunakdey-07/verilore@v0.10.0`).
 
-`v0.11.0` and `v0.12.0` have no milestone identifier: their work was tracked as
+`v0.11.0`, `v0.12.0` and `v0.12.1` have no milestone identifier: their work was tracked as
 GitHub issues, which the changelog names entry by entry.
+
+### What v0.12.1 changed
+
+**What Team 052's evaluation found.** `check` compared "Monzo Perks costs £9 a
+month" with the Extra plan's £3 and called a correct price wrong; it now weighs
+the word that tells two plans apart, and accepts a value any approved line about
+the statement gives. It reads "Retire … such as", "Stop using", "write X, not
+Y", "never more than one exclamation point", an emoji by name, a price format,
+plurals and a kit's fallback channel. An old note synced beside a kit marked
+`status: approved` is a draft until someone marks it. The background runtime
+starts from a long home folder and logs why it stops. Lexical recall abstains on
+a name no claim mentions, and a contributor without the model can run the tests.
 
 ### What v0.12.0 changed
 
