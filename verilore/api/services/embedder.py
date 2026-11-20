@@ -416,6 +416,58 @@ def backend_name() -> str:
     return "onnx"
 
 
+#: Errors that mean the model is not on this machine and could not be fetched:
+#: no network, a proxy that refuses the Hub, or offline mode with an empty cache.
+_UNAVAILABLE = frozenset(
+    {
+        "LocalEntryNotFoundError",
+        "OfflineModeIsEnabled",
+        "ProxyError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ConnectionError",
+        "ReadTimeout",
+        "HfHubHTTPError",
+        "GatedRepoError",
+        "RepositoryNotFoundError",
+    }
+)
+
+#: What to say instead of `claim_embedding_cache_fill_failed error=ProxyError`.
+MODEL_UNAVAILABLE = (
+    "The embedding model is not on this machine and could not be downloaded. "
+    "Your documents and claims were stored; recall ranks them by their words "
+    "until the model is available. Set VERILORE_LEXICAL=1 to stop trying, or run "
+    "`verilore reindex <corpus>` once it can be downloaded."
+)
+
+
+def model_unavailable(exc: BaseException) -> bool:
+    """Whether `exc`, or anything that caused it, says the model could not be fetched."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if type(current).__name__ in _UNAVAILABLE:
+            return True
+        # transformers and sentence-transformers say it in an OSError.
+        if isinstance(current, OSError) and "huggingface.co" in str(current):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+_TOLD = False
+
+
+def explain_unavailable(logger) -> None:
+    """Log `MODEL_UNAVAILABLE` once per process: one line, not one per document."""
+    global _TOLD
+    if not _TOLD:
+        _TOLD = True
+        logger.warning(MODEL_UNAVAILABLE)
+
+
 def load_backend(model_name: str, *, local_files_only: bool = False):
     """The configured backend, built. The one place either backend is constructed.
 

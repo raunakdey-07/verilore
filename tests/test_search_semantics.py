@@ -21,6 +21,7 @@ import pytest
 
 from verilore.api.services.evaluation import precision_at_k, recall_at_k, reciprocal_rank
 from verilore.api.services.retrieval import RetrievalResult, RetrievalService
+from verilore.api.services.db_url import sync_url as to_sync_url
 
 # See tests/test_security.py: `asyncio_mode = "auto"` already runs the async
 # tests, and the sync tests at the bottom of this file were warned about on
@@ -33,11 +34,7 @@ def _db_available() -> bool:
     try:
         import sqlalchemy as sa
 
-        url = (
-            os.getenv("DATABASE_URL", "")
-            .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-            .replace("postgresql://", "postgresql+psycopg2://")
-        )
+        url = to_sync_url(os.getenv("DATABASE_URL", ""))
         engine = sa.create_engine(url)
         with engine.connect():
             engine.dispose()

@@ -92,10 +92,9 @@ def db_ready(host: str, port: int, timeout: float = 2.0) -> bool:
             userinfo = parsed.netloc.rsplit("@", 1)[0] + "@"
         host_for_url = f"[{host}]" if ":" in host else host
         probe_url = parsed._replace(netloc=f"{userinfo}{host_for_url}:{port}").geturl()
-        engine = create_async_engine(
-            probe_url.replace("postgresql://", "postgresql+asyncpg://"),
-            poolclass=NullPool,
-        )
+        from verilore.api.services.db_url import async_url
+
+        engine = create_async_engine(async_url(probe_url), poolclass=NullPool)
 
         async def _ping():
             async with engine.connect() as conn:

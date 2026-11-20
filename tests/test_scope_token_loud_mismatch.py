@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from httpx import ASGITransport, AsyncClient
 
 from verilore.api.main import app, enforce_startup_posture, readiness
+from verilore.api.services.db_url import sync_url as to_sync_url
 
 _DEV_SECRET = "dev-scope-secret"
 _RANDOM_SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -31,9 +32,7 @@ _OTHER_SECRET = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba987654321
 #: import time. Used by the canary test to verify no state leaked into the
 #: session database.
 try:
-    _INIT_ENGINE = sa.create_engine(
-        os.environ["DATABASE_URL"].replace("postgresql://", "postgresql+psycopg2://")
-    )
+    _INIT_ENGINE = sa.create_engine(to_sync_url(os.environ["DATABASE_URL"]))
     with _INIT_ENGINE.connect() as _init_conn:
         _INITIAL_SECRETS = _init_conn.execute(
             sa.text("SELECT name, value FROM memory_server_secrets ORDER BY name")
