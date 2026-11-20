@@ -316,8 +316,10 @@ an app or an agent writing to the server proposes a line, and it reaches a brief
 only when the app writes it again with `state="approved"`, which is what a
 person approving it means. A write made on the server itself (the CLI, a script)
 is approved as before. Documents are not affected; a brand kit ingested without a status is still
-approved. `VERILORE_DEFAULT_STATE=approved` restores approved writes, and
-`VERILORE_DEFAULT_STATE=draft` makes documents drafts too (strict mode).
+approved, though a file with no status synced beside files marked `status: approved` is a
+draft (see the integration guide). `VERILORE_DEFAULT_STATE=approved` restores approved
+writes and approves every unmarked file, and `VERILORE_DEFAULT_STATE=draft` makes
+documents drafts too (strict mode).
 
 An API-only deployment — REST and the SDK, never the two filesystem routes —
 should use `VERILORE_INGEST_ROOTS=none` rather than inventing a directory it

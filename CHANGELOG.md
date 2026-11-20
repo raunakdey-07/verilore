@@ -6,7 +6,23 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+### Upgrading from v0.12.0
+
+- **A file with no status, synced beside files marked approved, is a draft.**
+  When any document in a folder sync declares `status: approved`, a document
+  that declares no status is held as a draft until someone marks it. The next
+  sync of such a folder re-versions those documents; the summary names them
+  (`SyncSummary.unmarked`), and `verilore ingest-repo` prints them. A folder
+  that marks nothing approved is unchanged. `VERILORE_DEFAULT_STATE=approved`
+  keeps the v0.12.0 behaviour.
+
 ### Fixed
+
+- **An unscoped brief no longer serves old notes as approved.** Team 052's kit
+  marked `brand/` approved and left `notes/2025-pricing.md` unmarked; without a
+  `path_prefix`, the note's old price reached the brief and `recall` as a
+  current, approved fact. The note is now a draft (see the upgrade note), and
+  `verilore reindex` keeps it out of search.
 
 - **`check` no longer calls a correct price wrong because a sibling line has
   another.** "Monzo Perks costs £9 a month." was reported as differing from

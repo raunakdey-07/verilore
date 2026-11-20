@@ -2059,6 +2059,17 @@ def ingest_repo(
     )
     for error in summary.errors:
         typer.echo(f"  - {error}", err=True)
+    unmarked = list(getattr(summary, "unmarked", []) or [])
+    if unmarked:
+        shown = ", ".join(unmarked[:5]) + (
+            f" and {len(unmarked) - 5} more" if len(unmarked) > 5 else ""
+        )
+        typer.echo(
+            f"  {len(unmarked)} file(s) declare no status while others say `status: approved`, "
+            f"so they are held as drafts: {shown}. Add `status: approved` to serve one, "
+            "or `status: archived` to keep it for the record.",
+            err=True,
+        )
     if warned:
         typer.echo(
             "  Every document was ingested; the lines above are warnings."

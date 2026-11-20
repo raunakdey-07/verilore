@@ -114,6 +114,10 @@ async def rehydrate_corpus(
         metadata, body = parse_markdown(row["content"])
         if not metadata and row["metadata"]:
             metadata = dict(row["metadata"])
+        # The state a folder sync gave an unmarked document is not in its text.
+        metadata = markdown_claims.with_unmarked_state(
+            metadata, (row["metadata"] or {}).get(markdown_claims.DEFAULT_STATUS_KEY)
+        )
         if not body.strip():
             deleted_archive_paths += 1
             removed_documents += 1

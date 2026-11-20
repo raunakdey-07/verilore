@@ -423,11 +423,14 @@ class IngestionService:
         supersedes_claim_id: str | None = None,
         topic_key: str | None = None,
         embed_chunks: bool | None = None,
+        unmarked: str | None = None,
     ) -> dict:
         """Shared ingestion pipeline for one parsed document.
 
         The caller owns the session lifetime. Returns a result dict with
         ``success``, ``message``, and (on success) ``document_id``/``chunk_count``.
+        ``unmarked`` is the state of a document that declares none, from a
+        folder sync (`markdown_claims.unmarked_state`).
         """
         from verilore.api.services import memory
 
@@ -456,10 +459,11 @@ class IngestionService:
                     supersedes_claim_id=supersedes_claim_id,
                     topic_key=topic_key,
                     embed_chunks=embed_chunks,
+                    unmarked=unmarked,
                 )
             else:
                 result = await self._ingest_live_content(
-                    db, content, path, corpus_id, owner_principal_id
+                    db, content, path, corpus_id, owner_principal_id, unmarked=unmarked
                 )
         logging.getLogger(__name__).info(
             "document_ingested",
@@ -479,6 +483,8 @@ class IngestionService:
         path: str,
         corpus_id: str,
         owner_principal_id: str | None = None,
+        *,
+        unmarked: str | None = None,
     ) -> dict:
         # Warnings are collected here, not only on the memory path. This is the
         # path `ingest-repo` takes, and it was the one that reported an
@@ -487,6 +493,7 @@ class IngestionService:
         # The parser already produced the warning, with a line and a reason code;
         # it was simply never asked for them.
         metadata, body, frontmatter_warnings = parse_markdown(content, collect_warnings=True)
+        metadata = markdown_claims.with_unmarked_state(metadata, unmarked)
         searchable = markdown_claims.is_searchable(metadata)
         # The body hash alone would not move when only the frontmatter status
         # changes, so an unsearchable document hashes differently: publishing a
@@ -647,6 +654,7 @@ class IngestionService:
         supersedes_claim_id: str | None = None,
         topic_key: str | None = None,
         embed_chunks: bool | None = None,
+        unmarked: str | None = None,
     ) -> dict:
         """One caller-owned transaction for the archive and live-index projection."""
         from verilore.api.services import memory
@@ -655,6 +663,8 @@ class IngestionService:
         metadata, body, frontmatter_warnings = parse_markdown(
             content, path=path, collect_warnings=True
         )
+        # Stored with the version, so the fingerprint moves when it does.
+        metadata = markdown_claims.with_unmarked_state(metadata, unmarked)
         for warning in frontmatter_warnings:
             # A document whose frontmatter was not usable is a *different*
             # document from the one the author wrote, and the difference decides
@@ -1038,17 +1048,43 @@ class IngestionService:
         # the run carries on. The tenant scope is written per transaction and
         # is transaction-local, so a reused connection cannot carry one
         # document's scope into the next.
+        # Every file is read once, before any is ingested: whether a document
+        # that declares no status is approved depends on the others (see
+        # `markdown_claims.unmarked_state`).
+        order = _supersession_order(repo_path, md_files)
+        texts: dict[str, str | Exception] = {}
+        for rel_path in order:
+            try:
+                texts[rel_path] = _source_text(repo_path / rel_path, rel_path)
+            except Exception as exc:  # reported by the loop below, per document
+                texts[rel_path] = exc
+        declared = {
+            rel: parse_markdown(value)[0] for rel, value in texts.items() if isinstance(value, str)
+        }
+        unmarked = markdown_claims.unmarked_state(declared.values())
+        unmarked_paths = sorted(
+            rel
+            for rel, metadata in declared.items()
+            if unmarked and not markdown_claims.declared_states(metadata)
+        )
         async with sync_session_scope() as db:
-            for rel_path in _supersession_order(repo_path, md_files):
+            for rel_path in order:
                 source_paths.add(rel_path)
                 try:
-                    content = _source_text(repo_path / rel_path, rel_path)
+                    content = texts[rel_path]
+                    if isinstance(content, Exception):
+                        raise content
                     async with db.begin():
                         known = await self._path_known(db, corpus_id, rel_path)
 
                     state = "changed" if known else "added"
                     result = await self._ingest_content(
-                        db, content, rel_path, corpus_id, embed_chunks=embed_chunks
+                        db,
+                        content,
+                        rel_path,
+                        corpus_id,
+                        embed_chunks=embed_chunks,
+                        unmarked=unmarked,
                     )
 
                     for warning in result.get("warnings", []):
@@ -1181,6 +1217,9 @@ class IngestionService:
             "prose_claims": total_prose,
             "pending_review_count": 0,
             "without_claims": sum(1 for d in documents if d["reason"] == "no_claims_declared"),
+            # Documents that declare no status beside ones that declare
+            # `status: approved`: held as drafts until someone marks them.
+            "unmarked": unmarked_paths,
             "document_results": documents,
             "warnings": warnings,
             "chunk_count": total_chunks,

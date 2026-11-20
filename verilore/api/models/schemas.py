@@ -198,6 +198,9 @@ class SyncResponse(BaseModel):
     duration_ms: int = 0
     message: str = ""
     errors: list[str] = Field(default_factory=list)
+    #: Documents that declare no status beside ones that declare `status:
+    #: approved`; they are held as drafts until someone marks them.
+    unmarked: list[str] = Field(default_factory=list)
 
 
 # --- Context packing ---

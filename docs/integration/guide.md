@@ -424,7 +424,17 @@ Claim state comes from frontmatter `status`/`state`/`tags`, or from heading word
 the most restrictive wins. A document under `## Brainstorming` is a `draft` and
 is withheld from `brief`, `pack` and `current` by default.
 
-**Strict mode.** By default a document with no status is approved, which suits
+**A file with no status.** In a folder sync where any document says `status:
+approved`, a document that says nothing is held as a draft: the team marked what
+it approved, and old notes beside the brand kit were not among them. The sync
+names each one (`SyncSummary.unmarked`, and a line from `verilore ingest-repo`),
+and `review` lists its lines as waiting. Mark one `status: approved` to serve it,
+or `status: archived` to keep it for the record. A folder that marks nothing
+approved serves what it holds, as before. Still pass `path_prefix` for the
+folders a task needs: the scope is what keeps one campaign out of another's
+brief.
+
+**Strict mode.** Otherwise a document with no status is approved, which suits
 a folder only reviewed files are put into. Set `VERILORE_DEFAULT_STATE=draft` on
 the server and it is the other way round: a document, or a `remember` call,
 that does not say `approved` is a draft, counted in `withheld_counts` and never
@@ -435,6 +445,7 @@ Nothing already stored changes until its document is ingested again.
 |---|---|---|---|
 | A document with `status: approved` | approved | approved | approved |
 | A document with no status | approved | approved | draft |
+| A document with no status, synced beside one with `status: approved` | draft | draft | draft |
 | `remember(...)` over HTTP (the SDK with `base_url`), no `state` | approved | draft | draft |
 | `remember(...)` in-process (the CLI, the SDK without a server), no `state` | approved | approved | draft |
 | `memory_remember` over MCP, no `state` | draft | draft | draft |

@@ -96,7 +96,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from typing import Any
+from typing import Any, Iterable
 
 #: How much of a claim's own text is quoted when the line is too long to quote
 #: whole. Long enough to identify the claim, short enough to keep a pack readable.
@@ -1177,6 +1177,64 @@ def default_state() -> str:
     return "approved" if raw in ("", "approved") else "draft"
 
 
+#: Set by a folder sync on a document that declares no status, in a folder
+#: where another document declares `status: approved`. A team that marks what
+#: it approved did not approve what it left unmarked: in Team 052's kit,
+#: `brand/` said `status: approved` and `notes/2025-pricing.md` said nothing,
+#: and its old price was served as approved. The key is stored with the
+#: version, so a document whose folder changes is re-versioned on the next sync.
+DEFAULT_STATUS_KEY = "default_status"
+
+
+def declared_states(metadata: dict) -> list[str]:
+    """The states a document's own `status`, `state` and tags declare, in order."""
+    metadata = metadata or {}
+    declared: list[str] = []
+    for key in ("status", "state"):
+        value = metadata.get(key)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        state = _state_for_value(str(value).strip().lower())
+        if state is not None:
+            declared.append(state)
+    tags = metadata.get("tags")
+    if isinstance(tags, str):
+        tags = [t.strip() for t in tags.split(",") if t.strip()]
+    if isinstance(tags, list):
+        for tag in tags:
+            state = _state_for_value(str(tag).strip().lower())
+            if state is not None:
+                declared.append(state)
+    return declared
+
+
+def unmarked_state(metadatas: Iterable[dict]) -> str | None:
+    """The state for documents that declare none, given every document of a folder.
+
+    `draft` when one of them declares an approved status: what the team marked
+    is what it approved, and the rest waits for someone to mark it. None
+    otherwise -- a folder that marks nothing approved keeps `default_state()` --
+    and None whenever `VERILORE_DEFAULT_STATE` is set, which is an explicit
+    choice for every unmarked document (`approved` keeps the v0.12.0 behaviour).
+    """
+    if os.getenv(DEFAULT_STATE_ENV, "").strip():
+        return None
+    for metadata in metadatas:
+        if "approved" in declared_states(metadata):
+            return "draft"
+    return None
+
+
+def with_unmarked_state(metadata: dict, state: str | None) -> dict:
+    """`metadata` with `default_status` set to `state` when it declares no state."""
+    metadata = dict(metadata or {})
+    if state and not declared_states(metadata):
+        metadata[DEFAULT_STATUS_KEY] = state
+    else:
+        metadata.pop(DEFAULT_STATUS_KEY, None)
+    return metadata
+
+
 def _state_for_value(low: str) -> str | None:
     """The state a single lowercased frontmatter or tag value declares."""
     for state, values in _FRONTMATTER_STATE_VALUES.items():
@@ -1212,7 +1270,8 @@ def document_state(metadata: dict) -> tuple[str, list[str]]:
     Only `status`, `state` and `tags` count; `title` and every other key are
     silent. An unknown `status`/`state` value warns `unknown_status:<value>` and
     counts as no status. Body text never sets state. A document with no status
-    is `default_state()`: approved, or a draft when `VERILORE_DEFAULT_STATE=draft`.
+    is the `default_status` a folder sync gave it (see `unmarked_state`), else
+    `default_state()`: approved, or a draft when `VERILORE_DEFAULT_STATE=draft`.
     """
     metadata = metadata or {}
     warnings: list[str] = []
@@ -1242,6 +1301,10 @@ def document_state(metadata: dict) -> tuple[str, list[str]]:
                 candidates.append(state)
 
     if not candidates:
+        given = str(metadata.get(DEFAULT_STATUS_KEY) or "").strip().lower()
+        if given in _STATE_RANK:
+            # A folder sync found the document unmarked beside approved ones.
+            return given, warnings
         return default_state(), warnings
     return _most_restrictive(*candidates), warnings
 
