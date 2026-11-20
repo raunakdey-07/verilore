@@ -269,6 +269,47 @@ def _distinctive_subject_absent(
     return False
 
 
+#: A word that names a thing: capitalised after the first word ("the Nimbus
+#: router"), or written as an identifier anywhere ("BETA_7Q2", "X200").
+_NAMED = re.compile(r"(?<![\w])(?:[A-Z][\w-]*\d[\w-]*|\w*_\w+|[A-Z][a-z][\w-]*|[A-Z]{2,}[\w-]*)")
+
+
+def named_terms(question: str) -> set[str]:
+    """The terms of the words in `question` that name something.
+
+    The first word is skipped unless it is an identifier: "How" and "Which"
+    are capitalised because they start the sentence, not because they name.
+    """
+    found: set[str] = set()
+    first = len(question) - len(question.lstrip())
+    for match in _NAMED.finditer(question):
+        word = match.group(0)
+        identifier = "_" in word or any(ch.isdigit() for ch in word)
+        if match.start() == first and not identifier:
+            continue
+        found |= terms(word.replace("_", " "))
+    return found
+
+
+def _named_subject_unknown(
+    named: set[str], counts: dict[str, int], best: float, strong: float
+) -> bool:
+    """Whether the question names something the corpus has never mentioned.
+
+    Lexical mode only. Token overlap cannot tell the words that name a subject
+    from the words a question shares with the corpus by accident. Asked
+    "BETA_PRIVATE_PRODUCT_FACT_7Q2 the Nimbus router has four mesh bands", the
+    alpha corpus matched `private`, `product` and `7q2` -- scaffolding its own
+    canary carries too -- and answered with the Kestrel battery, though no
+    claim mentions a Nimbus. Semantic ranking abstains there, and lexical now
+    does too. A question whose named things the corpus knows ("How long can a
+    LinkedIn post be?") is answered as before.
+    """
+    if not named or best >= strong:
+        return False
+    return any(not counts.get(token) for token in named)
+
+
 def boilerplate_tokens(documents: list[frozenset[str]], wanted: frozenset[str]) -> frozenset[str]:
     """The tokens among `wanted` that so many claims carry that they cannot tell one from another.
 
@@ -853,6 +894,15 @@ def relevance(
                 set().union(*documents) if documents else None,
             )
             or _dbg_distinctive
+            or (
+                lexical
+                and _named_subject_unknown(
+                    named_terms(interpreted.topics[i]) & subject_terms[i],
+                    counts,
+                    best_overall,
+                    policy.strong,
+                )
+            )
             or _subject_is_not_the_answer(
                 best_subject, best_overall, subject_claims, len(documents)
             )

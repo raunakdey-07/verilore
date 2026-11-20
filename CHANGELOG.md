@@ -42,6 +42,11 @@ through [`docs/release-map.md`](docs/release-map.md).
 - **Offline contributors get a clean run.** `VERILORE_TEST_OFFLINE=1` reports a
   test that failed only because the model could not be fetched as skipped,
   with the reason. CI does not set it.
+- **Lexical recall abstains on a question about something the corpus never
+  names.** In `VERILORE_LEXICAL=1` mode, a question that named a product no
+  claim mentions was answered with an unrelated claim that shared a few other
+  words. A capitalised word or an identifier no claim carries now makes the
+  question abstain, unless a claim matched it strongly.
 - **The old name is gone from what is not a database object.** The runtime's
   socket and the test database are named `verilore`. The SQL functions, the
   `mindpalace.*` settings and the `mindpalace_owner` / `mindpalace_runtime`
