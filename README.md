@@ -9,7 +9,7 @@
 
 Verilore was called Mind Palace until v0.10.0.
 
-[Website](https://verilore.vercel.app/) · [Current release: v0.12.0](docs/release-map.md) · [Changelog](CHANGELOG.md)
+[Website](https://verilore.vercel.app/) · [Current release: v0.12.1](docs/release-map.md) · [Changelog](CHANGELOG.md)
 
 
 **Give a model only what your team approved, and check what it wrote.**

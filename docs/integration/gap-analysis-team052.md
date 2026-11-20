@@ -2,7 +2,16 @@
 
 > See the [integration guide](guide.md) for wiring Verilore into a content-generation app.
 
-## Status at v0.12.0
+## Status at v0.12.1
+
+v0.12.1 fixes what Team 052's evaluation of 20 November found. `check` no
+longer calls a correct price wrong when two plans have similar lines
+(`test_check_siblings.py`), so its number findings can go into `write`'s fix
+loop; it reads eight more kinds of rule (`test_check_rules_read.py`). An old
+note synced beside a kit marked `status: approved` is a draft until someone
+marks it (`test_unmarked_documents.py`); still pass `path_prefix` for the
+folders a task needs. The runtime is reachable from a long home folder
+(`test_runtime_long_path.py`).
 
 The matrix in §1 is the analysis of 1 November, against `023bead`. These rows
 changed in v0.12.0; each is held by the test named.
