@@ -41,8 +41,8 @@ row by row, including the two rows whose harness no longer runs at this head.
 | | |
 |---|---|
 | package version | `0.12.1` (`pyproject.toml`) |
-| latest tag | **`v0.12.0`** at `0918618`. `v0.11.0` remains at `4b9a360`, `v0.10.0` at `1fad1e8` |
-| `v0.12.1` state | prepared on `main`; the owner tags it |
+| latest tag | **`v0.12.1`** at `77bbfbf`. `v0.12.0` remains at `0918618`, `v0.11.0` at `4b9a360` |
+| `v0.12.1` state | tagged at `77bbfbf` and published to PyPI and TestPyPI |
 | `v0.12.0` state | tagged at `0918618` and published to PyPI and TestPyPI |
 | previous release | `v0.12.0`, unmodified |
 | migration head | `016_hoist_scope_initplan`, additive and reversible |
