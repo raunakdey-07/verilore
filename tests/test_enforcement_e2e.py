@@ -53,6 +53,7 @@ from tenant_harness import (
     runtime_url,
     sync_url,
 )
+from verilore.api.services.db_url import sync_url as to_sync_url
 
 pytestmark = [pytest.mark.asyncio, requires_tenant_db]
 
@@ -940,11 +941,7 @@ async def test_latency_and_explain_initplan(world):
     # Run EXPLAIN as runtime role (sync engine, matching the manual measurement
     # that confirmed per-row calls). AsyncSession would also work but sync is
     # simpler for the counter readback below.
-    rt_sync = (
-        runtime_url()
-        .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
+    rt_sync = to_sync_url(runtime_url())
     rt_engine = sa.create_engine(rt_sync, poolclass=sa.pool.NullPool)
     try:
         with rt_engine.begin() as conn:

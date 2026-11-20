@@ -32,6 +32,21 @@ through [`docs/release-map.md`](docs/release-map.md).
 - **A runtime that stops says why.** What a background runtime prints goes to
   `runtime.log` in its state folder, not to `/dev/null`; `verilore runtime
   status` and `verilore doctor` show its last line.
+- **Any PostgreSQL URL works.** `DATABASE_URL` may name `postgres://` (as Neon
+  writes it) or any driver (`+asyncpg`, `+psycopg`, `+psycopg2`); one rewrite
+  (`verilore.api.services.db_url`) gives each caller the driver it needs. The
+  test helpers that missed `postgresql+asyncpg://` use it too.
+- **A missing model is one sentence.** An ingest that cannot download the
+  embedding model says what happened and what to do, once, instead of logging
+  `claim_embedding_cache_fill_failed error=ProxyError` per document.
+- **Offline contributors get a clean run.** `VERILORE_TEST_OFFLINE=1` reports a
+  test that failed only because the model could not be fetched as skipped,
+  with the reason. CI does not set it.
+- **The old name is gone from what is not a database object.** The runtime's
+  socket and the test database are named `verilore`. The SQL functions, the
+  `mindpalace.*` settings and the `mindpalace_owner` / `mindpalace_runtime`
+  roles keep their names: they are part of the schema that migrations 001 to
+  016 create and secure, and renaming them is a migration of its own.
 
 - **`check` no longer calls a correct price wrong because a sibling line has
   another.** "Monzo Perks costs £9 a month." was reported as differing from

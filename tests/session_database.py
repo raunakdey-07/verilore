@@ -29,7 +29,7 @@ wrong" from "someone changed the database". This module removes the category.
 At session start, if `VERILORE_TEST_DB=session` (the default):
 
 1. connect to the maintenance database named in `DATABASE_URL`;
-2. `CREATE DATABASE mindpalace_test_<pid>_<n>`;
+2. `CREATE DATABASE verilore_test_<pid>_<n>`;
 3. point `DATABASE_URL` at it, so every test, fixture and URL helper that reads
    the environment sees the new database;
 4. run `alembic upgrade head` and `scripts/db/runtime_roles.sql` against it.
@@ -121,7 +121,7 @@ def _database_name() -> str:
     # The pid keeps two concurrent sessions apart; the counter keeps two sessions
     # in the same second apart, which a reused pid would otherwise collide on.
     counter = os.environ.get("VERILORE_TEST_DB_COUNTER", "0")
-    return f"mindpalace_test_{os.getpid()}_{counter}"
+    return f"verilore_test_{os.getpid()}_{counter}"
 
 
 def create_session_database(base_url: str) -> str:

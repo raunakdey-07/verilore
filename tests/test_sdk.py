@@ -14,6 +14,8 @@ import os
 
 import pytest
 
+from verilore.api.services.db_url import sync_url as to_sync_url
+
 # SDK is a synchronous client; tests call it synchronously.
 
 
@@ -23,11 +25,7 @@ def _db_available() -> bool:
     try:
         import sqlalchemy as sa
 
-        url = (
-            os.getenv("DATABASE_URL", "")
-            .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-            .replace("postgresql://", "postgresql+psycopg2://")
-        )
+        url = to_sync_url(os.getenv("DATABASE_URL", ""))
         engine = sa.create_engine(url)
         with engine.connect():
             engine.dispose()
@@ -44,13 +42,7 @@ def _cleanup_sdk_corpus():
     def purge():
         import sqlalchemy as sa
 
-        engine = sa.create_engine(
-            (
-                os.environ["DATABASE_URL"]
-                .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-                .replace("postgresql://", "postgresql+psycopg2://")
-            )
-        )
+        engine = sa.create_engine(to_sync_url(os.environ["DATABASE_URL"]))
         try:
             with engine.begin() as conn:
                 conn.execute(

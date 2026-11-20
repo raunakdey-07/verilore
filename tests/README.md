@@ -15,7 +15,7 @@ say so.
 ## What the session hook does to them
 
 `tests/conftest.py::pytest_sessionstart` creates a database called
-`mindpalace_test_<pid>_<counter>`, runs `alembic upgrade head` and
+`verilore_test_<pid>_<counter>`, runs `alembic upgrade head` and
 `scripts/db/runtime_roles.sql` against it, and **repoints `DATABASE_URL` at it**.
 At session end it drops it with `FORCE`.
 
@@ -35,7 +35,7 @@ So the session prints, **once**, which database each variable names:
 
 ```
 [tests] DATABASE_URL was            verilore on localhost:5432
-[tests] DATABASE_URL is now         mindpalace_test_1234_0 on localhost:5432  (built and dropped here)
+[tests] DATABASE_URL is now         verilore_test_1234_0 on localhost:5432  (built and dropped here)
 [tests] MEMORY_TEST_DATABASE_URL is  verilore on localhost:5432
 [tests] NOTE: MEMORY_TEST_DATABASE_URL names a DIFFERENT database from the session one.
 [tests]       Tests that read it create their schemas there, not here.
@@ -47,7 +47,7 @@ contents of that database are the thing under examination.
 
 ## Two ways this has already gone wrong
 
-**A stale session database.** `mindpalace_test_<pid>_<counter>` is dropped at
+**A stale session database.** `verilore_test_<pid>_<counter>` is dropped at
 teardown, so a killed run leaves one behind. `create_session_database` drops any
 name it is about to use before creating it, but a *different* pid's leftovers
 stay, and a run that collides with them fails in ways that look like product
@@ -86,3 +86,6 @@ provisions both at pinned revisions before running anything
 (`scripts/ci/provision_models.py`) and exports `HF_HUB_OFFLINE=1` for the run
 itself. A machine without them will fail roughly 41 tests with
 `OSError: We couldn't connect to ...`; that is a missing model, not a defect.
+Set `VERILORE_TEST_OFFLINE=1` to have those tests reported as skipped, with the
+reason, instead of failed: only a failure caused by a model that could not be
+fetched becomes a skip (`tests/offline_model.py`). CI never sets it.

@@ -232,6 +232,11 @@ async def backfill_claim_embeddings(db: AsyncSession, corpus_id: str) -> int:
             commit=False,
         )
     except Exception as exc:  # noqa: BLE001 - L2 backfill must not break rehydration
+        from verilore.api.services.embedder import explain_unavailable, model_unavailable
+
+        if model_unavailable(exc):
+            explain_unavailable(logger)
+            return 0
         logger.warning(
             "claim_embedding_backfill_failed error=%s",
             type(exc).__name__,

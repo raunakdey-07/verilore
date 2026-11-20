@@ -48,18 +48,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from verilore.api.services.authz import LOCAL_PRINCIPAL, Principal
+from verilore.api.services.db_url import async_url, sync_url, with_driver  # noqa: F401
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://mpadmin:secret@localhost:5432/verilore",
 )
 
-# Normalize any sync-style URL to asyncpg
-ASYNC_DATABASE_URL = (
-    DATABASE_URL.replace("postgresql+psycopg://", "postgresql+asyncpg://")
-    .replace("postgresql+psycopg2://", "postgresql+asyncpg://")
-    .replace("postgresql://", "postgresql+asyncpg://")
-)
+ASYNC_DATABASE_URL = async_url(DATABASE_URL)
 
 # NullPool: connections are not reused across event loops. The API server
 # runs a single long-lived loop so pooling helps there, but SDK/CLI callers
@@ -247,7 +243,7 @@ async def admin_session_scope(
     `NullPool` like the application engine, so a session is never shared with a
     request that arrived under a different tenant scope.
     """
-    resolved = (url or DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
+    resolved = async_url(url or DATABASE_URL)
     engine = create_async_engine(resolved, echo=False, poolclass=NullPool)
     try:
         async with async_sessionmaker(

@@ -16,6 +16,8 @@ import os
 import pytest
 import sqlalchemy as sa
 
+from verilore.api.services.db_url import sync_url as to_sync_url
+
 pytestmark = pytest.mark.asyncio
 
 CORPUS_A_NAME = "isolation-a"
@@ -26,11 +28,7 @@ def _db_available() -> bool:
     if not os.getenv("DATABASE_URL"):
         return False
     try:
-        url = (
-            os.getenv("DATABASE_URL", "")
-            .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-            .replace("postgresql://", "postgresql+psycopg2://")
-        )
+        url = to_sync_url(os.getenv("DATABASE_URL", ""))
         engine = sa.create_engine(url)
         with engine.connect():
             engine.dispose()
@@ -43,11 +41,7 @@ requires_db = pytest.mark.skipif(not _db_available(), reason="no reachable DATAB
 
 
 def _sync_url() -> str:
-    return (
-        os.getenv("DATABASE_URL", "")
-        .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
+    return to_sync_url(os.getenv("DATABASE_URL", ""))
 
 
 @pytest.fixture(autouse=True)

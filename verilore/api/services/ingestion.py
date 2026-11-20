@@ -912,6 +912,11 @@ class IngestionService:
                 commit=False,
             )
         except Exception as exc:  # noqa: BLE001 - the cache is L2, never a contract
+            from verilore.api.services.embedder import explain_unavailable, model_unavailable
+
+            if model_unavailable(exc):
+                explain_unavailable(logger)
+                return 0
             logger.warning(
                 "claim_embedding_cache_fill_failed error=%s",
                 type(exc).__name__,

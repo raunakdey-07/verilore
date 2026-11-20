@@ -123,13 +123,30 @@ def pytest_sessionstart(session) -> None:
             "run deliberately."
         ) from exc
 
-    session.config._mindpalace_session_db = os.environ["DATABASE_URL"]  # noqa: SLF001
+    session.config._verilore_session_db = os.environ["DATABASE_URL"]  # noqa: SLF001
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """With `VERILORE_TEST_OFFLINE=1`, a test that failed only because the
+    embedding model could not be fetched is reported as skipped, with the
+    reason. See `tests/offline_model.py`."""
+    outcome = yield
+    report = outcome.get_result()
+    if not report.failed or call.excinfo is None:
+        return
+    import offline_model
+
+    reason = offline_model.skip_reason(call.excinfo.value)
+    if reason:
+        report.outcome = "skipped"
+        report.longrepr = (str(item.path), item.location[1] or 0, f"Skipped: {reason}")
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:
     import session_database
 
-    url = getattr(session.config, "_mindpalace_session_db", None)
+    url = getattr(session.config, "_verilore_session_db", None)
     if url:
         try:
             session_database.drop_session_database(url)

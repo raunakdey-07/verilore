@@ -25,12 +25,10 @@ def get_url():
     The runtime app uses asyncpg; migrations run synchronously, so any
     async driver prefix is rewritten to psycopg2 (a repo dependency).
     """
-    url = os.getenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/mindpalace")
-    return (
-        url.replace("postgresql+psycopg://", "postgresql+psycopg2://")
-        .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
+    from verilore.api.services.db_url import sync_url
+
+    url = os.getenv("DATABASE_URL", "postgresql://mpadmin:secret@localhost:5432/verilore")
+    return sync_url(url)
 
 
 def run_migrations_offline() -> None:

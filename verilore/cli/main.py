@@ -2752,11 +2752,9 @@ def secret_rotate(
         typer.echo("Secret must be 32 bytes (64 hex chars).", err=True)
         raise typer.Exit(1)
 
-    sync_url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://").replace(
-        "postgresql+asyncpg", "postgresql+psycopg2"
-    )
-    if sync_url.startswith("postgresql://"):
-        sync_url = sync_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    from verilore.api.services.db_url import sync_url as _sync_url
+
+    sync_url = _sync_url(url)
 
     engine = sa.create_engine(sync_url)
     try:
@@ -3245,11 +3243,9 @@ def _serve_corpus_list() -> list[str]:
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    url = (
-        os.environ.get("DATABASE_URL", "")
-        .replace("postgresql+psycopg://", "postgresql+asyncpg://")
-        .replace("postgresql://", "postgresql+asyncpg://")
-    )
+    from verilore.api.services.db_url import async_url
+
+    url = async_url(os.environ.get("DATABASE_URL", ""))
 
     async def read() -> list[str]:
         engine = create_async_engine(url, poolclass=NullPool, connect_args={"timeout": 5})

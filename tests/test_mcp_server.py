@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from verilore.api.services.db_url import sync_url as to_sync_url
+
 
 def test_mcp_server_preserves_legacy_tools():
     from verilore.mcp_server import mcp
@@ -24,12 +26,7 @@ def test_mcp_context_tool_returns_attributed_pack(tmp_path, monkeypatch):
 
     import sqlalchemy as sa
 
-    url = (
-        __import__("os")
-        .environ["DATABASE_URL"]
-        .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
+    url = to_sync_url(__import__("os").environ["DATABASE_URL"])
 
     def purge():
         engine = sa.create_engine(url)

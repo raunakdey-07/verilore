@@ -19,6 +19,8 @@ import os
 
 import pytest
 
+from verilore.api.services.db_url import sync_url as to_sync_url
+
 DEFAULT_CORPUS_ID = "00000000000000000000000000000000000000000000000000000000default"
 
 pytestmark = pytest.mark.asyncio
@@ -164,11 +166,7 @@ The zephyr quantum flux capacitor regulates wobble at 42 hertz.
         out = await _run_ask("What does the zephyr quantum flux capacitor regulate?", monkeypatch)
     finally:
         # cleanup regardless of assertion outcome
-        url = (
-            os.environ["DATABASE_URL"]
-            .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-            .replace("postgresql://", "postgresql+psycopg2://")
-        )
+        url = to_sync_url(os.environ["DATABASE_URL"])
         engine = sa.create_engine(url)
         try:
             with engine.begin() as conn:

@@ -14,6 +14,7 @@ import os
 import pytest
 
 from verilore.api.services.corpora import DEFAULT_CORPUS_ID
+from verilore.api.services.db_url import sync_url as to_sync_url
 
 # `asyncio_mode = "auto"` in pyproject.toml already runs `async def` tests, so a
 # module-level `pytest.mark.asyncio` buys nothing here -- and it is worse than
@@ -28,11 +29,7 @@ def _db_available() -> bool:
     try:
         import sqlalchemy as sa
 
-        url = (
-            os.getenv("DATABASE_URL", "")
-            .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-            .replace("postgresql://", "postgresql+psycopg2://")
-        )
+        url = to_sync_url(os.getenv("DATABASE_URL", ""))
         engine = sa.create_engine(url)
         with engine.connect():
             engine.dispose()
@@ -161,11 +158,7 @@ content
     # verify it landed in the caller-specified corpus, not the frontmatter one
     import sqlalchemy as sa
 
-    url = (
-        os.environ["DATABASE_URL"]
-        .replace("postgresql+psycopg://", "postgresql+psycopg2://")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
+    url = to_sync_url(os.environ["DATABASE_URL"])
     engine = sa.create_engine(url)
     try:
         with engine.connect() as conn:
