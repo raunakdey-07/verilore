@@ -554,6 +554,18 @@ request, `--allow-unsupported` turns off the made-up value check. Over MCP,
 `memory_check` returns the report and the instruction, so an agent can fix its
 own draft before anyone sees it.
 
+**What reads as a ban.** A prohibition (never, do not, avoid, no, retire, stop
+using) followed by quoted text, by "the word X", by examples after "such as"
+that start with a capital, by an emoji or an emoji's name ("the wand emoji"), or
+by emojis, exclamation marks or hashtags. "Never more than one exclamation mark
+at a time" bans two in a row. "Write email, not e-mail" bans the other spelling,
+and only the capitals when they are the difference ("Write Mailchimp, not
+MailChimp"); "Write prices as Rs 520, never as ₹520.00 or INR 520" bans a price
+written with ₹ or INR. A banned word's plural counts. A kit line such as "When a
+channel is not listed here, follow the email rules" makes a draft for a channel
+no line names (`channel="TikTok"`) follow the email lines, and `result.rules_from`
+says so.
+
 ```python
 default_pack = mp.memory.pack(query="", budget=16000, path_prefix=["brand", "campaigns/spring"])
 assert (default_pack.withheld_counts or {}).get("draft", 0) >= 1, default_pack.withheld_counts
