@@ -86,7 +86,9 @@ State when `v0.12.1` was prepared:
 - [ ] TestPyPI first, with the same tag: Actions -> Publish -> Run workflow,
       target `testpypi`, ref `vX.Y.Z`. The build job refuses a tag that does
       not match the package version. Both "Installs from TestPyPI" jobs must
-      pass: they install that exact version back from TestPyPI and run it.
+      pass: they download that exact version from TestPyPI, install it with its
+      dependencies from PyPI, and run it. Running it again for the same tag
+      skips the upload and checks the install again.
 - [ ] PyPI: publish a GitHub Release for the tag. The workflow builds the tag
       and waits for you to approve the `pypi` environment. Both "Installs from
       PyPI" jobs must pass.
