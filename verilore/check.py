@@ -28,6 +28,7 @@ response, or use `vl.memory.check(draft, ...)`.
 
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
 from dataclasses import dataclass, replace
@@ -387,60 +388,202 @@ def _same_date(memory: str, draft: str) -> bool:
     return m[:2] == d[:2] and (len(m) < 3 or len(d) < 3 or m[2] == d[2])
 
 
-def _number_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
-    """Values in the draft that differ from the claim's, about the claim's subject."""
+#: The period a price is for, written after it: "£9 a month", "$20 per month",
+#: "Rs 999/year", "£3 monthly". A price for another period is another price.
+_PERIOD = re.compile(
+    r"^\s*(?:(?:a|an|per|each|every|/)\s*(month|mo|year|yr|annum|week|wk|day)\b|"
+    r"(monthly|annually|yearly|weekly|daily)\b)",
+    re.IGNORECASE,
+)
+_PERIOD_NAME = {
+    "month": "month",
+    "mo": "month",
+    "monthly": "month",
+    "year": "year",
+    "yr": "year",
+    "annum": "year",
+    "annually": "year",
+    "yearly": "year",
+    "week": "week",
+    "wk": "week",
+    "weekly": "week",
+    "day": "day",
+    "daily": "day",
+}
+
+
+def _period(sentence: str, exact: str) -> tuple[str, str]:
+    """The period a money value is for, and the words that say it: ("month", " a month")."""
+    at = sentence.find(exact)
+    if at < 0:
+        return "", ""
+    match = _PERIOD.match(sentence[at + len(exact) :])
+    if not match:
+        return "", ""
+    word = (match.group(1) or match.group(2)).lower()
+    return _PERIOD_NAME[word], match.group(0).rstrip()
+
+
+@dataclass(frozen=True)
+class _Fact:
+    """An approved line with values, and what it is about."""
+
+    claim: dict[str, str]
+    #: `(kind, normalised value, exact text, period)` for each value it states.
+    values: tuple[tuple[str, str, str, str], ...]
+    subject: frozenset[str]
+
+
+def _fact(claim: dict[str, str]) -> _Fact | None:
     text = claim["claim"]
     if _NEGATION.search(text):
         # "Do not promise delivery in under 48 hours" is a limit, not a value;
         # comparing 48 with a draft's 24 would get the direction wrong half the time.
-        return []
+        return None
     remembered = _values(text)
     if not remembered:
-        return []
+        return None
     subject = _subject(f'{claim.get("section", "")} {text}', [kind for kind, _v, _t in remembered])
     if not subject:
+        return None
+    values = tuple(
+        (kind, value, exact, _period(text, exact)[0] if kind == "money" else "")
+        for kind, value, exact in remembered
+    )
+    return _Fact(claim, values, subject)
+
+
+def _weights(facts: list[_Fact]) -> dict[str, dict[str, float]]:
+    """How much each subject word tells facts of one kind apart, per kind.
+
+    A word every price line shares ("Monzo", "month") says little about which
+    plan a draft means; a word only one has ("Perks") says it. A word's weight
+    is `log((n + 1) / df)`: `n` facts state a value of the kind, `df` of them
+    have the word. With one fact every word weighs the same.
+    """
+    by_kind: dict[str, dict[str, frozenset[str]]] = {}
+    for fact in facts:
+        for kind in {kind for kind, *_rest in fact.values}:
+            # One line stated in two documents is one fact, not two.
+            by_kind.setdefault(kind, {})[fact.claim["claim"].casefold()] = fact.subject
+    weights: dict[str, dict[str, float]] = {}
+    for kind, subjects in by_kind.items():
+        count: dict[str, int] = {}
+        for subject in subjects.values():
+            for word in subject:
+                count[word] = count.get(word, 0) + 1
+        n = len(subjects)
+        weights[kind] = {word: math.log((n + 1) / df) for word, df in count.items()}
+    return weights
+
+
+def _about(fact: _Fact, words: frozenset[str], weights: dict[str, float]) -> float:
+    """How well a statement's words name a fact's subject: 0 when they do not.
+
+    About the same thing: at least two of the fact's subject words (or its only
+    one), and at least half of the subject's weight. Returns the share of the
+    weight the statement names, so the best-named fact can be told apart.
+    """
+    shared = fact.subject & words
+    if len(shared) < min(2, len(fact.subject)):
+        return 0.0
+    total = sum(weights.get(word, 0.0) for word in fact.subject)
+    named = sum(weights.get(word, 0.0) for word in shared)
+    if total <= 0 or named * 2 < total:
+        return 0.0
+    return named / total
+
+
+def _agrees(kind: str, fact_value: tuple[str, str, str, str], value: str, period: str) -> bool:
+    _kind, mine, _exact, my_period = fact_value
+    if kind == "date":
+        return _same_date(mine, value)
+    if mine != value:
+        return False
+    # "£9" agrees with "£9 a month"; "£9 a year" does not.
+    return not (my_period and period and my_period != period)
+
+
+def _number_findings(draft: str, claims: list[dict[str, str]]) -> list[Finding]:
+    """Values in the draft that differ from what approved memory says about their subject.
+
+    A statement can be about several approved lines: "Monzo Perks costs £9 a
+    month" shares words with the Extra line and the Perks line. A value any of
+    them states is correct. Otherwise the finding is against the line the
+    statement names best, once per quote.
+    """
+    facts = [fact for fact in (_fact(claim) for claim in claims) if fact is not None]
+    if not facts:
         return []
+    weights = _weights(facts)
+    units = [u.strip() for u in _UNIT_BREAK.split(draft) if u and u.strip()]
     findings: list[Finding] = []
-    for context, statement in _windows(draft):
-        shared = subject & _subject(f"{context} {statement}")
-        # About the same thing: most of the fact's subject words, and at least
-        # two of them unless the fact has only one.
-        if len(shared) < min(2, len(subject)) or len(shared) * 2 < len(subject):
-            continue
+    for index, statement in enumerate(units):
         written = _values(statement)
-        earlier = {k for k, _v, _t in _values(context)}
-        # A fact can state two values of one kind ("Orders below Rs 999 pay Rs
-        # 79"): a draft that repeats either one agrees with it.
-        kinds = {
-            kind: [(v, t) for k, v, t in remembered if k == kind] for kind, _v, _t in remembered
-        }
-        for kind, values in kinds.items():
-            same_kind = [(v, t) for k, v, t in written if k == kind]
-            if not same_kind or kind in earlier:
+        if not written:
+            continue
+        alone = _subject(statement)
+        before = units[index - 1] if index else ""
+        with_before = _subject(f"{before} {statement}") if before else frozenset()
+        earlier = {k for k, _v, _t in _values(before)} if before else set()
+        for kind, value, exact in written:
+            # A statement says what its subject is, or the one before it does
+            # when that one has no value of its own kind: "Our gift box is
+            # back. Now just Rs 999."
+            windows = [alone] + ([with_before] if with_before and kind not in earlier else [])
+            period, period_text = _period(statement, exact) if kind == "money" else ("", "")
+            # A fact can state two values of one kind ("Orders below Rs 999 pay
+            # Rs 79"): a statement that repeats either one agrees with it.
+            stated = [
+                (v, _period(statement, t)[0] if kind == "money" else "")
+                for k, v, t in written
+                if k == kind
+            ]
+            matched: list[tuple[float, _Fact]] = []
+            agreed = False
+            for fact in facts:
+                mine = [v for v in fact.values if v[0] == kind]
+                if not mine:
+                    continue
+                score = max(_about(fact, words, weights.get(kind, {})) for words in windows)
+                if not score:
+                    continue
+                if any(_agrees(kind, v, said, when) for v in mine for said, when in stated):
+                    agreed = True
+                    break
+                matched.append((score, fact))
+            if agreed or not matched:
                 continue
-            matches = (
-                any(_same_date(mine, v) for mine, _t in values for v, _t2 in same_kind)
-                if kind == "date"
-                else any(mine == v for mine, _t in values for v, _t2 in same_kind)
-            )
-            if matches:
-                continue
-            quote = same_kind[0][1]
+            top = max(score for score, _fact in matched)
+            best = next(fact for score, fact in matched if score == top)
+            same = [v for v in best.values if v[0] == kind]
+            # Only the period differs ("£9 a year" for "£9 a month"): say both.
+            only_period = any(v[1] == value for v in same)
+            quote = exact + period_text if only_period else exact
             if any(f.quote == quote for f in findings):
                 continue
             label = kind.split(":")[0]
-            expected = " or ".join(t for _v, t in values)
-            findings.append(
-                Finding(
-                    "number",
-                    claim["id"],
-                    text,
-                    claim["path"],
-                    quote,
-                    f"The draft says {quote} where approved memory says {expected} ({label}).",
-                    expected=expected,
-                )
+            expected = " or ".join(
+                t + (_period(best.claim["claim"], t)[1] if only_period else "")
+                for _k, _v, t, _p in same
             )
+            # The same line in two documents (a kit synced as Word and as PDF)
+            # is one finding that names both; `check_draft` merges them.
+            for _score, fact in matched:
+                if fact.claim["claim"].casefold() != best.claim["claim"].casefold():
+                    continue
+                findings.append(
+                    Finding(
+                        "number",
+                        fact.claim["id"],
+                        fact.claim["claim"],
+                        fact.claim["path"],
+                        quote,
+                        f"The draft says {quote} where approved memory says {expected} "
+                        f"({label}).",
+                        expected=expected,
+                    )
+                )
     return findings
 
 
@@ -932,12 +1075,8 @@ def check_draft(
                     f"The draft uses {what}, which an approved rule bans{where}.",
                 )
             )
-    for claim in claims:
-        for finding in _number_findings(draft, claim):
-            key = ("number", finding.claim_id, finding.quote)
-            if key not in seen:
-                seen.add(key)
-                add(finding)
+    for finding in _number_findings(draft, claims):
+        add(finding)
     for claim in claims:
         for finding in _bound_findings(draft, claim):
             if not any(f.quote == finding.quote for f in findings if f.kind == "number"):
