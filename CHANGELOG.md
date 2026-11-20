@@ -15,6 +15,14 @@ through [`docs/release-map.md`](docs/release-map.md).
   little, a value any approved line about the statement states is correct, and
   a wrong value is one finding, against the line the statement names best. A
   price for another period ("£9 a year" for "£9 a month") is a finding.
+- **`check` reads eight more kinds of rule as bans.** "Retire …, such as X"
+  and "Stop using X"; "Never more than one exclamation point at a time" (two in
+  a row); "Write email, not e-mail" and "Write Mailchimp, not MailChimp" (the
+  other spelling, with its capitals when only they differ); an emoji named in
+  words ("the wand emoji"); "never as ₹520.00 or INR 520" (a price written with
+  ₹ or INR); and a banned word in the plural. A line such as "When a channel is
+  not listed here, follow the email rules" makes a draft for an unlisted channel
+  follow the email lines; `Check.rules_from` names the channel.
 
 ## [v0.12.0] - 2026-11-18
 

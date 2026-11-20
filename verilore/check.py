@@ -28,6 +28,7 @@ response, or use `vl.memory.check(draft, ...)`.
 
 from __future__ import annotations
 
+import difflib
 import math
 import re
 import unicodedata
@@ -42,6 +43,7 @@ __all__ = [
     "channel_limits",
     "channel_minimums",
     "check_draft",
+    "fallback_channel",
     "render_check",
     "render_feedback",
 ]
@@ -99,6 +101,10 @@ class Check:
     #: as `{"id", "claim", "path"}`: a clean result says nothing about them.
     #: Rules for another channel than `channel` are not among them.
     untested: tuple[dict[str, str], ...] = ()
+    #: The channel whose rules were applied when `channel` is not listed and a
+    #: rule says which to follow instead ("When a channel is not listed here,
+    #: follow the email rules"); empty otherwise.
+    rules_from: str = ""
 
     @property
     def ok(self) -> bool:
@@ -113,6 +119,7 @@ class Check:
             "unsupported_checked": self.unsupported_checked,
             "findings": [finding.as_dict() for finding in self.findings],
             "needs_review": list(self.untested),
+            "rules_from": self.rules_from,
         }
 
 
@@ -127,10 +134,32 @@ def _get(item: Any, name: str, default: Any = None) -> Any:
 _QUOTED = re.compile(r"[\"“”'‘’`]([^\"“”'‘’`]{1,60})[\"“”'‘’`]")
 #: An instruction not to use something. The rest of the sentence names it.
 _PROHIBITION = re.compile(
-    r"(?<![\w'])(?:never|do not|don't|must not|should not|avoid|no)\s+"
+    r"(?<![\w'])(?:never|do not|don't|must not|should not|avoid|no|retire|"
+    r"stop\s+(?:using|saying|writing))\s+"
     r"(?:(?:use|say|write|include|mention|call\s+\w+)\s+)?",
     re.IGNORECASE,
 )
+#: "Retire overused puns, such as Eggcellent and Hey presto": the examples a
+#: rule names without quotes, each starting with a capital.
+_SUCH_AS = re.compile(r"\b(?:such as|like|including|e\.g\.,?)\s+(.+)$", re.IGNORECASE)
+_LIST_SPLIT = re.compile(r",\s*|\s+(?:and|or)\s+")
+#: "Write email, not e-mail", "Write prices as Rs 520, never as ₹520.00 or INR
+#: 520": the right form, then the wrong ones.
+_NOT_THIS = re.compile(
+    r"^(?:always\s+)?(?:write|use|say|spell)\b(?P<right>.+?),?\s+(?:not|never)\s+"
+    r"(?:as\s+|use\s+|write\s+)?(?P<wrong>.+?)\s*[.;!]?$",
+    re.IGNORECASE,
+)
+_CURRENCY = re.compile(r"(?<![\w])(rs\.?|inr|usd|eur|gbp|₹|\$|€|£)\s?\d", re.IGNORECASE)
+#: "Never more than one exclamation point at a time", "No double exclamation marks".
+_EXCLAMATION_RUN = re.compile(
+    r"(?:more than one|two|double|multiple|repeated)\s+exclamation\s+(?:marks?|points?)"
+    r"(?:\s+(?:at a time|in a row|together))?",
+    re.IGNORECASE,
+)
+_RUN_WORDS = re.compile(r"\b(?:at a time|in a row|together|double|repeated)\b", re.IGNORECASE)
+#: "the wand emoji": an emoji named in words.
+_NAMED_EMOJI = re.compile(r"^(?:the\s+|an?\s+)?([a-z][a-z -]*?)\s+emojis?\b", re.IGNORECASE)
 _WORD_LEAD = re.compile(
     r"^(?:the\s+)?(?:words?|phrases?|terms?)\s+(.+)$",
     re.IGNORECASE,
@@ -160,6 +189,75 @@ def _is_emoji(char: str) -> bool:
     )
 
 
+def _emoji_named(name: str) -> list[str]:
+    """The emojis whose Unicode name has every word of `name`: "wand" is 🪄.
+
+    Nothing when no emoji, or more than four, has them: "the face emoji" names
+    no one emoji, and a check that guessed would flag a draft for the wrong one.
+    """
+    words = set(name.upper().replace("-", " ").split())
+    if not words:
+        return []
+    found = [char for char, char_words in _emoji_names() if words <= char_words]
+    return found if len(found) <= 4 else []
+
+
+_EMOJI_NAMES: list[tuple[str, frozenset[str]]] = []
+
+
+def _emoji_names() -> list[tuple[str, frozenset[str]]]:
+    if not _EMOJI_NAMES:
+        for start, end in ((0x2600, 0x27BF), (0x1F300, 0x1FAFF)):
+            for code in range(start, end + 1):
+                char = chr(code)
+                name = unicodedata.name(char, "")
+                if name and _is_emoji(char):
+                    _EMOJI_NAMES.append((char, frozenset(name.replace("-", " ").split())))
+    return _EMOJI_NAMES
+
+
+def _currency(text: str) -> str | None:
+    """The currency mark a price is written with: "rs" in "Rs 520", "₹" in "₹520"."""
+    match = _CURRENCY.search(text)
+    return match.group(1).lower().rstrip(".") if match else None
+
+
+def _wrong_forms(rule: str) -> list[tuple[str, str]]:
+    """What a "write X, not Y" rule bans: Y, when it is another way to write X.
+
+    "Write email, not e-mail" bans "e-mail"; "Write Mailchimp, not MailChimp"
+    bans "MailChimp" with its capitals, and not "Mailchimp". "Write prices as
+    Rs 520, never as ₹520.00 or INR 520" bans a price written with ₹ or INR.
+    "Use sentence case, not title case" names a style, not text, and gives
+    nothing: only quoted forms, prices, and single words spelled alike count.
+    """
+    match = _NOT_THIS.match(rule.strip())
+    if not match:
+        return []
+    right = match.group("right").strip()
+    found: list[tuple[str, str]] = []
+    for wrong in _LIST_SPLIT.split(match.group("wrong")):
+        wrong = wrong.strip(" .;:!")
+        quoted = _QUOTED.fullmatch(wrong)
+        bare = quoted.group(1).strip() if quoted else wrong
+        if not bare:
+            continue
+        mark = _currency(bare)
+        if mark:
+            if mark != _currency(right):
+                found.append(("currency", mark))
+            continue
+        alike = right.strip("\"“”'‘’` ")
+        if quoted:
+            found.append(("exact" if bare.lower() == alike.lower() else "text", bare))
+        elif " " not in bare and " " not in alike:
+            if bare.lower() == alike.lower():
+                found.append(("exact", bare))
+            elif difflib.SequenceMatcher(None, bare.lower(), alike.lower()).ratio() >= 0.75:
+                found.append(("text", bare))
+    return found
+
+
 def banned_text(rule: str) -> list[tuple[str, str]]:
     """What a rule bans: `[("text", "premium"), ("class", "emoji")]`, or [].
 
@@ -169,10 +267,17 @@ def banned_text(rule: str) -> list[tuple[str, str]]:
     gives nothing: a check that guessed would flag every draft that mentions a
     discount.
     """
+    wrong = _wrong_forms(rule)
+    if wrong:
+        return wrong
     prohibition = _PROHIBITION.search(rule)
     if not prohibition:
         return []
     rest = rule[prohibition.end() :].strip()
+    run = _EXCLAMATION_RUN.match(rest)
+    if run and _RUN_WORDS.search(run.group(0)):
+        # One "!" is allowed; two in a row are not.
+        return [("class", "exclamation-run")]
     found: list[tuple[str, str]] = []
     quoted = _QUOTED.findall(rest)
     if quoted:
@@ -182,12 +287,26 @@ def banned_text(rule: str) -> list[tuple[str, str]]:
     for words, kind in _CLASS_WORDS.items():
         if head == words or head.startswith(words + " "):
             return [("class", kind)]
+    emojis = [char for char in dict.fromkeys(rest) if _is_emoji(char)]
+    if emojis:
+        # "Never use 🪄 or 🔥": the emojis themselves.
+        return [("text", char) for char in emojis]
+    named = _NAMED_EMOJI.match(rest)
+    if named:
+        return [("text", char) for char in _emoji_named(named.group(1))]
     lead = _WORD_LEAD.match(rest.rstrip(" .;:!"))
     if lead:
         # "the word premium in any copy": the word is the first token.
         first = re.match(r"[\w'-]+", lead.group(1))
         if first:
             found.append(("text", first.group(0)))
+        return found
+    examples = _SUCH_AS.search(rest)
+    if examples:
+        for item in _LIST_SPLIT.split(examples.group(1)):
+            item = item.strip(" .;:!")
+            if item and item[0].isupper() and len(item.split()) <= 3:
+                found.append(("text", item))
     return found
 
 
@@ -207,11 +326,29 @@ def rule_channel(rule: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _find_text(draft: str, text: str) -> str | None:
-    """The first occurrence of `text` in the draft as a whole word, quoted exactly."""
-    pattern = r"(?<![\w])" + re.escape(text) + r"(?![\w])"
-    match = re.search(pattern, draft, re.IGNORECASE)
+def _find_text(draft: str, text: str, exact: bool = False) -> str | None:
+    """The first occurrence of `text` in the draft as a whole word, quoted exactly.
+
+    A word's plural counts: a rule against "premium" is broken by "premiums".
+    With `exact`, case counts too: "MailChimp" is banned, "Mailchimp" is not.
+    """
+    plural = r"(?:s|es)?" if len(text) > 3 and text[-1:].isalpha() else ""
+    pattern = r"(?<![\w])" + re.escape(text) + plural + r"(?![\w])"
+    match = re.search(pattern, draft, 0 if exact else re.IGNORECASE)
     return match.group(0) if match else None
+
+
+def _find_banned(draft: str, kind: str, target: str) -> str | None:
+    if kind == "text":
+        return _find_text(draft, target)
+    if kind == "exact":
+        return _find_text(draft, target, exact=True)
+    if kind == "currency":
+        for match in re.finditer(_CURRENCY.pattern + r"[\d,]*(?:\.\d+)?", draft, re.IGNORECASE):
+            if match.group(1).lower().rstrip(".") == target:
+                return match.group(0)
+        return None
+    return _find_class(draft, target)
 
 
 def _find_class(draft: str, kind: str) -> str | None:
@@ -222,6 +359,9 @@ def _find_class(draft: str, kind: str) -> str | None:
         return None
     if kind == "exclamation":
         return "!" if "!" in draft else None
+    if kind == "exclamation-run":
+        match = re.search(r"!(?:\s*!)+", draft)
+        return match.group(0) if match else None
     if kind == "hashtag":
         match = _HASHTAG.search(draft)
         return match.group(0) if match else None
@@ -977,6 +1117,47 @@ def _limit_findings(draft: str, claims: list[dict[str, str]], channel: str) -> l
     return findings
 
 
+#: "When a channel is not listed here, follow the email rules", "Other
+#: channels follow the Instagram rules": the channel whose rules apply to one
+#: no line names.
+_FALLBACK = re.compile(
+    r"(?:(?:when|if|where)\s+a\s+channel\s+(?:is\s+not|isn't)\s+(?:listed|named|covered)"
+    r"\b[^,]*,\s*|(?:any\s+|every\s+)?(?:other\s+)?channels?\s+(?:that\s+(?:is|are)\s+)?"
+    r"(?:not\s+(?:listed|named)\s+(?:here\s+|above\s+|below\s+)?)?)"
+    r"(?:follows?|uses?|applies|apply)\s+(?:the\s+)?(?P<channel>[A-Za-z][\w-]*?)(?:'s)?\s+rules?\b",
+    re.IGNORECASE,
+)
+
+
+def fallback_channel(claims: Iterable[Any], channel: str | None) -> str | None:
+    """The channel whose rules a draft for `channel` follows, when no line names `channel`.
+
+    A kit that says "When a channel is not listed here, follow the email rules"
+    checks a TikTok draft against the email rules: its length, and the bans
+    limited to email. None when `channel` is named by a line, or no line says
+    what to follow, or what it says to follow is not a channel a line names.
+    """
+    if not channel:
+        return None
+    fallback: str | None = None
+    named: set[str] = set()
+    for claim in claims:
+        text = claim["claim"] if isinstance(claim, dict) else str(claim)
+        match = _FALLBACK.search(text)
+        if match:
+            fallback = fallback or match.group("channel")
+            continue
+        for name in (_channel_bounds(text)[0], rule_channel(text), _channel_in(text)):
+            if name:
+                named.add(name.lower().rstrip("s"))
+    if fallback is None or any(name in channel.lower() for name in named):
+        return None
+    if fallback.lower().rstrip("s") in channel.lower():
+        return None
+    # "All channels follow the house rules" names no channel to follow.
+    return fallback if fallback.lower().rstrip("s") in named else None
+
+
 # ------------------------------------------------------------- the check
 
 
@@ -1027,6 +1208,9 @@ def check_draft(
         for claim in [*(_get(current, "current_memories", []) or []), *extra_rules]
     ]
     claims = [claim for claim in claims if claim["claim"]]
+    rules_from = fallback_channel(claims, channel)
+    if rules_from:
+        channel = rules_from
     findings: list[Finding] = []
     seen: set[tuple[str, str, str]] = set()
     # One finding per rule and quote, however many documents state the rule.
@@ -1056,14 +1240,15 @@ def check_draft(
         if limited_to and channel and limited_to.lower().rstrip("s") not in channel.lower():
             continue
         for kind, target in banned:
-            quote = _find_text(draft, target) if kind == "text" else _find_class(draft, target)
+            quote = _find_banned(draft, kind, target)
             if quote is None:
                 continue
             key = ("banned", claim["id"], quote.lower())
             if key in seen:
                 continue
             seen.add(key)
-            what = f'"{quote}"' if kind == "text" else f"{target} ({quote})"
+            label = "two exclamation marks in a row" if target == "exclamation-run" else target
+            what = f"{label} ({quote})" if kind == "class" else f'"{quote}"'
             where = f" (the rule is for {limited_to})" if limited_to and not channel else ""
             add(
                 Finding(
@@ -1098,6 +1283,7 @@ def check_draft(
         banned_rules=banned_rules,
         unsupported_checked=unsupported,
         untested=tuple(_untested(claims, headings, channel)),
+        rules_from=rules_from or "",
     )
 
 
@@ -1121,7 +1307,7 @@ def _untested(
     seen: set[str] = set()
     for claim in claims:
         text = claim["claim"]
-        if text.casefold() in seen:
+        if text.casefold() in seen or _FALLBACK.search(text):
             continue
         named, _bounds = _channel_bounds(text)
         mentioned = named or rule_channel(text) or _channel_in(text)
@@ -1173,10 +1359,17 @@ def render_check(check: Check) -> str:
             [
                 f"No problems found against {check.checked} approved lines "
                 f"({check.banned_rules} name banned text). Tone and voice are a reviewer's call.",
+                *(
+                    [f"(The channel is not listed, so the {check.rules_from} rules applied.)"]
+                    if check.rules_from
+                    else []
+                ),
                 *_needs_review(check),
             ]
         )
     out = [f"{len(check.findings)} problem(s) against {check.checked} approved lines:"]
+    if check.rules_from:
+        out.append(f"(The channel is not listed, so the {check.rules_from} rules applied.)")
     for finding in check.findings:
         also = f"; also {', '.join(finding.also)}" if finding.also else ""
         out.append(f"- {finding.detail}")
@@ -1212,12 +1405,19 @@ def render_feedback(check: Check) -> str:
     for finding in check.findings:
         if finding.kind == "banned":
             what = f'"{finding.quote}"'
-            if len(finding.quote) == 1 or finding.quote.startswith("#"):
-                kind = (
-                    "exclamation"
-                    if finding.quote == "!"
-                    else ("hashtag" if finding.quote.startswith("#") else "emoji")
+            classes = {target for kind, target in banned_text(finding.claim) if kind == "class"}
+            kind = (
+                "exclamation"
+                if finding.quote == "!"
+                else ("hashtag" if finding.quote.startswith("#") else "emoji")
+            )
+            if "exclamation-run" in classes and finding.quote.startswith("!"):
+                lines.append(
+                    f"- Replace {what} with a single exclamation mark. "
+                    f"Approved rule: {finding.claim}"
                 )
+                continue
+            if kind in classes and (len(finding.quote) == 1 or finding.quote.startswith("#")):
                 # Every one, not only the one quoted: told "remove #tea", a
                 # model removes #tea and keeps the other three.
                 what = f"{_CLASS_NAMES[kind]} (such as {finding.quote})"
