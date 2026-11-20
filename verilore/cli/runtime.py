@@ -89,6 +89,8 @@ def status(
                     "protocol": runtime.PROTOCOL,
                     "socket": str(runtime.socket_path()),
                     "enabled": runtime.enabled(),
+                    "log": str(runtime.log_path()),
+                    "last_error": runtime.last_error(),
                 },
                 indent=2,
                 sort_keys=True,
@@ -97,6 +99,10 @@ def status(
         return
     if current.state == "unreachable":
         typer.echo("Runtime is not running.")
+        error = runtime.last_error()
+        if error:
+            typer.echo(f"  last error: {error}")
+            typer.echo(f"  log: {runtime.log_path()}")
         typer.echo("  commands still work; each one starts its own runtime if you want a warm one")
         typer.echo("  start it with: verilore runtime start")
         return

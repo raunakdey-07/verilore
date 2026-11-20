@@ -38,6 +38,11 @@ def main(argv: list[str] | None = None) -> int:
         # through the product's own error translation.
         print(f"verilore runtime: {exc}", file=sys.stderr)
         return 1
+    except Exception as exc:  # noqa: BLE001 - one line in the log beats a traceback
+        # A socket that cannot bind ("AF_UNIX path too long"), a database that is
+        # not there. The log is where `verilore doctor` reads it from.
+        print(f"verilore runtime: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
