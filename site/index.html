@@ -6,7 +6,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Verilore — memory your AI can cite</title>
-<meta name="description" content="Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version. Open source, on PyPI.">
+<meta name="description" content="Your AI gets only what your team approved, every draft is checked against it, and each line names the document it came from. Open source, on PyPI.">
 <meta name="google-site-verification" content="LJ-tpQGY-3I2OzFJNjLlKrk1Z7D3GqpGALhf3PMjdlI" />
 <meta name="theme-color" content="#0A0A0B">
 <link rel="canonical" href="https://verilore.vercel.app/">
@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://verilore.vercel.app/">
 <meta property="og:site_name" content="Verilore">
 <meta property="og:title" content="Verilore — memory your AI can cite">
-<meta property="og:description" content="Your AI gets only what your team approved, shows the exact line behind every answer, and never loses an old version.">
+<meta property="og:description" content="Your AI gets only what your team approved, every draft is checked against it, and each line names the document it came from.">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
   --body: #D4D4D8;
   --muted: #A1A1AA;
   --faint: #8B8B93;
-  --dim: #6B6B73;
+  --dim: #82828C;
   --accent: #E8B04B;
   --old: #F2A285;
   --line: rgba(255, 255, 255, 0.08);
@@ -83,36 +83,22 @@ section.block { padding-bottom: var(--gap); scroll-margin-top: 24px; }
 .exhibit { flex: 1.5 1 520px; min-width: 0; }
 .rule { border-top: 1px solid var(--line); }
 
-.term { border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: var(--panel); overflow: hidden; }
+.term { border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: var(--panel); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); overflow: hidden; }
+pre.run { margin: 0; padding: clamp(14px, 2.6vw, 20px) clamp(14px, 3vw, 22px); font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.run .cmd { color: var(--text); }
+pre.run .meta { color: var(--dim); }
+pre.run .bad { color: var(--old); }
 .term-bar { padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.07); font-family: var(--mono); font-size: 12px; color: var(--faint); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .term-bar.top-rule { border-top: 1px solid rgba(255,255,255,0.07); }
 .plain { background: transparent; border: 0; padding: 0; cursor: pointer; color: inherit; }
 
-/* Demo */
-#try { overflow: hidden; max-height: 0; opacity: 0; transform: translateY(24px); transition: max-height 900ms cubic-bezier(0.65, 0, 0.35, 1), opacity 520ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1); }
-#try.open { max-height: 1600px; opacity: 1; transform: none; }
-.suggest { display: flex; flex-direction: column; align-items: flex-start; }
-.suggest button { min-height: 44px; text-align: left; font-family: var(--mono); font-size: 14px; color: var(--muted); }
-.suggest button:hover, .ask-run:hover { color: #FFF; }
+/* Demo: recorded runs, not a live server */
+#try { overflow: hidden; max-height: 0; opacity: 0; visibility: hidden; transform: translateY(24px); transition: max-height 900ms cubic-bezier(0.65, 0, 0.35, 1), opacity 520ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 900ms; }
+#try.open { max-height: 2400px; opacity: 1; visibility: visible; transform: none; transition: max-height 900ms cubic-bezier(0.65, 0, 0.35, 1), opacity 520ms ease, transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1), visibility 0s linear 0s; }
+.picks { display: flex; flex-direction: column; align-items: flex-start; }
+.picks button { min-height: 44px; text-align: left; font-family: var(--mono); font-size: 14px; color: var(--muted); }
+.picks button:hover, .picks button[aria-pressed="true"] { color: #FFF; }
 .skip { text-decoration: underline; text-underline-offset: 3px; }
-.log { padding: 20px clamp(14px, 3vw, 22px); display: flex; flex-direction: column; gap: 18px; font-family: var(--mono); font-size: 14px; line-height: 1.65; }
-.log p { margin: 0; color: var(--faint); }
-.entry { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.entry .cmd { color: var(--text); overflow-wrap: anywhere; }
-.entry .out { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.entry .claim { font-family: var(--sans); font-size: 16px; color: var(--strong); }
-.entry .src { color: var(--faint); overflow-wrap: anywhere; }
-.entry .src b { font-weight: 400; color: var(--body); }
-.entry .quote { color: var(--muted); overflow-wrap: anywhere; }
-.entry .none { color: var(--body); }
-.entry .why { font-family: var(--sans); font-size: 14px; color: var(--faint); }
-.ask-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
-.ask-row:focus-within { border-color: rgba(232,176,75,0.6); }
-.ask-row label { color: var(--accent); white-space: nowrap; }
-.ask-row label span { color: var(--text); }
-.ask-row input { flex: 1 1 200px; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-family: var(--mono); font-size: 14px; caret-color: var(--accent); }
-.ask-row input:focus { outline: none; }
-.ask-run { min-height: 44px; padding: 0 4px; font-family: var(--mono); font-size: 14px; color: var(--accent) !important; }
 
 /* Why */
 .q { margin: 0 0 14px; font-family: var(--mono); font-size: 13px; color: var(--faint); }
@@ -121,6 +107,8 @@ section.block { padding-bottom: var(--gap); scroll-margin-top: 24px; }
 .diff .body { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .diff .who { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
 .diff .said { font-size: clamp(19px, 2.2vw, 24px); line-height: 1.35; }
+.diff .said.list { display: flex; flex-direction: column; gap: 4px; font-size: clamp(16px, 1.8vw, 19px); }
+.diff .said .held { color: var(--dim); text-decoration: line-through; }
 .diff .meta { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--faint); overflow-wrap: anywhere; }
 .diff.old .mark, .diff.old .who, .diff.old .word { color: var(--old); }
 .diff.old .said { color: var(--muted); }
@@ -129,21 +117,18 @@ section.block { padding-bottom: var(--gap); scroll-margin-top: 24px; }
 .diff.new .said { color: var(--strong); }
 .after-diff { padding-top: 14px; border-top: 1px solid var(--line); }
 
-/* How */
+/* How: each step shows its recorded run */
 ol.steps { margin: 8px 0 0; padding: 0; list-style: none; }
-ol.steps li { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); }
-ol.steps .n { flex: none; font-family: var(--mono); font-size: 13px; line-height: 1.75; color: var(--accent); }
-ol.steps .t { display: flex; flex-direction: column; gap: 4px; }
-ol.steps strong { font-size: 17px; font-weight: 600; color: var(--strong); }
-ol.steps span span { font-size: 15px; line-height: 1.55; color: var(--muted); }
-pre.code { margin: 0; padding: clamp(16px, 3vw, 24px); font-family: var(--mono); font-size: 13.5px; line-height: 1.75; color: var(--body); overflow-x: auto; }
-pre.code .k { color: var(--faint); }
-pre.code .s { color: var(--accent); }
-.pack { padding: 6px clamp(16px, 3vw, 24px) clamp(16px, 3vw, 22px); }
-.pack-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 20px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
-.pack-row span:first-child { font-size: 15px; line-height: 1.45; color: var(--text); }
-.pack-row span:last-child { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
-.pack-foot { margin: 14px 0 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--faint); }
+ol.steps li { border-top: 1px solid var(--line); }
+ol.steps li:last-child { border-bottom: 1px solid var(--line); }
+.step-btn { width: 100%; display: flex; gap: 16px; padding: 16px 0; text-align: left; }
+.step-btn .n { flex: none; font-family: var(--mono); font-size: 13px; line-height: 1.75; color: var(--dim); }
+.step-btn[aria-selected="true"] .n { color: var(--accent); }
+.step-btn .t { display: flex; flex-direction: column; gap: 4px; }
+.step-btn strong { font-size: 17px; font-weight: 600; color: var(--body); }
+.step-btn[aria-selected="true"] strong { color: var(--strong); }
+.step-btn .d { font-size: 15px; line-height: 1.55; color: var(--muted); }
+.note a { color: var(--body); border-bottom: 1px solid rgba(255,255,255,0.22); }
 
 /* Help */
 .help { padding: clamp(14px, 2.6vw, 22px) clamp(14px, 3vw, 22px); font-family: var(--mono); font-size: 14px; line-height: 1.6; }
@@ -154,7 +139,6 @@ pre.code .s { color: var(--accent); }
 .help dd { flex: 1 1 260px; min-width: 0; margin: 0; color: var(--body); }
 
 /* Install */
-.from-demo { margin: 0; font-size: 15px; line-height: 1.6; color: var(--body); }
 .guide { margin: 8px 0 0; font-size: 15px; line-height: 1.9; color: var(--muted); }
 .underline { color: var(--body); border-bottom: 1px solid rgba(255,255,255,0.22); padding-bottom: 2px; transition: color 160ms ease, border-color 160ms ease; }
 .underline:hover { border-color: currentColor; }
@@ -205,30 +189,23 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
   <p class="hero-lead">Your AI gets only what your team approved, every draft is checked against it, and each line names the document it came from.</p>
   <div class="actions">
     <a class="primary" href="#install">Get started</a>
-    <a class="prompt-link" id="try-link" href="#try"><span>$</span><span id="try-label" style="color: inherit">try the demo</span></a>
+    <button type="button" class="plain prompt-link" id="try-link" aria-expanded="false" aria-controls="try"><span>$</span><span id="try-label" style="color: inherit">see it run</span></button>
   </div>
-  <p class="note">Open source · on PyPI · for Python, the terminal and AI assistants</p>
+  <p class="note">Open source · on PyPI · for Python, the terminal and AI assistants · calls no model itself</p>
 </section>
 
-<section id="try" class="wrap" aria-label="Try it" aria-hidden="true">
+<section id="try" class="wrap" aria-label="Recorded runs" inert>
   <div class="split" style="padding-bottom: var(--gap)">
     <div class="side">
-      <h2>Ask a brand's memory.</h2>
-      <p class="lead">Trailhead is the made-up bike brand from Verilore's own tests. This memory holds its brand guide, specs and spring campaign.</p>
-      <div class="suggest" id="suggest"></div>
+      <h2>Ask it, or check a draft.</h2>
+      <p class="lead">Trailhead is a made-up bike brand: a guide, specs, two campaigns, a rejected headline, a draft and old notes.</p>
+      <p class="note">Recorded runs, not a live server. <a href="https://github.com/raunakdey-07/verilore/tree/main/examples/trailhead">Run them yourself</a>.</p>
+      <div class="picks" id="picks"></div>
       <a class="note skip" href="#install">Skip to install</a>
     </div>
     <div class="exhibit term">
-      <div class="term-bar"><span>trailhead · brand + campaigns/spring</span><span id="left" role="status" aria-live="polite" class="acc"></span></div>
-      <div class="log" id="log">
-        <p id="empty"></p>
-        <div class="ask-row" id="ask-row">
-          <label for="q">$ <span>verilore recall</span></label>
-          <input id="q" type="text" autocomplete="off" placeholder="&quot;When does the spring campaign launch?&quot;">
-          <button type="button" class="plain ask-run" id="run">run ↵</button>
-        </div>
-        <p id="farewell" hidden>› that was the last question. taking you to the install<span class="acc">…</span></p>
-      </div>
+      <div class="term-bar">examples/trailhead</div>
+      <div id="try-out"></div>
     </div>
   </div>
 </section>
@@ -237,16 +214,16 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
   <div class="split">
     <div class="side">
       <h2 id="why-title">Search hands your AI whatever matches.</h2>
-      <p class="lead">It can't tell an outdated rule or a rejected draft from the current decision.</p>
+      <p class="lead">It can't tell a draft or old notes from the current decision.</p>
     </div>
     <div class="exhibit">
       <p class="q">q: "How should our copy sound?"</p>
       <div class="diff old">
         <span class="mark" aria-hidden="true">−</span>
         <div class="body">
-          <span class="who">Ordinary search</span>
-          <span class="said">"Our voice is warm, plain and <span class="word">confident</span>."</span>
-          <span class="meta">brand/guide-old.md · score 0.91 · no status, no version</span>
+          <span class="who">grep "Our voice"</span>
+          <span class="said list"><span>Our voice is warm, plain and direct.</span><span class="held">Our voice is bold, cheeky and loud.</span><span class="held">Our voice is warm, plain and confident.</span></span>
+          <span class="meta">brand/guide.md · brand/drafts/voice-refresh.md · notes/kickoff-2026.md</span>
         </div>
       </div>
       <div class="diff new">
@@ -254,10 +231,10 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
         <div class="body">
           <span class="who">Verilore</span>
           <span class="said">"Our voice is warm, plain and <span class="word">direct</span>."</span>
-          <span class="meta">brand/guide.md · approved · replaces v1</span>
+          <span class="meta">brand/guide.md · approved</span>
         </div>
       </div>
-      <p class="note after-diff">The team changed "confident" to "direct". Only Verilore knows.</p>
+      <p class="note after-diff">The draft waits for approval. The old notes say no status beside files that do, so they wait too.</p>
     </div>
   </div>
 </section>
@@ -265,32 +242,33 @@ footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
 <section id="how" class="wrap block" aria-labelledby="how-title">
   <div class="split">
     <div class="side">
-      <h2 id="how-title">From a brand kit to a prompt you can trust.</h2>
-      <ol class="steps">
-        <li><span class="n">01</span><span class="t"><strong>Bring the kit</strong><span>Markdown, Word, PowerPoint or PDF, as your team already writes it.</span></span></li>
-        <li><span class="n">02</span><span class="t"><strong>Review it</strong><span>Mark documents draft, approved or rejected. Corrections keep the old version.</span></span></li>
-        <li><span class="n">03</span><span class="t"><strong>Ask for a brief</strong><span>The model gets the approved lines the task needs, each with its source.</span></span></li>
-        <li><span class="n">04</span><span class="t"><strong>Check the draft</strong><span>Banned words, wrong prices and dates, each with the rule it breaks.</span></span></li>
+      <h2 id="how-title">From your team's folder to a checked draft.</h2>
+      <ol class="steps" role="tablist" aria-label="Steps">
+        <li><button type="button" class="plain step-btn" role="tab" data-run="ingest" aria-selected="false" aria-controls="how-out"><span class="n">01</span><span class="t"><strong>Bring the folder</strong><span class="d">Markdown, Word, PowerPoint or PDF, as your team already writes it.</span></span></button></li>
+        <li><button type="button" class="plain step-btn" role="tab" data-run="review" aria-selected="false" aria-controls="how-out"><span class="n">02</span><span class="t"><strong>Review it</strong><span class="d">A person settles drafts and lines that disagree.</span></span></button></li>
+        <li><button type="button" class="plain step-btn" role="tab" data-run="brief" aria-selected="true" aria-controls="how-out"><span class="n">03</span><span class="t"><strong>Ask for a brief</strong><span class="d">The approved lines a task needs, sized for a prompt.</span></span></button></li>
+        <li><button type="button" class="plain step-btn" role="tab" data-run="check" aria-selected="false" aria-controls="how-out"><span class="n">04</span><span class="t"><strong>Check the draft</strong><span class="d">Each problem with the rule it breaks, and what a person must judge.</span></span></button></li>
       </ol>
+      <p class="note" id="measured">On a harder kit, a 500-token brief carried 44 of 47 rules and leaked nothing; the kit cut to that size carried 22 and leaked 32 times (measured without a model, <a href="https://github.com/raunakdey-07/verilore/issues/207">#207</a> · <a href="https://github.com/raunakdey-07/verilore/blob/main/benchmarks/governed_context/hard/measures.md">numbers</a>).</p>
     </div>
-    <div class="exhibit term">
-      <div class="term-bar">step 03 · app.py</div>
-<pre class="code"><span class="k">from</span> verilore <span class="k">import</span> Verilore
+    <div class="exhibit term" role="tabpanel" id="how-out" aria-live="polite"><div class="term-bar">examples/trailhead</div><pre class="run" id="how-run">$ verilore brief --corpus trailhead --path-prefix brand --path-prefix campaigns/spring --task "Instagram post for the spring launch" --max-tokens 500
+Approved memory for "trailhead", scope brand + campaigns/spring.
+Every line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.
 
-vl = Verilore(<span class="s">"trailhead"</span>, base_url=URL, api_key=KEY)
-pack = vl.memory.pack(
-    query=<span class="s">""</span>,
-    path_prefix=[<span class="s">"brand"</span>, <span class="s">"campaigns/spring"</span>],
-)</pre>
-      <div class="term-bar top-rule">pack.current_memories</div>
-      <div class="pack">
-        <div class="pack-row"><span>Our voice is warm, plain and direct.</span><span>brand/memory · corrects v1 of brand/guide.md</span></div>
-        <div class="pack-row"><span>Never use the word "curated" in copy.</span><span>brand/guide.md</span></div>
-        <div class="pack-row"><span>The Trailhead 2 bike weighs 9.8 kilograms.</span><span>brand/specs.md</span></div>
-        <div class="pack-row"><span>The spring launch date is 14 March 2027.</span><span>campaigns/spring/brief.md</span></div>
-        <p class="pack-foot">held back: 1 rejected headline · conflicts: none</p>
-      </div>
-    </div>
+brand/guide.md
+- Never use the word "curated" in copy.
+- Never promise free shipping in ads.
+- Our voice is warm, plain and direct.
+
+brand/specs.md
+- The Trailhead 2 bike weighs 9.8 kilograms.
+- The Trailhead 2 frame has a five-year warranty.
+
+campaigns/spring/brief.md
+- The spring launch date is 14 March 2027.
+- The spring offer is a free helmet with every Trailhead 2.
+
+Not included: 2 draft, 2 rejected.</pre></div>
   </div>
 </section>
 
@@ -299,19 +277,19 @@ pack = vl.memory.pack(
     <div class="side">
       <h2 id="get-title">What your AI sees is what you approved.</h2>
       <p class="lead">And you can prove it later.</p>
-      <p class="note">Fast enough for every request: about a tenth of a second across 200 documents.</p>
+      <p class="note">In Python, <span class="mono">write(task, your_model)</span> runs brief, draft, check and one revision. Over MCP, an agent's writes wait as drafts until a person approves them.</p>
     </div>
     <div class="exhibit term">
       <div class="term-bar"><span><span class="acc">$</span> verilore --help</span></div>
-      <div class="help">
+      <div class="help" id="help">
         <p>usage: verilore &lt;command&gt; [options]</p>
         <dl>
-          <div><dt>brief</dt><dd>the approved lines a task needs, sized for a prompt</dd></div>
-          <div><dt>check</dt><dd>a draft against them: banned words, wrong numbers</dd></div>
-          <div><dt>review</dt><dd>lines that disagree, for a person to settle</dd></div>
-          <div><dt>recall</dt><dd>the answer, its source, and when it was true</dd></div>
-          <div><dt>history</dt><dd>every earlier version, oldest first</dd></div>
-          <div><dt>verify</dt><dd>check a receipt offline: no database, no network</dd></div>
+          <div><dt>brief</dt><dd>Print approved memory as plain lines, ready to paste into a model's prompt.</dd></div>
+          <div><dt>check</dt><dd>Check a draft against approved memory: banned words, wrong and made-up numbers.</dd></div>
+          <div><dt>review</dt><dd>List what a person should settle before memory reaches a model.</dd></div>
+          <div><dt>recall</dt><dd>Answer a question from memory, with its source and the time it was true.</dd></div>
+          <div><dt>history</dt><dd>Show what this memory said before, and what replaced it.</dd></div>
+          <div><dt>verify</dt><dd>Verify a Memory Receipt offline: no server, database, model or network.</dd></div>
         </dl>
       </div>
     </div>
@@ -322,7 +300,6 @@ pack = vl.memory.pack(
   <div class="split">
     <div class="side">
       <h2 id="install-title">Try it on your own documents.</h2>
-      <p class="from-demo" id="from-demo" hidden>That was the demo. This is the real thing.</p>
       <p class="lead">Three commands. It starts its own database.</p>
       <p class="note" id="os-note">Needs Podman or Docker.</p>
       <p class="guide">Building it into an app?<br><a class="underline" href="https://github.com/raunakdey-07/verilore/blob/main/docs/integration/guide.md">Read the developer guide →</a></p>
@@ -356,59 +333,49 @@ pack = vl.memory.pack(
   </div>
 </footer>
 
+<script type="application/json" id="recorded">
+{
+ "ingest": {
+  "cmd": "verilore ingest-repo examples/trailhead --corpus trailhead",
+  "out": "[OK] sync: +7 ~0 =0 -0 !0, 8 chunks, 15 claims\n  1 file(s) declare no status while others say `status: approved`, so they are held as drafts: notes/kickoff-2026.md. Add `status: approved` to serve one, or `status: archived` to keep it for the record.",
+  "exit": 0
+ },
+ "review": {
+  "cmd": "verilore review --corpus trailhead",
+  "out": "Review for \"trailhead\": 4 to look at.\n\nDrafts waiting for approval (4): not served.\n  - Our voice is bold, cheeky and loud.  [brand/drafts/voice-refresh.md, d2b7231dbc7d]\n  - Always open with a pun.  [brand/drafts/voice-refresh.md, b00d22f1239e]\n  - Our voice is warm, plain and confident.  [notes/kickoff-2026.md, dd3fb0ec7e44]\n  - The Trailhead 2 bike weighs 10.4 kilograms.  [notes/kickoff-2026.md, bae2056194ea]",
+  "exit": 0
+ },
+ "brief": {
+  "cmd": "verilore brief --corpus trailhead --path-prefix brand --path-prefix campaigns/spring --task \"Instagram post for the spring launch\" --max-tokens 500",
+  "out": "Approved memory for \"trailhead\", scope brand + campaigns/spring.\nEvery line below is current and approved. Drafts, rejected and replaced statements are not included. Do not contradict these lines.\n\nbrand/guide.md\n- Never use the word \"curated\" in copy.\n- Never promise free shipping in ads.\n- Our voice is warm, plain and direct.\n\nbrand/specs.md\n- The Trailhead 2 bike weighs 9.8 kilograms.\n- The Trailhead 2 frame has a five-year warranty.\n\ncampaigns/spring/brief.md\n- The spring launch date is 14 March 2027.\n- The spring offer is a free helmet with every Trailhead 2.\n\nNot included: 2 draft, 2 rejected.",
+  "exit": 0
+ },
+ "check": {
+  "cmd": "echo \"Meet the curated Trailhead 2: just 10.4 kg, launching 20 March 2027.\" | verilore check --corpus trailhead --path-prefix brand --path-prefix campaigns/spring -",
+  "out": "3 problem(s) against 7 approved lines:\n- The draft uses \"curated\", which an approved rule bans.\n    rule: Never use the word \"curated\" in copy.  [brand/guide.md, 2c436fd6e06a]\n- The draft says 10.4 kg where approved memory says 9.8 kilograms (weight).\n    rule: The Trailhead 2 bike weighs 9.8 kilograms.  [brand/specs.md, 7fee0488cbc2]\n- The draft states the date 20 March 2027, and no approved line does.\n    rule: none; state it only if a person approves it\nNeeds a reviewer: check cannot test this 1 rule exactly.\n- Never promise free shipping in ads.  [brand/guide.md]",
+  "exit": 1
+ },
+ "recall-voice": {
+  "cmd": "verilore recall --corpus trailhead \"What does our brand voice sound like?\"",
+  "out": "Our voice is warm, plain and direct.\n   source: brand/guide.md @ 0bea2d9e1ba5 (claim 82ae229a0d42)\n   time:   true as of 2026-11-21 09:30 UTC\n\nAsk for the basis with: verilore explain \"<question>\"",
+  "exit": 0
+ },
+ "recall-ceo": {
+  "cmd": "verilore recall --corpus trailhead \"Who is our CEO?\"",
+  "out": "No memory matched that question.\n  NO_RELEVANT_MEMORY\n\nA document becomes memory from its list items, `Key: Value` lines,\ntable rows and the sentences of its paragraphs, or from an authored\n`claims:` block. A document marked `prose: off` with none of those\ncontributes nothing here. See docs/authoring.md.\n\nNothing was invented: Verilore records only what was remembered.",
+  "exit": 0
+ }
+}
+</script>
 <script>
 (function () {
   'use strict';
 
-  // ---------------------------------------------------------------- demo ----
-  // A recorded demo, not a live server: every answer below is what Verilore
-  // returns for the Trailhead documents in
-  // tests/test_integration_brand_kit_scenario.py. Questions are matched by
-  // keyword, and a question none of them answers gets Verilore's real
-  // behaviour: it says so instead of guessing.
-  var LIMIT = 3;
-  var SUGGESTIONS = ['What does our brand voice sound like?', 'When does the spring campaign launch?', 'What is the spring headline?'];
-
-  function lookup(question) {
-    var text = question.toLowerCase();
-    function hit(claim, source) { return { asked: question, claim: claim, quote: '- ' + claim, source: source }; }
-    function miss(none, why) { return { asked: question, none: none, why: why }; }
-    if (/(headline|slogan|tagline)/.test(text)) {
-      return miss('no approved answer · held back: 1 rejected headline', 'The team rejected "Ride Into Spring" and hasn’t approved another headline, so it says so instead of handing over the rejected one.');
-    }
-    if (/(launch|release|when)/.test(text) && !/(autumn|fall)/.test(text)) {
-      return hit('The spring launch date is 14 March 2027.', 'campaigns/spring/brief.md · approved');
-    }
-    if (/(autumn|fall)/.test(text)) {
-      return miss('nothing on that in this scope', 'This app only asked for the brand and the spring campaign, so the autumn campaign stays out.');
-    }
-    if (/(voice|tone|sound|style)/.test(text)) {
-      return hit('Our voice is warm, plain and direct.', 'brand/memory · corrects v1 of brand/guide.md');
-    }
-    if (/(curated|word|avoid|never|banned)/.test(text)) {
-      return hit('Never use the word "curated" in copy.', 'brand/guide.md · approved');
-    }
-    if (/(weigh|weight|kg|kilo|bike|trailhead 2)/.test(text)) {
-      return hit('The Trailhead 2 bike weighs 9.8 kilograms.', 'brand/specs.md');
-    }
-    return miss('nothing on that', 'None of these documents answer that, so it says so instead of guessing.');
-  }
-
-  // Questions used are remembered for this tab only, and the page works the
-  // same when storage is unavailable.
-  var store = {
-    get: function (k, d) { try { var v = window.sessionStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set: function (k, v) { try { window.sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-  };
-  var used = store.get('verilore.demo.used', 0);
-  var picked = store.get('verilore.demo.picked', []);
-
+  // Real output, recorded by scripts/site_record.py from the commands it
+  // names on examples/trailhead. tests/test_site.py re-runs them and fails
+  // when this page shows anything they no longer print.
+  var RUNS = JSON.parse(document.getElementById('recorded').textContent);
   var $ = function (id) { return document.getElementById(id); };
-  var trySection = $('try');
-  var log = $('log');
-  var askRow = $('ask-row');
-  var input = $('q');
-
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -416,96 +383,64 @@ pack = vl.memory.pack(
     return n;
   }
 
-  function scrollToId(id, delay) {
-    setTimeout(function () {
-      var target = $(id);
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, delay || 160);
-  }
-
-  function spent() { return used >= LIMIT; }
-
-  function renderMeta() {
-    var left = Math.max(0, LIMIT - used);
-    $('left').textContent = left === 1 ? '1 question left' : left + ' questions left';
-    $('left').style.color = spent() ? '#52525B' : '';
-    $('try-label').textContent = spent() ? 'demo used · install instead' : 'try the demo';
-    $('try-link').setAttribute('href', spent() ? '#install' : '#try');
-    var words = ['One', 'Two', 'Three', 'Four', 'Five'];
-    $('empty').textContent = 'Type a question, or pick one. ' + (words[LIMIT - 1] || LIMIT) + (LIMIT === 1 ? ' question' : ' questions') + ' per visit.';
-    var box = $('suggest');
-    box.textContent = '';
-    if (!spent()) {
-      SUGGESTIONS.filter(function (s) { return picked.indexOf(s) < 0; }).forEach(function (label) {
-        var b = el('button', 'plain');
-        b.type = 'button';
-        b.innerHTML = '<span class="acc">›</span> ';
-        b.appendChild(document.createTextNode(label));
-        b.addEventListener('click', function () { ask(label, true); });
-        box.appendChild(b);
-      });
-    }
-    askRow.hidden = spent();
-  }
-
-  function renderEntry(e) {
-    var wrap = el('div', 'entry');
-    var line = el('div');
+  // One run: the command, then its output exactly as printed.
+  function fill(pre, run) {
+    pre.textContent = '';
+    var line = el('span', 'cmd');
     line.appendChild(el('span', 'acc', '$ '));
-    line.appendChild(el('span', 'cmd', 'verilore recall "' + e.asked + '"'));
-    wrap.appendChild(line);
-    var out = el('div', 'out');
-    if (e.claim) {
-      out.appendChild(el('span', 'claim', e.claim));
-      var src = el('span', 'src', '↳ quoted from ');
-      src.appendChild(el('b', '', e.source));
-      out.appendChild(src);
-      out.appendChild(el('span', 'quote', '  "' + e.quote + '"'));
-    } else {
-      out.appendChild(el('span', 'none', e.none));
-      out.appendChild(el('span', 'why', e.why));
-    }
-    wrap.appendChild(out);
-    log.insertBefore(wrap, askRow);
-    $('empty').hidden = true;
+    line.appendChild(document.createTextNode(run.cmd));
+    pre.appendChild(line);
+    run.out.split('\n').forEach(function (text) {
+      pre.appendChild(document.createTextNode('\n'));
+      var cls = /^ {3}(source|time): |^Ask for the basis|^clear answer/.test(text) ? 'meta'
+        : /^- The draft |^\d+ problem\(s\)/.test(text) ? 'bad' : '';
+      pre.appendChild(cls ? el('span', cls, text) : document.createTextNode(text));
+    });
+    return pre;
   }
 
-  function ask(question, fromSuggestion) {
-    question = (question || '').trim();
-    if (!question || spent()) return;
-    used += 1;
-    if (fromSuggestion) picked = picked.concat([question]);
-    store.set('verilore.demo.used', used);
-    store.set('verilore.demo.picked', picked);
-    renderEntry(lookup(question));
-    input.value = '';
-    renderMeta();
-    if (spent()) {
-      // The last answer stays readable for a moment, then the demo folds away
-      // the way it opened and the page moves on to the install.
-      $('farewell').hidden = false;
-      setTimeout(function () {
-        trySection.classList.remove('open');
-        trySection.setAttribute('aria-hidden', 'true');
-        $('from-demo').hidden = false;
-        scrollToId('install', 950);
-      }, 1800);
-    } else {
-      input.focus();
-    }
+  // ---------------------------------------------------- recorded runs ----
+  var PICKS = [
+    ['recall-voice', 'What does our brand voice sound like?'],
+    ['recall-ceo', 'Who is our CEO?'],
+    ['check', 'Check a draft with three mistakes']
+  ];
+  var trySection = $('try');
+  var tryLink = $('try-link');
+  function pick(key) {
+    document.querySelectorAll('#picks button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.run === key)); });
+    var box = $('try-out');
+    box.textContent = '';
+    box.appendChild(fill(el('pre', 'run'), RUNS[key]));
   }
+  PICKS.forEach(function (p) {
+    var b = el('button', 'plain');
+    b.type = 'button';
+    b.dataset.run = p[0];
+    b.appendChild(el('span', 'acc', '› '));
+    b.appendChild(document.createTextNode(p[1]));
+    b.addEventListener('click', function () { pick(p[0]); });
+    $('picks').appendChild(b);
+  });
+  pick(PICKS[0][0]);
 
-  $('try-link').addEventListener('click', function (ev) {
-    ev.preventDefault();
-    if (spent()) { scrollToId('install'); return; }
-    trySection.classList.add('open');
-    trySection.setAttribute('aria-hidden', 'false');
-    scrollToId('try');
+  function setOpen(open) {
+    trySection.classList.toggle('open', open);
+    trySection.inert = !open;
+    tryLink.setAttribute('aria-expanded', String(open));
+    $('try-label').textContent = open ? 'hide the runs' : 'see it run';
+    if (open) trySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  tryLink.addEventListener('click', function () { setOpen(!trySection.classList.contains('open')); });
+
+  // ------------------------------------------------------------- steps ----
+  document.querySelectorAll('.step-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.step-btn').forEach(function (o) { o.setAttribute('aria-selected', String(o === b)); });
+      fill($('how-run'), RUNS[b.dataset.run]);
+    });
   });
-  $('run').addEventListener('click', function () { ask(input.value, false); });
-  input.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Enter') { ev.preventDefault(); ask(input.value, false); }
-  });
+  fill($('how-run'), RUNS.brief);
 
   // ------------------------------------------------------------- install ----
   // The commands are the same everywhere; the system only decides the shell
@@ -531,6 +466,27 @@ pack = vl.memory.pack(
     ];
   }
 
+  // The clipboard API is refused in some contexts (a file opened locally, an
+  // embedded preview); the older copy command still works there.
+  function copyText(text, done) {
+    function fallback() {
+      try {
+        var area = el('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        var ok = document.execCommand('copy');
+        area.remove();
+        if (ok) done();
+      } catch (e) {}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
+  }
+
   function renderInstall() {
     document.querySelectorAll('#installers button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.installer === state.installer)); });
     $('shell').textContent = { win: 'Windows · inside WSL 2 · bash', mac: 'macOS · zsh', linux: 'Linux · bash' }[state.os];
@@ -545,15 +501,11 @@ pack = vl.memory.pack(
       copy.type = 'button';
       copy.setAttribute('aria-label', 'Copy: ' + st.title);
       copy.addEventListener('click', function () {
-        var text = st.lines.join('\n');
-        var done = function () {
+        copyText(st.lines.join('\n'), function () {
           copy.textContent = 'copied';
           copy.classList.add('done');
           setTimeout(function () { copy.textContent = 'copy'; copy.classList.remove('done'); }, 1600);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done, function () {});
-        }
+        });
       });
       head.appendChild(copy);
       row.appendChild(head);
@@ -571,8 +523,6 @@ pack = vl.memory.pack(
   document.querySelectorAll('#installers button').forEach(function (b) {
     b.addEventListener('click', function () { state.installer = b.dataset.installer; renderInstall(); });
   });
-
-  renderMeta();
   renderInstall();
 })();
 </script>

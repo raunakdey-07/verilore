@@ -17,6 +17,17 @@ through [`docs/release-map.md`](docs/release-map.md).
   from PyPI. Running the check again for a tag skips the upload instead of
   failing on it.
 
+### Changed
+
+- **The landing page shows only what the tool prints.** Every terminal run on
+  it is recorded from the command it names on the new `examples/trailhead`
+  kit by `scripts/site_record.py`, and `tests/test_site.py` re-runs them, checks
+  every command, flag and `--help` line against the CLI, and the benchmark
+  sentence against `measures.json`. Gone: the `pack()` exhibit, an abstention
+  `recall` did not print, and a speed measured for `pack` in v0.10. The closed
+  demo is out of the keyboard's reach, has no question limit, copies where the
+  clipboard API is refused, and its faint text meets WCAG AA.
+
 ## [v0.12.1] - 2026-11-20
 
 The fixes from Team 052's evaluation. `check` no longer calls a correct price

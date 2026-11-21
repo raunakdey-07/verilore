@@ -7,6 +7,20 @@ Quick Start) and `DATABASE_URL` set in your environment.
 
 ---
 
+## Trailhead: the landing page's kit
+
+`examples/trailhead` is a made-up bike brand: an approved guide, specs and two
+campaign briefs, a rejected headline, a draft and old notes with no status.
+Every run on [the landing page](https://verilore.vercel.app/) is one of these
+commands on it, recorded by `scripts/site_record.py`:
+
+```bash
+verilore ingest-repo examples/trailhead --corpus trailhead
+verilore review --corpus trailhead
+verilore brief --corpus trailhead --path-prefix brand --path-prefix campaigns/spring --task "Instagram post for the spring launch" --max-tokens 500
+verilore recall --corpus trailhead "What does our brand voice sound like?"
+```
+
 ## Example A — Documentation memory
 
 A small documentation tree, ingested and queried.
