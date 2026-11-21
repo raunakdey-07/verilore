@@ -206,3 +206,20 @@ def test_every_terminal_output_is_what_the_command_prints():
         sys.path.remove(str(ROOT / "scripts"))
     problems = site_record.differences(site_record.shown(), site_record.record())
     assert not problems, "\n\n".join(problems)
+
+
+def test_a_hosts_runtime_notes_are_not_the_commands_output():
+    """ONNX Runtime prints a device warning on Hyper-V hosts (GitHub's runners, WSL)."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import site_record
+    finally:
+        sys.path.remove(str(ROOT / "scripts"))
+    note = (
+        "\x1b[0;93m2026-11-21 09:56:38.424775748 [W:onnxruntime:Default, device_discovery.cc:95 "
+        'GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/x" because filename "x" '
+        "did not match expected pattern\x1b[m"
+    )
+    error = "2026-11-21 09:56:38.4 [E:onnxruntime:Default, inference_session.cc:1 Load] failed"
+    out = f"[OK] sync: +7\n{note}\n  1 file(s) declare no status\n{error}"
+    assert site_record.clean(out) == f"[OK] sync: +7\n  1 file(s) declare no status\n{error}"

@@ -106,9 +106,27 @@ def record() -> dict[str, dict[str, str]]:
             argv, input=stdin, capture_output=True, text=True, env=env, cwd=ROOT, timeout=600
         )
         text = (done.stdout + done.stderr).replace(corpus, "trailhead")
-        lines = [line.rstrip() for line in text.splitlines() if not line.startswith("retrieval: ")]
-        runs[key] = {"cmd": shown, "out": "\n".join(lines).strip("\n"), "exit": done.returncode}
+        runs[key] = {"cmd": shown, "out": clean(text), "exit": done.returncode}
     return runs
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+#: A warning or note ONNX Runtime writes to stderr on some hosts and not others:
+#: on a Hyper-V machine (a GitHub runner, WSL) every command prints
+#: "[W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping
+#: pci_bus_id ...". It is the host, not Verilore's output. Its errors ([E:...])
+#: are kept: a run that hit one is not output to show.
+_RUNTIME_NOTE = re.compile(r"^\S+ \S+ \[[WIV]:onnxruntime:")
+
+
+def clean(text: str) -> str:
+    """A command's output as the page shows it: no colour codes, no host notes."""
+    lines = [
+        line.rstrip()
+        for line in _ANSI.sub("", text).splitlines()
+        if not line.startswith("retrieval: ") and not _RUNTIME_NOTE.match(line)
+    ]
+    return "\n".join(lines).strip("\n")
 
 
 def normalise(text: str) -> str:
