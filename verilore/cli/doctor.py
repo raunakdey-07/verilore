@@ -126,7 +126,11 @@ def check_credentials() -> tuple[bool, str, str]:
             "fix the user, password or database name in DATABASE_URL, or record the right "
             "one with `verilore init --database-url postgresql://USER:PASS@HOST:PORT/DB`",
         )
-    return True, "credentials accepted", ""
+    from verilore.api.services.db_url import async_url_notes
+
+    # What the async driver connects without (Neon's channel_binding=require).
+    notes = async_url_notes(postgres.database_url())
+    return True, "; ".join(["credentials accepted", *notes]), ""
 
 
 def check_pgvector() -> tuple[bool, str, str]:
@@ -134,13 +138,13 @@ def check_pgvector() -> tuple[bool, str, str]:
     import asyncio
 
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    from verilore.api.services.db import ASYNC_DATABASE_URL
+    from verilore.api.services.db import DATABASE_URL
+    from verilore.api.services.db_url import async_engine_for
 
     async def probe():
-        engine = create_async_engine(ASYNC_DATABASE_URL, poolclass=NullPool)
+        engine = async_engine_for(DATABASE_URL, poolclass=NullPool)
         try:
             async with engine.connect() as conn:
                 row = (
@@ -166,13 +170,13 @@ def check_schema_at_head() -> tuple[bool, str, str]:
     import asyncio
 
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    from verilore.api.services.db import ASYNC_DATABASE_URL
+    from verilore.api.services.db import DATABASE_URL
+    from verilore.api.services.db_url import async_engine_for
 
     async def current():
-        engine = create_async_engine(ASYNC_DATABASE_URL, poolclass=NullPool)
+        engine = async_engine_for(DATABASE_URL, poolclass=NullPool)
         try:
             async with engine.connect() as conn:
                 row = (await conn.execute(text("SELECT version_num FROM alembic_version"))).first()

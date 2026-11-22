@@ -8,6 +8,19 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ### Fixed
 
+- **A hosted database's URL works.** Neon's URL ends
+  `?sslmode=require&channel_binding=require`, and every command but `init`
+  failed with `connect() got an unexpected keyword argument 'sslmode'`: the
+  async driver was handed each libpq key as a keyword. libpq's keys now go to
+  asyncpg's own reader for them, so `sslrootcert` is still checked and
+  `verify-full` still checks the host name; `connect_timeout`,
+  `application_name`, `options=-c ...` and `sslrootcert=system` are honoured.
+  Against libpq on 27 URLs it connects, and refuses, where libpq does, except
+  that asyncpg cannot do channel binding; `verilore doctor` names that. A
+  pooler in transaction mode without prepared-statement support (older
+  PgBouncer) no longer fails with "prepared statement already exists", and
+  statements are prepared unnamed, so none pile up on its server connections.
+  Every engine is opened through `db_url.async_engine_for`.
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the

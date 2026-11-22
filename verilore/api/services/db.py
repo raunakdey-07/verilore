@@ -42,13 +42,17 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from verilore.api.services.authz import LOCAL_PRINCIPAL, Principal
-from verilore.api.services.db_url import async_url, sync_url, with_driver  # noqa: F401
+from verilore.api.services.db_url import (  # noqa: F401
+    async_engine_for,
+    async_url,
+    sync_url,
+    with_driver,
+)
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -65,11 +69,7 @@ ASYNC_DATABASE_URL = async_url(DATABASE_URL)
 # A repository sync is the one bulk caller, and it opens its own connection
 # for the length of the run: `sync_session_scope` below. That connection is
 # opened and closed inside one operation, so it never crosses a loop either.
-async_engine: AsyncEngine = create_async_engine(
-    ASYNC_DATABASE_URL,
-    echo=False,
-    poolclass=NullPool,
-)
+async_engine: AsyncEngine = async_engine_for(DATABASE_URL, echo=False, poolclass=NullPool)
 
 AsyncSessionLocal = async_sessionmaker(
     async_engine,
@@ -243,8 +243,7 @@ async def admin_session_scope(
     `NullPool` like the application engine, so a session is never shared with a
     request that arrived under a different tenant scope.
     """
-    resolved = async_url(url or DATABASE_URL)
-    engine = create_async_engine(resolved, echo=False, poolclass=NullPool)
+    engine = async_engine_for(url or DATABASE_URL, echo=False, poolclass=NullPool)
     try:
         async with async_sessionmaker(
             engine, class_=AsyncSession, expire_on_commit=False

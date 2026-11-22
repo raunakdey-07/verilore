@@ -39,13 +39,14 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from sqlalchemy import event, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import NullPool
 
 from verilore.api.models.memory import MemoryRequest, MemoryResponse, State
 from verilore.api.services import memory
 from verilore.api.services.confidence import summarize_samples
 from verilore.api.services.corpora import corpus_id_for_name
+from verilore.api.services.db_url import async_engine_for, with_driver
 from verilore.api.services.embedder import DEFAULT_MODEL, Embedder
 from verilore.api.services.ingestion import IngestionService
 from verilore.api.services.memory_public import execute_in_session
@@ -481,10 +482,10 @@ async def memory_benchmark_workload(file=DEFAULT_FILE, *, embeddings="fixture", 
     # caller that relied on the fallback is `examples/memory_evaluation_demo.py`,
     # which now passes it through.
     url = database_url or os.getenv("DATABASE_URL")
-    if not url or make_url(url).get_backend_name() != "postgresql":
+    if not url or make_url(with_driver(url, "asyncpg")).get_backend_name() != "postgresql":
         raise ValueError("A PostgreSQL DATABASE_URL is required")
-    engine = create_async_engine(
-        make_url(url).set(drivername="postgresql+asyncpg"),
+    engine = async_engine_for(
+        url,
         poolclass=NullPool,
         isolation_level="READ COMMITTED",
         connect_args={"server_settings": {"statement_timeout": "120000"}},
