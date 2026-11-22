@@ -79,6 +79,11 @@ def _global_options(
     from verilore.cli.config import apply_to_environ
 
     apply_to_environ()
+    # A Hyper-V host's device note, written by `import onnxruntime`, is not
+    # this command's output (ORT-1). The command line alone may drop it.
+    from verilore.api.services import ort_import
+
+    ort_import.use(ort_import.load_dropping_device_notes)
     # No subcommand means the person is looking for the first one, not making a
     # mistake. `ctx.invoked_subcommand` is set before this callback runs, so it
     # is None exactly when nothing was named.
