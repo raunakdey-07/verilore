@@ -3240,15 +3240,14 @@ def _serve_corpus_list() -> list[str]:
     import asyncio
 
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    from verilore.api.services.db_url import async_url
+    from verilore.api.services.db_url import async_engine_for
 
-    url = async_url(os.environ.get("DATABASE_URL", ""))
+    url = os.environ.get("DATABASE_URL", "")
 
     async def read() -> list[str]:
-        engine = create_async_engine(url, poolclass=NullPool, connect_args={"timeout": 5})
+        engine = async_engine_for(url, poolclass=NullPool, connect_args={"timeout": 5})
         try:
             async with engine.connect() as conn:
                 rows = (

@@ -461,6 +461,29 @@ in `~/.verilore/config.toml` (mode 0600). Every later `verilore` command and
 shell. The server needs the pgvector extension installed, because the first
 migration creates the `vector` extension.
 
+### A hosted database (Neon, Supabase, RDS)
+
+Paste the URL your provider gives, query string and all:
+
+```bash
+verilore init --database-url "postgresql://user:password@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+```
+
+Migrations read it with libpq, which honours every key. Everything else reads
+it with asyncpg, which takes libpq's TLS keys (`sslmode`, `sslrootcert`,
+`sslcert`, `sslkey`) with libpq's meaning, `connect_timeout`,
+`application_name` and `options=-c name=value`. Two differences:
+
+- **`channel_binding`.** asyncpg cannot bind the login to the TLS channel, so
+  it connects without it, and `verilore doctor` says so. To have the server
+  checked instead, use `sslmode=verify-full`: with `sslrootcert=system` where
+  the certificate is signed by an authority your system trusts (Neon's is),
+  or with `sslrootcert=/path/to/bundle.pem` where it is not (RDS's).
+- **Connection poolers.** Statements are prepared unnamed, so PgBouncer in
+  transaction mode works whether or not it tracks prepared statements
+  (`max_prepared_statements`), and leaves none behind; Neon's `-pooler` host
+  is one.
+
 A server deployment is configured differently: it reads only environment
 variables and never this file, and it requires `VERILORE_RUNTIME_PASSWORD`,
 `VERILORE_CURSOR_SECRET` and `VERILORE_INGEST_ROOTS`, which local mode does not
