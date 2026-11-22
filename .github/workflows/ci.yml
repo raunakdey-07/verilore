@@ -131,6 +131,45 @@ jobs:
       - name: The frozen evidence has not moved
         run: python scripts/check_frozen.py
 
+      # The test database speaks TLS, as a hosted one does (DB-1).
+      # tests/test_hosted_database_urls.py connects with every `sslmode` through
+      # libpq and through asyncpg and compares the outcomes; on a server without
+      # TLS those cases skip, and the skip gate below fails the build, rightly.
+      # A service container takes no command line, so TLS is turned on through
+      # SQL: the certificate is made here, written into the data directory, the
+      # key made private by the server's own user (PostgreSQL refuses a key
+      # others can read), and `ssl` is a setting a reload applies.
+      - name: The test database speaks TLS
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=localhost" \
+            -keyout server.key -out server.crt 2>/dev/null
+          data=$(psql "$DATABASE_URL" -tAc "SHOW data_directory")
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
+            -v crt="$(cat server.crt)" -v key="$(cat server.key)" \
+            -v crt_file="$data/server.crt" -v key_file="$data/server.key" \
+            -v private="chmod 600 $data/server.key" <<'SQL'
+          COPY (SELECT unnest(string_to_array(:'crt', E'\n'))) TO :'crt_file';
+          COPY (SELECT unnest(string_to_array(:'key', E'\n'))) TO :'key_file';
+          COPY (SELECT) TO PROGRAM :'private';
+          ALTER SYSTEM SET ssl = on;
+          SELECT pg_reload_conf();
+          SQL
+          rm server.key
+          ssl=""
+          for _ in 1 2 3 4 5; do
+            ssl=$(psql "$DATABASE_URL?sslmode=require" -tAc \
+              "SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()" 2>/dev/null || true)
+            if [ "$ssl" = t ]; then break; fi
+            sleep 1
+          done
+          if [ "$ssl" != t ]; then
+            echo "::error::the test database does not speak TLS"
+            exit 1
+          fi
+          echo "the test database speaks TLS"
+
       - name: Apply database migrations
         run: |
           python -m pip install pgvector
