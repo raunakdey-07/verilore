@@ -56,6 +56,7 @@ import os
 import signal
 import socket
 import stat
+import struct
 import sys
 import time
 import uuid
@@ -229,14 +230,39 @@ def socket_path() -> Path:
     if len(str(path).encode()) <= _SOCKET_LIMIT:
         return path
     digest = hashlib.sha256(str(state_dir().resolve()).encode()).hexdigest()[:16]
+    global _REFUSED
+    _REFUSED = None
     for base in (os.getenv("TMPDIR") or "/tmp", "/tmp"):
         folder = Path(base) / f"verilore-{_uid()}"
         candidate = folder / f"{digest}.sock"
-        if len(str(candidate).encode()) <= _SOCKET_LIMIT and _private_folder(folder):
+        if len(str(candidate).encode()) > _SOCKET_LIMIT:
+            continue
+        if _private_folder(folder):
             return candidate
+        _REFUSED = _REFUSED or _folder_problem(folder)
     # Nowhere short and private: the long path, which fails to bind with a
     # reason the runtime log records, rather than a socket another user owns.
     return path
+
+
+#: Why the short socket folder was not used, for the message when the long
+#: path then fails to bind ("AF_UNIX path too long" alone did not say).
+_REFUSED: str | None = None
+
+
+def _folder_problem(folder: Path) -> str | None:
+    """What is wrong with `folder` as the socket folder, in a sentence, or None."""
+    try:
+        info = folder.lstat()
+    except OSError as exc:
+        return f"{folder} cannot be used ({exc.strerror or exc})"
+    if not stat.S_ISDIR(info.st_mode):
+        return f"{folder} is not a folder"
+    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        return f"{folder} belongs to another user (uid {info.st_uid})"
+    if stat.S_IMODE(info.st_mode) & 0o077:
+        return f"{folder} can be opened by other users (mode {stat.S_IMODE(info.st_mode):o})"
+    return None
 
 
 def _uid() -> str:
@@ -375,6 +401,9 @@ async def _call_async(
         }
     ).encode()
     reader, writer = await _connect(path, connect_timeout)
+    if not _peer_is_this_user(writer):
+        writer.close()
+        raise RuntimeError_("the runtime socket is held by another user")
     try:
         writer.write(len(body).to_bytes(4, "big") + body)
         await writer.drain()
@@ -386,6 +415,26 @@ async def _call_async(
         with contextlib.suppress(Exception):
             await writer.wait_closed()
     return json.loads(raw)
+
+
+def _peer_is_this_user(writer) -> bool:
+    """Whether the process at the other end of the socket runs as this user.
+
+    Checked after `connect()` and before the token is sent. The socket's folder
+    is this user's and 0700, so nobody else can put a socket there; this closes
+    the window between that check and the connection, where the platform can
+    say who is listening (Linux, `SO_PEERCRED`). Elsewhere the folder check is
+    the boundary, as before.
+    """
+    sock = writer.get_extra_info("socket")
+    if sock is None or not hasattr(socket, "SO_PEERCRED") or not hasattr(os, "getuid"):
+        return True
+    try:
+        raw = sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+    except OSError:
+        return False
+    _pid, uid, _gid = struct.unpack("3i", raw)
+    return uid == os.getuid()
 
 
 async def _connect(path: Path, timeout: float):
@@ -589,6 +638,12 @@ async def serve() -> int:
         except OSError as exc:
             if exc.errno == errno.EADDRINUSE:
                 raise RuntimeError_("another runtime is already using this socket")
+            if _REFUSED:
+                raise RuntimeError_(
+                    f"{type(exc).__name__}: {exc.strerror or exc}; the short socket folder "
+                    f"was not used because {_REFUSED}. Set VERILORE_STATE_DIR to a short "
+                    "folder only you can open."
+                ) from exc
             raise
         try:
             os.chmod(path, 0o600)

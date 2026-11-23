@@ -86,6 +86,12 @@ through [`docs/release-map.md`](docs/release-map.md).
   `claim_embedding_cache_fill_failed error=ModuleNotFoundError`. It now says,
   once, that onnxruntime is not installed, that the claims were stored, and
   how to install it or turn the model off; `verilore doctor` says the same.
+- **The runtime client checks who is listening.** On Linux it reads the
+  socket peer's user id after connecting and before sending the token, and
+  talks to no other user's process. When the short socket folder is refused
+  (another user's, or open to others), the runtime's error names the folder,
+  the reason and `VERILORE_STATE_DIR`, where it said only "AF_UNIX path too
+  long".
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the
