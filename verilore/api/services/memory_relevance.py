@@ -269,6 +269,14 @@ def _distinctive_subject_absent(
     return False
 
 
+#: Days and months say when, not what: "On Monday, can we post to LinkedIn
+#: with hashtags?" asks about LinkedIn, and abstained because no claim says
+#: "Monday" (Team 052).
+_CALENDAR = frozenset(
+    """monday tuesday wednesday thursday friday saturday sunday january february march
+    april may june july august september october november december""".split()
+)
+
 #: A word that names a thing: capitalised after the first word ("the Nimbus
 #: router"), or written as an identifier anywhere ("BETA_7Q2", "X200").
 _NAMED = re.compile(r"(?<![\w])(?:[A-Z][\w-]*\d[\w-]*|\w*_\w+|[A-Z][a-z][\w-]*|[A-Z]{2,}[\w-]*)")
@@ -279,6 +287,7 @@ def named_terms(question: str) -> set[str]:
 
     The first word is skipped unless it is an identifier: "How" and "Which"
     are capitalised because they start the sentence, not because they name.
+    Days and months are skipped too.
     """
     found: set[str] = set()
     first = len(question) - len(question.lstrip())
@@ -286,6 +295,8 @@ def named_terms(question: str) -> set[str]:
         word = match.group(0)
         identifier = "_" in word or any(ch.isdigit() for ch in word)
         if match.start() == first and not identifier:
+            continue
+        if word.lower() in _CALENDAR:
             continue
         found |= terms(word.replace("_", " "))
     return found
