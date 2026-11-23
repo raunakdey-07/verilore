@@ -563,12 +563,23 @@ def select(
     if intent.name in {"historical", "change", "provenance"}:
         fields += ["historical_memories", "uncertain_memories"]
     for field in fields:
+        # Claims that score the same and were stored together are put in the
+        # order of their keys, paths and text, which follow the documents, not
+        # of their ids, which are random: the same kit synced into two databases gave the same
+        # question different answers once a budget cut the list (#38).
         setattr(
             result,
             field,
             sorted(
                 [c for c in getattr(full, field) if c.id in selected],
-                key=lambda c: (-key_scores.get(c.key, 0), c.observed_at, c.id),
+                key=lambda c: (
+                    -key_scores.get(c.key, 0),
+                    c.observed_at,
+                    c.key,
+                    c.path,
+                    c.claim,
+                    c.id,
+                ),
             ),
         )
     if intent.name in {"historical", "change"}:

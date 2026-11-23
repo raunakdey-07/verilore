@@ -500,7 +500,7 @@ NEAREST_ACTIVE_SQL = (
         WHERE v.event <> 'DELETED'
           AND NOT EXISTS (SELECT 1 FROM retired r WHERE r.supersedes_id = c.id)
           AND (CAST(:doc AS char(64)) IS NULL OR c.memory_document_id <> :doc)
-        ORDER BY n.similarity DESC, c.id
+        ORDER BY n.similarity DESC, c.key, d.path, c.claim, c.id
         LIMIT :limit
 """
 )
@@ -640,7 +640,8 @@ async def _active_claims(
           AND (CAST(:doc AS char(64)) IS NULL OR c.memory_document_id <> :doc)
           AND v.event <> 'DELETED'
           AND NOT EXISTS (SELECT 1 FROM retired r WHERE r.supersedes_id = c.id)
-        ORDER BY v.observed_at DESC, c.id
+        -- Ties follow the claim, not its random id: a LIMIT cuts this list (#38).
+        ORDER BY v.observed_at DESC, c.key, c.claim, c.id
     """
     # Inlined, not bound. A LIMIT parameter makes this a prepared statement, and
     # asyncpg's prepare threshold is where the generic-plan cliff lives; the value
