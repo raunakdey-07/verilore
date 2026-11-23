@@ -88,6 +88,9 @@ class SyncSummary:
     #: `status: approved` (or archived). Empty when the folder marks nothing
     #: approved, or when `VERILORE_DEFAULT_STATE` is set.
     unmarked: list[str] = field(default_factory=list)
+    #: Documents the last sync held as drafts and this one serves as approved:
+    #: no document in the folder declares `status: approved` any more.
+    promoted: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -1550,6 +1553,7 @@ class Verilore:
                 for warning in result.get("warnings", [])
             ],
             unmarked=list(result.get("unmarked", [])),
+            promoted=list(result.get("promoted", [])),
         )
 
     def remember(

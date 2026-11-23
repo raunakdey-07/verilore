@@ -1917,7 +1917,10 @@ def ingest(
         resp = httpx.post(url, json={"content": content, "path": str(resolved)}, timeout=30)
         resp.raise_for_status()
         data = resp.json()
-        typer.echo(f"[OK] {data.get('message', 'Ingested')}")
+        warnings = data.get("warnings") or []
+        typer.echo(f"[{'WARN' if warnings else 'OK'}] {data.get('message', 'Ingested')}")
+        for warning in warnings:
+            typer.echo(f"  {_unmarked_note(warning)}", err=True)
     except FileNotFoundError:
         typer.echo(f"[ERROR] File not found: {path}", err=True)
         raise typer.Exit(code=1)
@@ -1927,6 +1930,24 @@ def ingest(
     except httpx.HTTPError as e:
         typer.echo(f"[ERROR] API error: {e}", err=True)
         raise typer.Exit(code=1)
+
+
+def _unmarked_note(warning: dict) -> str:
+    """One sentence for a one-file ingest's warning; its code for any other."""
+    code, field = warning.get("code", ""), warning.get("field") or ""
+    if code == "unmarked_beside_approved":
+        return (
+            "this file declares no status, and the corpus has files that say `status: "
+            "approved`: it is served as approved, where a sync of its folder holds it as a "
+            "draft. Add a status, or sync the folder."
+        )
+    if code == "unmarked_still_approved":
+        return (
+            "this is the corpus's first file that says `status: approved`; these files "
+            f"declare no status and are still served as approved: {field}. Sync their "
+            "folder to hold them as drafts, or mark each one."
+        )
+    return f"{warning.get('path', '')}: {code}"
 
 
 @app.command()

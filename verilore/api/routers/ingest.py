@@ -60,7 +60,10 @@ async def ingest_file(request: IngestFileRequest, db: DbSession = None) -> Inges
     corpus_id = await _writable_corpus(db, request.corpus)
     try:
         result = await ingestion_service.ingest_file(
-            request.content, request.path, corpus_id=corpus_id
+            request.content,
+            request.path,
+            corpus_id=corpus_id,
+            unmarked_rule="hold" if request.hold_unmarked else "warn",
         )
     except ClaimValidationError as exc:
         # A document the archive refused: an authored claim whose evidence is not
