@@ -65,6 +65,12 @@ through [`docs/release-map.md`](docs/release-map.md).
   Five ways to read a name were measured on 66 questions; the one that scored
   best needs an English word list, and the one on hand lacks "discount" and
   "delivery", so it waits (`tests/test_lexical_names.py` has the numbers).
+- **The same kit gives the same answers in every database.** Claims that
+  scored the same and were stored together were ordered by their random ids,
+  and a recall's budget cut that list: synced twice, the hard kit answered 6
+  of 24 questions differently. Ties now follow the claims' keys, paths and
+  text, in the ranking and in the queries that look for a claim's neighbours
+  (#38).
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the
