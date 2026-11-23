@@ -90,6 +90,13 @@ through [`docs/release-map.md`](docs/release-map.md).
   from PyPI. Running the check again for a tag skips the upload instead of
   failing on it.
 
+### Added
+
+- **`--path-prefix` on `recall`, `explain` and `receipt`**, as `brief`, `check`
+  and `review` already had, and the SDK's `query`: "What is the offer?" can
+  name the campaign folder. **`verilore --version`** prints the installed
+  version.
+
 ### Changed
 
 - **The landing page shows only what the tool prints.** Every terminal run on

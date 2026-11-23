@@ -59,6 +59,19 @@ Every command:          verilore --help
 """
 
 
+def _print_version(value: bool) -> None:
+    """`verilore --version`: the installed package's version, as pip reports it."""
+    if not value:
+        return
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        typer.echo(f"verilore {version('verilore')}")
+    except PackageNotFoundError:
+        typer.echo("verilore (not installed: run from a source tree)")
+    raise typer.Exit(code=0)
+
+
 @app.callback(invoke_without_command=True)
 def _global_options(
     ctx: typer.Context,
@@ -67,6 +80,15 @@ def _global_options(
         typer.Option(
             "--debug",
             help="Run this invocation in debug mode: full tracebacks for any failure.",
+        ),
+    ] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            is_eager=True,
+            callback=_print_version,
+            help="Print the installed version and exit.",
         ),
     ] = False,
 ) -> None:
@@ -113,6 +135,15 @@ State = Annotated[
 Debug = Annotated[
     bool,
     typer.Option("--debug", help="Show the full traceback for the underlying error."),
+]
+#: `brief`, `check` and `review` took it; `recall`, `explain` and `receipt`
+#: did not, though the SDK's `query` does (Team 052).
+PathPrefix = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--path-prefix",
+        help="Only memory from documents under this folder. Repeat for more than one.",
+    ),
 ]
 BaseURL = Annotated[
     str | None,
@@ -889,6 +920,7 @@ def recall(
     explain_result: Annotated[
         bool, typer.Option("--explain", help="Also show source, evidence and history.")
     ] = False,
+    path_prefix: PathPrefix = None,
     base_url: BaseURL = None,
     json_out: Annotated[
         bool, typer.Option("--json", help="Print the canonical response JSON.")
@@ -913,6 +945,7 @@ def recall(
             corpus=corpus,
             as_of=as_of,
             include_receipt=explain_result,
+            path_prefix=path_prefix or None,
         )
     except Exception as exc:  # noqa: BLE001
         _fail(exc, verbose, debug)
@@ -1231,6 +1264,7 @@ def explain(
     as_of: Annotated[
         str | None, typer.Option("--as-of", help="Justify an answer from an earlier instant.")
     ] = None,
+    path_prefix: PathPrefix = None,
     base_url: BaseURL = None,
     json_out: Annotated[
         bool,
@@ -1268,7 +1302,12 @@ def explain(
         # History is selected by source document, not by the question: the archive
         # matches every word of a query, and a question is not a history selector.
         response = _run(
-            client.memory.query, question, corpus=corpus, as_of=as_of, include_receipt=True
+            client.memory.query,
+            question,
+            corpus=corpus,
+            as_of=as_of,
+            include_receipt=True,
+            path_prefix=path_prefix or None,
         )
         changes = _history_for(client, corpus, response)
     except Exception as exc:  # noqa: BLE001
@@ -1463,6 +1502,7 @@ def receipt(
     as_of: Annotated[
         str | None, typer.Option("--as-of", help="Reconstruct the answer from an earlier instant.")
     ] = None,
+    path_prefix: PathPrefix = None,
     base_url: BaseURL = None,
     verbose: State = False,
     debug: Debug = False,
@@ -1480,7 +1520,12 @@ def receipt(
         return
     try:
         response = _run(
-            client.memory.query, question, corpus=corpus, as_of=as_of, include_receipt=True
+            client.memory.query,
+            question,
+            corpus=corpus,
+            as_of=as_of,
+            include_receipt=True,
+            path_prefix=path_prefix or None,
         )
     except Exception as exc:  # noqa: BLE001
         _fail(exc, verbose, debug)
