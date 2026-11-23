@@ -84,6 +84,9 @@ uv tool install --python 3.13 verilore
 
 With a Python from 3.11 to 3.14, `pipx install verilore` works too. Fedora's uv
 downloads a Python only when asked, so run `uv python install 3.13` first.
+Python 3.15 is not supported yet: onnxruntime, which runs the embedding model,
+publishes no wheel for it, so the package says "requires Python <3.15" before
+an install can fail halfway. A weekly CI job says when that changes.
 
 <!-- quickstart-commands: the five-minute path runs every command in the bash blocks below, verbatim -->
 

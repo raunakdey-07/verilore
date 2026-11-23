@@ -1,0 +1,25 @@
+# Is the next Python installable yet? (DOCS-1)
+#
+# requires-python stops below the first Python some dependency ships no wheel
+# for (pyproject.toml): onnxruntime, for 3.15. This job fails, weekly, once
+# onnxruntime publishes a wheel for that Python, so the bound, the README and
+# the "Installs and runs on Python" CI matrix are raised when it can be, not
+# when someone happens to look. It reads PyPI's JSON and installs nothing.
+name: Watch for the next Python
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  onnxruntime-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Does onnxruntime ship a wheel for the Python requires-python excludes?
+        run: python3 scripts/watch_python.py
