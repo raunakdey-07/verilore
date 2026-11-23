@@ -31,6 +31,35 @@ through [`docs/release-map.md`](docs/release-map.md).
   writes back everything but that line; the SDK, the server and the MCP server
   import it plainly and leave stderr alone. The runtime's last error skips
   onnxruntime's warnings and notes, not its errors.
+- **`check` reads a difference as a difference.** "Save £3 on Monzo Perks"
+  and "Perks is £10 cheaper than Max" were compared with Perks's price and
+  called wrong. A value with "cheaper", "less", "more", "off" right after it,
+  or "save", "a saving of", "an extra" right before it, is a difference:
+  checked against the two lines it compares ("£12 more" for £9 and £19 says
+  £10), and against a limit on discounts that names no product ("Never offer
+  more than 10% off any plan" now catches "Save 25% on Monzo Perks"). "Monzo
+  Extra £3" and "Monzo Plus: £5" stay prices. Each side of a "than" is checked
+  on its own, so a wrong price in brackets is found; a price is about its own
+  clause ("Monzo Max costs £19 a month, with a 3-month minimum term"); and a
+  pronoun may look two statements back for what it means. A three-word window
+  with the review's cue words scored 13 of 32 on the drafts this was decided
+  on, by reading plan names as discounts; this scores 32 of 32, and 23 of 25
+  on two kits it was not tuned on (main: 20 and 18).
+- **`check` bans what a rule names, and nothing near it.** "Use bold, not
+  cold" banned "cold": a spelling similarity counted. Now Y in "write X, not
+  Y" is banned when it is X with other spaces, hyphens, capitals or full stops
+  ("web site", "per cent"), or X in another spelling (colour, organise,
+  adviser, travelled): 57 of 66 such pairs and none of 57 other words, where
+  the similarity banned 27 of those words. A "such as" list bans words only in
+  a rule about words, in any case, and stops where the rule goes on ("... in
+  customer emails"), so "such as NHS patients" bans nothing. What to write
+  instead ("Do not use 'click'; use 'select'") is no longer banned too. A word
+  ending in "y" finds its "ies" plural. "IG", "insta", "X", "LI", "FB", "YT"
+  and "TT" name their channels in `--channel` and in a channel's own line.
+  `tests/test_check_false_positives.py` holds GOV.UK's rules (Open Government
+  Licence) against copy that follows and breaks them: main drew 6 false
+  findings and missed 11 of 19 breaches; now none and none.
+  `scripts/check_copy.py` runs the same over copy that cannot be committed.
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the

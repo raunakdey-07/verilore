@@ -28,7 +28,6 @@ response, or use `vl.memory.check(draft, ...)`.
 
 from __future__ import annotations
 
-import difflib
 import math
 import re
 import unicodedata
@@ -142,7 +141,36 @@ _PROHIBITION = re.compile(
 #: "Retire overused puns, such as Eggcellent and Hey presto": the examples a
 #: rule names without quotes, each starting with a capital.
 _SUCH_AS = re.compile(r"\b(?:such as|like|including|e\.g\.,?)\s+(.+)$", re.IGNORECASE)
+#: A list after "such as" names words to avoid only when the rule is about
+#: words. "Never target vulnerable audiences, such as NHS patients" and
+#: "Retire legacy campaigns, such as Summer Sale 2025" name people and
+#: campaigns, and banned them (Team 052, v0.12.1); "Retire clichés, such as
+#: leverage, synergy and game-changer" names words in lower case, and banned
+#: nothing.
+_ABOUT_WORDS = re.compile(
+    r"\b(?:words?|phrases?|terms?|clich[eé]s?|buzzwords?|jargon|slang|puns?|fillers?|"
+    r"expressions?|superlatives?|language|copy|idioms?|contractions?|metaphors?)\b",
+    re.IGNORECASE,
+)
+#: Where the list ends and the rest of the rule begins: "..., such as leverage
+#: and synergy, in customer emails".
+_LIST_END = re.compile(
+    r",\s+(?=(?:in|from|on|for|across|when|unless|except|because|or\s+any)\b)|[.;:—–]\s|"
+    r"[.;:—–]$|\s+-\s+",
+    re.IGNORECASE,
+)
+#: What starts a description rather than an example: "such as those about eggs".
+_NOT_AN_EXAMPLE = frozenset(
+    "those these the a an any anything something ones that which words phrases terms".split()
+)
 _LIST_SPLIT = re.compile(r",\s*|\s+(?:and|or)\s+")
+#: Where a ban turns to what to write instead: "Do not use 'click'; use
+#: 'select'", "Never say "cheap" - say "affordable"", "... rather than ...".
+_INSTEAD = re.compile(
+    r"(?:[;:,.]|\s[-–—])\s*(?:and\s+|but\s+)?(?:instead\s*,?\s*)?"
+    r"(?:use|say|write|try|prefer|choose|go\s+with)\b|\s(?:instead\s+of|rather\s+than)\b",
+    re.IGNORECASE,
+)
 #: "Write email, not e-mail", "Write prices as Rs 520, never as ₹520.00 or INR
 #: 520": the right form, then the wrong ones.
 _NOT_THIS = re.compile(
@@ -250,12 +278,87 @@ def _wrong_forms(rule: str) -> list[tuple[str, str]]:
         alike = right.strip("\"“”'‘’` ")
         if quoted:
             found.append(("exact" if bare.lower() == alike.lower() else "text", bare))
-        elif " " not in bare and " " not in alike:
-            if bare.lower() == alike.lower():
-                found.append(("exact", bare))
-            elif difflib.SequenceMatcher(None, bare.lower(), alike.lower()).ratio() >= 0.75:
-                found.append(("text", bare))
+        elif bare.lower() == alike.lower():
+            found.append(("exact", bare))
+        elif _spelled_alike(alike, bare):
+            found.append(("text", bare))
     return found
+
+
+def _skeleton(text: str) -> str:
+    """A form without case, spaces, hyphens, apostrophes or full stops: "e-mail" is "email"."""
+    return re.sub(r"[\s\-'’.]", "", text.lower())
+
+
+#: Endings and infixes that stand for each other in English spelling: British
+#: and American (colour, organise, centre, catalogue, programme, defence,
+#: paediatric, judgement), past tenses (learnt, spelt), and -wards, -ser/-sor.
+_ALTERNATIONS = [
+    ("our", "or"),
+    ("ou", "o"),
+    ("ise", "ize"),
+    ("isation", "ization"),
+    ("ising", "izing"),
+    ("ised", "ized"),
+    ("yse", "yze"),
+    ("ysed", "yzed"),
+    ("ysing", "yzing"),
+    ("tre", "ter"),
+    ("tres", "ters"),
+    ("ogue", "og"),
+    ("ogues", "ogs"),
+    ("mme", "m"),
+    ("mmes", "ms"),
+    ("ence", "ense"),
+    ("ences", "enses"),
+    ("ae", "e"),
+    ("oe", "e"),
+    ("gement", "gment"),
+    ("nt", "ned"),
+    ("lt", "lled"),
+    ("rnt", "rned"),
+    ("ards", "ard"),
+    ("ser", "sor"),
+    ("sers", "sors"),
+    ("lor", "ler"),
+]
+
+
+def _spelled_alike(right: str, wrong: str) -> bool:
+    """Whether `wrong` is another way to write `right`, not another word.
+
+    The same letters once case, spaces, hyphens and full stops are gone
+    ("e-mail", "sign up", "web site", "e.g."), or the same word in another
+    spelling: one listed alternation in one place ("colour", "organise",
+    "adviser", "travelled"). "Use bold, not cold", "Sound clear, not clever"
+    and "Keep it simple, not simplistic" name a tone, and ban nothing.
+
+    Measured on 66 pairs a rule should ban (GOV.UK's A to Z among them) and 57
+    it should not: this bans 57 and none of the 57; a spelling-similarity
+    ratio of 0.75 banned 46 and 27 of them; the skeleton alone, 25 and none.
+    """
+    a, b = _skeleton(right), _skeleton(wrong)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if a[0] != b[0]:
+        return False
+    if a.replace("ll", "l") == b.replace("ll", "l"):
+        # One l or two: "travelled", "enrol" and "enroll".
+        return True
+    for one, other in _ALTERNATIONS:
+        for x, y in ((one, other), (other, one)):
+            start = a.find(x, 1)
+            while start != -1:
+                if (
+                    a[:start] == b[:start]
+                    and b[start : start + len(y)] == y
+                    and a[start + len(x) :] == b[start + len(y) :]
+                ):
+                    return True
+                start = a.find(x, start + 1)
+    return False
 
 
 def banned_text(rule: str) -> list[tuple[str, str]]:
@@ -279,6 +382,8 @@ def banned_text(rule: str) -> list[tuple[str, str]]:
         # One "!" is allowed; two in a row are not.
         return [("class", "exclamation-run")]
     found: list[tuple[str, str]] = []
+    # "Do not use 'click'; use 'select'": what to write instead is not banned.
+    rest = _INSTEAD.split(rest, maxsplit=1)[0]
     quoted = _QUOTED.findall(rest)
     if quoted:
         found += [("text", text.strip()) for text in quoted if text.strip()]
@@ -295,17 +400,19 @@ def banned_text(rule: str) -> list[tuple[str, str]]:
     if named:
         return [("text", char) for char in _emoji_named(named.group(1))]
     lead = _WORD_LEAD.match(rest.rstrip(" .;:!"))
-    if lead:
+    if lead and not _SUCH_AS.match(lead.group(1)):
         # "the word premium in any copy": the word is the first token.
         first = re.match(r"[\w'-]+", lead.group(1))
         if first:
             found.append(("text", first.group(0)))
         return found
     examples = _SUCH_AS.search(rest)
-    if examples:
-        for item in _LIST_SPLIT.split(examples.group(1)):
-            item = item.strip(" .;:!")
-            if item and item[0].isupper() and len(item.split()) <= 3:
+    if examples and _ABOUT_WORDS.search(rest[: examples.start()]):
+        listed = _LIST_END.split(examples.group(1), maxsplit=1)[0]
+        for item in _LIST_SPLIT.split(listed):
+            item = item.strip(" .;:!\"“”'‘’`")
+            words = item.split()
+            if words and len(words) <= 3 and words[0].lower() not in _NOT_AN_EXAMPLE:
                 found.append(("text", item))
     return found
 
@@ -332,8 +439,13 @@ def _find_text(draft: str, text: str, exact: bool = False) -> str | None:
     A word's plural counts: a rule against "premium" is broken by "premiums".
     With `exact`, case counts too: "MailChimp" is banned, "Mailchimp" is not.
     """
-    plural = r"(?:s|es)?" if len(text) > 3 and text[-1:].isalpha() else ""
-    pattern = r"(?<![\w])" + re.escape(text) + plural + r"(?![\w])"
+    if len(text) > 3 and text[-1:].lower() == "y" and text[-2:-1].lower() not in "aeiou":
+        # "synergy" and "synergies".
+        body, plural = re.escape(text[:-1]), r"(?:y|ies)"
+    else:
+        body = re.escape(text)
+        plural = r"(?:s|es)?" if len(text) > 3 and text[-1:].isalpha() else ""
+    pattern = r"(?<![\w])" + body + plural + r"(?![\w])"
     match = re.search(pattern, draft, 0 if exact else re.IGNORECASE)
     return match.group(0) if match else None
 
@@ -461,6 +573,40 @@ def _values(sentence: str) -> list[tuple[str, str, str]]:
     return found
 
 
+#: What comes right after a number that says how much something differs or
+#: changes, not what it is: "£10 cheaper", "£2 more a month", "10% off".
+_DELTA_AFTER = re.compile(
+    r"(?:\s+(?:a|an|per|each|every)\s+(?:month|year|week|day)|\s*/\s*(?:month|mo|year|yr))?"
+    r"\s+(?:cheaper|less|more|off|lower|higher)\b",
+    re.IGNORECASE,
+)
+#: What comes right before one: "save £3", "a saving of £5", "cut by 10%", "an
+#: extra £6". "Extra" and "Plus" with a capital are names ("Monzo Extra £3"),
+#: so the words that can be either are read in lower case only.
+_DELTA_BEFORE = re.compile(
+    r"(?:\b(?i:save|saving|savings|discount|cashback)(?:\s+of)?"
+    r"|\b(?i:cut|reduced|reduce|down|up|lower|higher|cheaper|more|less)\s+by"
+    r"|\b(?:[Aa]n\s+)?(?:extra|additional))"
+    r"\s+(?:(?i:up\s+to|just|only|another)\s+)?$"
+)
+
+
+def _deltas(sentence: str) -> frozenset[str]:
+    """The values in a sentence that state a difference or a change, not an amount.
+
+    "Monzo Perks is £10 cheaper than Monzo Max" and "Save £3 on Perks" say how
+    much one price differs from another, so comparing £10 or £3 with Perks's
+    £9 calls a true sentence wrong. Read from the words right beside the value,
+    so "Monzo Plus: £5" and "Monzo Extra £3" stay prices.
+    """
+    found: set[str] = set()
+    for _kind, _value, exact in _values(sentence):
+        at = sentence.find(exact)
+        if _DELTA_AFTER.match(sentence[at + len(exact) :]) or _DELTA_BEFORE.search(sentence[:at]):
+            found.add(exact)
+    return frozenset(found)
+
+
 def _stem(word: str) -> str:
     for suffix in ("ing", "es", "ed", "s"):
         if len(word) > len(suffix) + 2 and word.endswith(suffix):
@@ -507,6 +653,19 @@ _UNIT_BREAK = re.compile(
     r"(?<=[.!?])\s+(?=[^\s\d])|\n+|;\s*|,\s+(?=[^\d])|\s+(?:and|but)\s+",
     re.IGNORECASE,
 )
+
+
+#: Where one side of a comparison ends: "Monzo Perks (£9) is £10 cheaper than
+#: Monzo Max (£19)" states Perks's price, a difference, and Max's price, and
+#: each belongs to the words on its own side.
+_COMPARISON_BREAK = re.compile(r"\s+(?:than|vs\.?|versus|compared\s+(?:with|to))\s+", re.IGNORECASE)
+
+
+def _statements(draft: str) -> list[str]:
+    units = [u.strip() for u in _UNIT_BREAK.split(draft) if u and u.strip()]
+    return [
+        part.strip() for unit in units for part in _COMPARISON_BREAK.split(unit) if part.strip()
+    ]
 
 
 def _windows(draft: str) -> list[tuple[str, str]]:
@@ -593,6 +752,36 @@ def _fact(claim: dict[str, str]) -> _Fact | None:
     return _Fact(claim, values, subject)
 
 
+def _facts(claim: dict[str, str]) -> list[_Fact]:
+    """The line as one fact, and each of its clauses that states a value as another.
+
+    "Monzo Max costs £19 a month, with a 3-month minimum term": the price is
+    about "Monzo Max costs £19 a month". Weighed over the whole line, the words
+    of the other clause ("minimum", "term") outweighed "Max", and a draft's
+    "Monzo Max costs £21 a month" named no line at all.
+    """
+    whole = _fact(claim)
+    if whole is None:
+        return []
+    found = [whole]
+    clauses = [u.strip() for u in _UNIT_BREAK.split(claim["claim"]) if u and u.strip()]
+    if len(clauses) < 2:
+        return found
+    for clause in clauses:
+        remembered = _values(clause)
+        if not remembered:
+            continue
+        subject = _subject(
+            f'{claim.get("section", "")} {clause}', [kind for kind, _v, _t in remembered]
+        )
+        if len(subject) < 2 or subject == whole.subject:
+            continue
+        values = tuple(v for v in whole.values if v[2] in {exact for _k, _v, exact in remembered})
+        if values:
+            found.append(_Fact(claim, values, subject))
+    return found
+
+
 def _weights(facts: list[_Fact]) -> dict[str, dict[str, float]]:
     """How much each subject word tells facts of one kind apart, per kind.
 
@@ -601,11 +790,12 @@ def _weights(facts: list[_Fact]) -> dict[str, dict[str, float]]:
     is `log((n + 1) / df)`: `n` facts state a value of the kind, `df` of them
     have the word. With one fact every word weighs the same.
     """
-    by_kind: dict[str, dict[str, frozenset[str]]] = {}
+    by_kind: dict[str, dict[tuple[str, frozenset[str]], frozenset[str]]] = {}
     for fact in facts:
         for kind in {kind for kind, *_rest in fact.values}:
             # One line stated in two documents is one fact, not two.
-            by_kind.setdefault(kind, {})[fact.claim["claim"].casefold()] = fact.subject
+            key = (fact.claim["claim"].casefold(), fact.subject)
+            by_kind.setdefault(kind, {})[key] = fact.subject
     weights: dict[str, dict[str, float]] = {}
     for kind, subjects in by_kind.items():
         count: dict[str, int] = {}
@@ -652,25 +842,34 @@ def _number_findings(draft: str, claims: list[dict[str, str]]) -> list[Finding]:
     them states is correct. Otherwise the finding is against the line the
     statement names best, once per quote.
     """
-    facts = [fact for fact in (_fact(claim) for claim in claims) if fact is not None]
+    facts = [fact for claim in claims for fact in _facts(claim)]
     if not facts:
         return []
     weights = _weights(facts)
-    units = [u.strip() for u in _UNIT_BREAK.split(draft) if u and u.strip()]
+    units = _statements(draft)
     findings: list[Finding] = []
     for index, statement in enumerate(units):
-        written = _values(statement)
+        # A difference is compared with differences (`_difference_findings`).
+        deltas = _deltas(statement)
+        written = [value for value in _values(statement) if value[2] not in deltas]
         if not written:
             continue
         alone = _subject(statement)
         before = units[index - 1] if index else ""
         with_before = _subject(f"{before} {statement}") if before else frozenset()
         earlier = {k for k, _v, _t in _values(before)} if before else set()
+        # Two back, when neither of the two states a value: "Meet Monzo Perks,
+        # our favourite tier. It costs £5 a month."
+        two_back = units[index - 2] if index > 1 else ""
+        with_two = _subject(f"{two_back} {before} {statement}") if two_back else frozenset()
+        earliest = earlier | ({k for k, _v, _t in _values(two_back)} if two_back else set())
         for kind, value, exact in written:
             # A statement says what its subject is, or the one before it does
             # when that one has no value of its own kind: "Our gift box is
             # back. Now just Rs 999."
             windows = [alone] + ([with_before] if with_before and kind not in earlier else [])
+            if with_two and kind not in earliest:
+                windows.append(with_two)
             period, period_text = _period(statement, exact) if kind == "money" else ("", "")
             # A fact can state two values of one kind ("Orders below Rs 999 pay
             # Rs 79"): a statement that repeats either one agrees with it.
@@ -727,6 +926,78 @@ def _number_findings(draft: str, claims: list[dict[str, str]]) -> list[Finding]:
     return findings
 
 
+#: Where a sentence ends: the two lines a difference compares are named
+#: anywhere in it ("Monzo Extra costs £3 a month, £6 less than Perks").
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[^\s\d])|\n+")
+
+
+def _difference_findings(
+    draft: str, claims: list[dict[str, str]]
+) -> tuple[list[Finding], frozenset[str]]:
+    """Differences in the draft checked against the two approved values they compare.
+
+    "Monzo Perks is £10 cheaper than Monzo Max" names two approved lines, £9 and
+    £19, and £10 is the difference between them: it is supported, though no
+    line states £10. "£12 more" for the same two is a finding that says £10.
+    A difference in a sentence that names one line or three is left to the
+    other checks ("Save £7 on Perks" states a price no line states).
+
+    Returns the findings and the quotes of the differences that agree.
+    """
+    facts = [fact for claim in claims for fact in _facts(claim)]
+    if len(facts) < 2:
+        return [], frozenset()
+    weights = _weights(facts)
+    findings: list[Finding] = []
+    agreed: set[str] = set()
+    for sentence in (u.strip() for u in _SENTENCE_BREAK.split(draft) if u and u.strip()):
+        deltas = _deltas(sentence)
+        if not deltas:
+            continue
+        words = _subject(sentence)
+        for kind, value, exact in _values(sentence):
+            if exact not in deltas or kind not in ("money", "percent"):
+                continue
+            # The lines the sentence names, each once, that state one value of the kind.
+            named: dict[str, tuple[_Fact, tuple[str, str, str, str]]] = {}
+            for fact in facts:
+                mine = [v for v in fact.values if v[0] == kind]
+                if len(mine) == 1 and _about(fact, words, weights.get(kind, {})):
+                    named.setdefault(fact.claim["claim"].casefold(), (fact, mine[0]))
+            if len(named) != 2:
+                continue
+            (first, a), (_second, b) = sorted(
+                named.values(), key=lambda pair: sentence.lower().find(_name_word(pair[0]))
+            )
+            if a[3] and b[3] and a[3] != b[3]:
+                continue
+            difference = abs(float(a[1]) - float(b[1]))
+            if math.isclose(difference, float(value)):
+                agreed.add(exact)
+                continue
+            shown = f"{difference:g}" if difference == int(difference) else f"{difference:.2f}"
+            expected = exact.replace(re.search(r"[\d,.]*\d", exact).group(0), shown, 1)
+            findings.append(
+                Finding(
+                    "number",
+                    first.claim["id"],
+                    first.claim["claim"],
+                    first.claim["path"],
+                    exact,
+                    f"The draft says {exact} where approved memory says {expected}: "
+                    f"{a[2]} and {b[2]} ({'price' if kind == 'money' else 'percentage'} "
+                    "difference).",
+                    expected=expected,
+                )
+            )
+    return findings, frozenset(agreed)
+
+
+def _name_word(fact: _Fact) -> str:
+    """The rarest word a fact's subject has, to find where a sentence names it."""
+    return min(fact.subject, key=lambda word: (len(word) < 3, -len(word)), default="")
+
+
 # ------------------------------------------------------------------ limits on values
 
 #: The comparison a phrase before a value states, and the phrases that state a
@@ -763,6 +1034,15 @@ _BOUND_GLUE = frozenset(
 )
 
 
+#: What a limit on a discount is phrased with, and the words for "any of
+#: them": with these gone, "Never offer more than 10% off any plan" names no
+#: product and limits every discount.
+_DISCOUNT_WORDS = frozenset(
+    """offer off discount discounts save saving savings sale deal deals plan plans product
+    products price prices tier tiers item items everything anything""".split()
+)
+
+
 @dataclass(frozen=True)
 class Bound:
     """What an approved rule allows a value to be: `op` against `limit`."""
@@ -773,6 +1053,9 @@ class Bound:
     #: The rule's own value, as written ("48 hours").
     text: str
     subject: frozenset[str]
+    #: The rule limits a discount or a difference ("more than 10% off"), so it
+    #: is compared with the draft's discounts, not its prices.
+    delta: bool = False
 
     @property
     def allowed(self) -> str:
@@ -836,10 +1119,13 @@ def bound_rule(rule: str, section: str = "") -> Bound | None:
         negated = bool(_RULE_NEGATION.search(rule[: match.start()]))
         if not negated and not _CAP_ON_ITS_OWN.match(phrase):
             continue
+        delta = value[2] in _deltas(rule)
         subject = _prefixes(
-            word for word in _subject(f"{section} {rule}") if word not in _BOUND_GLUE
+            word
+            for word in _subject(f"{section} {rule}")
+            if word not in _BOUND_GLUE and not (delta and word in _DISCOUNT_WORDS)
         )
-        if not subject:
+        if not subject and not delta:
             continue
         return Bound(
             kind=measured[0],
@@ -847,21 +1133,31 @@ def bound_rule(rule: str, section: str = "") -> Bound | None:
             limit=measured[1],
             text=value[2],
             subject=subject,
+            delta=delta,
         )
     return None
 
 
 def _bound_findings(draft: str, claim: dict[str, str]) -> list[Finding]:
-    """Values in the draft on the wrong side of the claim's limit, about its subject."""
+    """Values in the draft on the wrong side of the claim's limit, about its subject.
+
+    A limit on a discount that names no product ("Never offer more than 10% off
+    any plan") is about every discount the draft offers, and only discounts:
+    "Save 25% on Monzo Perks" breaks it, and "1% cashback" does not.
+    """
     bound = bound_rule(claim["claim"], claim.get("section", ""))
     if bound is None:
         return []
     findings: list[Finding] = []
     for context, statement in _windows(draft):
-        shared = bound.subject & _prefixes(_subject(f"{context} {statement}"))
-        if not shared or (len(bound.subject) >= 3 and len(shared) < 2):
-            continue
+        if bound.subject:
+            shared = bound.subject & _prefixes(_subject(f"{context} {statement}"))
+            if not shared or (len(bound.subject) >= 3 and len(shared) < 2):
+                continue
+        deltas = _deltas(statement) if bound.delta else frozenset()
         for kind, value, exact in _values(statement):
+            if bound.delta and exact not in deltas:
+                continue
             measured = _magnitude(kind, value)
             if measured is None or measured[0] != bound.kind or bound.admits(measured[1]):
                 continue
@@ -1086,7 +1382,7 @@ def _limit_findings(draft: str, claims: list[dict[str, str]], channel: str) -> l
     seen: set[str] = set()
     for claim in claims:
         named, bounds = _channel_bounds(claim["claim"])
-        if not named or named.lower().rstrip("s") not in channel.lower():
+        if not named or not _for_channel(named, channel):
             continue
         for kind, (least, most) in bounds.items():
             count = counts[kind]
@@ -1115,6 +1411,42 @@ def _limit_findings(draft: str, claims: list[dict[str, str]], channel: str) -> l
                 )
             )
     return findings
+
+
+#: The short names people give a channel. Read in the channel a draft is
+#: checked for ("IG", "X (Twitter)", "LI post") and in a channel's own line
+#: ("IG: 2,200 characters"), never in a sentence: "X" in prose is a letter.
+_CHANNEL_ALIASES = {
+    "ig": "instagram",
+    "insta": "instagram",
+    "x": "twitter",
+    "tweet": "twitter",
+    "tweets": "twitter",
+    "fb": "facebook",
+    "li": "linkedin",
+    "yt": "youtube",
+    "tt": "tiktok",
+}
+
+
+def _channel_words(name: str) -> str:
+    return re.sub(
+        r"[a-z]+", lambda word: _CHANNEL_ALIASES.get(word.group(0), word.group(0)), name.lower()
+    )
+
+
+def _for_channel(name: str, channel: str) -> bool:
+    """Whether a line for the channel `name` is for a draft for `channel`.
+
+    Whole words, either one singular: "email" is for "Emails", "Instagram" for
+    "Instagram Reels", "Twitter" for "X" and "IG" for "Instagram"; "Instagram
+    Reels" is not for "Instagram", and "X" is not for "Inbox".
+    """
+    wanted = _channel_words(name).strip()
+    if not wanted:
+        return False
+    wanted = wanted[:-1] if wanted.endswith("s") and len(wanted) > 3 else wanted
+    return re.search(rf"\b{re.escape(wanted)}s?\b", _channel_words(channel)) is not None
 
 
 #: "When a channel is not listed here, follow the email rules", "Other
@@ -1149,13 +1481,13 @@ def fallback_channel(claims: Iterable[Any], channel: str | None) -> str | None:
             continue
         for name in (_channel_bounds(text)[0], rule_channel(text), _channel_in(text)):
             if name:
-                named.add(name.lower().rstrip("s"))
-    if fallback is None or any(name in channel.lower() for name in named):
+                named.add(name)
+    if fallback is None or any(_for_channel(name, channel) for name in named):
         return None
-    if fallback.lower().rstrip("s") in channel.lower():
+    if _for_channel(fallback, channel):
         return None
     # "All channels follow the house rules" names no channel to follow.
-    return fallback if fallback.lower().rstrip("s") in named else None
+    return fallback if any(_for_channel(fallback, name) for name in named) else None
 
 
 # ------------------------------------------------------------- the check
@@ -1237,7 +1569,7 @@ def check_draft(
         if banned:
             banned_rules += 1
         limited_to = rule_channel(claim["claim"]) if banned else None
-        if limited_to and channel and limited_to.lower().rstrip("s") not in channel.lower():
+        if limited_to and channel and not _for_channel(limited_to, channel):
             continue
         for kind, target in banned:
             quote = _find_banned(draft, kind, target)
@@ -1262,6 +1594,9 @@ def check_draft(
             )
     for finding in _number_findings(draft, claims):
         add(finding)
+    differences, agreed = _difference_findings(draft, claims)
+    for finding in differences:
+        add(finding)
     for claim in claims:
         for finding in _bound_findings(draft, claim):
             if not any(f.quote == finding.quote for f in findings if f.kind == "number"):
@@ -1273,6 +1608,8 @@ def check_draft(
         # A value already shown to differ from an approved one, or to break a
         # limit, is not reported twice; that finding says what it should be.
         differing = {f.quote.lower() for f in findings if f.kind in ("number", "bound")}
+        # A difference between two approved values is supported by them.
+        differing |= {quote.lower() for quote in agreed}
         for finding in _unsupported_findings(draft, claims, supported_by):
             if finding.quote.lower() not in differing:
                 add(finding)
@@ -1311,7 +1648,7 @@ def _untested(
             continue
         named, _bounds = _channel_bounds(text)
         mentioned = named or rule_channel(text) or _channel_in(text)
-        if channel and mentioned and mentioned.lower().rstrip("s") not in channel.lower():
+        if channel and mentioned and not _for_channel(mentioned, channel):
             continue
         if named:
             if channel:
