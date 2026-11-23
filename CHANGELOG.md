@@ -60,6 +60,11 @@ through [`docs/release-map.md`](docs/release-map.md).
   Licence) against copy that follows and breaks them: main drew 6 false
   findings and missed 11 of 19 breaches; now none and none.
   `scripts/check_copy.py` runs the same over copy that cannot be committed.
+- **In lexical recall, a day or a month is not a name.** "On Monday, can we
+  post to LinkedIn with hashtags?" abstained because no claim says "Monday".
+  Five ways to read a name were measured on 66 questions; the one that scored
+  best needs an English word list, and the one on hand lacks "discount" and
+  "delivery", so it waits (`tests/test_lexical_names.py` has the numbers).
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the
