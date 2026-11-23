@@ -110,6 +110,15 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ### Changed
 
+- **Tables in Word, PowerPoint and PDF have fixtures.** A pricing table in
+  each, built byte by byte: a Word row is read as one claim; a PowerPoint
+  row's cells come out one by one, and a PDF table gives no claims at all.
+  The PowerPoint and PDF tests pin that gap, so they fail the day it is
+  fixed in 0.12.3 (#36).
+- **The README says why Python 3.15 is not supported yet**, and a weekly job
+  (`.github/workflows/watch-python.yml`) fails once onnxruntime publishes a
+  wheel for it, so the bound is raised when it can be.
+
 - **The landing page's test says how to fix it, and what it cannot test.** A
   recall the page shows answering must have won by more than 0.15
   (`site_record.CLEAR_MARGIN`), so a model update cannot swap it for the
