@@ -109,10 +109,18 @@ fast, so by the time the user reaches for `recall` the model is resident.
 - A Unix domain socket, never a TCP port. `$XDG_RUNTIME_DIR/verilore`, or
   `~/.cache/verilore`. The directory is `0700` and the socket is `0600`, so the
   filesystem is the authorisation boundary.
+- A socket's path has a limit of about 100 bytes. When that folder's path is
+  longer (a long home folder), the socket goes in `$TMPDIR/verilore-<uid>/` or
+  `/tmp/verilore-<uid>/`, and only into one that is this user's and `0700`. If
+  neither is, the runtime does not start, and its error names the folder, why it
+  was not used, and `VERILORE_STATE_DIR`, which takes a short folder instead.
 - Every request carries a token read from a `0600` file next to the socket. Never a
   command-line argument, which any local user could read out of `ps`. The token is a
   second check on top of the socket permissions, so a socket that ends up somewhere
   more permissive does not become an open door.
+- On Linux the client asks who is listening (`SO_PEERCRED`) after it connects and
+  before it sends the token, and talks to no other user's process. Elsewhere the
+  folder's permissions are the boundary.
 - Loopback only in principle and Unix-socket-only in practice. There is no code path
   that binds a TCP port.
 - Nothing about memory content is logged. The runtime's own output is discarded; the

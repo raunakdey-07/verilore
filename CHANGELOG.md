@@ -110,22 +110,6 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ### Changed
 
-- **Tables in Word, PowerPoint and PDF have fixtures.** A pricing table in
-  each, built byte by byte: a Word row is read as one claim; a PowerPoint
-  row's cells come out one by one, and a PDF table gives no claims at all.
-  The PowerPoint and PDF tests pin that gap, so they fail the day it is
-  fixed in 0.12.3 (#36).
-- **The README says why Python 3.15 is not supported yet**, and a weekly job
-  (`.github/workflows/watch-python.yml`) fails once onnxruntime publishes a
-  wheel for it, so the bound is raised when it can be.
-
-- **The landing page's test says how to fix it, and what it cannot test.** A
-  recall the page shows answering must have won by more than 0.15
-  (`site_record.CLEAR_MARGIN`), so a model update cannot swap it for the
-  runner-up; a difference ends with the command that records the page again;
-  a run without the model fails saying so, and is skipped with
-  `VERILORE_TEST_OFFLINE=1`.
-
 - **The landing page shows only what the tool prints.** Every terminal run on
   it is recorded from the command it names on the new `examples/trailhead`
   kit by `scripts/site_record.py`, and `tests/test_site.py` re-runs them, checks
@@ -134,6 +118,20 @@ through [`docs/release-map.md`](docs/release-map.md).
   `recall` did not print, and a speed measured for `pack` in v0.10. The closed
   demo is out of the keyboard's reach, has no question limit, copies where the
   clipboard API is refused, and its faint text meets WCAG AA.
+- **The landing page's test says how to fix it, and what it cannot test.** A
+  recall the page shows answering must have won by more than 0.15
+  (`site_record.CLEAR_MARGIN`), so a model update cannot swap it for the
+  runner-up; a difference ends with the command that records the page again;
+  a run without the model fails saying so, and is skipped with
+  `VERILORE_TEST_OFFLINE=1`.
+- **Tables in Word, PowerPoint and PDF have fixtures.** A pricing table in
+  each, built byte by byte: a Word row is read as one claim; a PowerPoint
+  row's cells come out one by one, and a PDF table gives no claims at all.
+  The PowerPoint and PDF tests pin that gap, so they fail the day it is
+  fixed in 0.12.3 (#36).
+- **The README says why Python 3.15 is not supported yet**, and a weekly job
+  (`.github/workflows/watch-python.yml`) fails once onnxruntime publishes a
+  wheel for it, so the bound is raised when it can be.
 
 ## [v0.12.1] - 2026-11-20
 

@@ -434,6 +434,17 @@ approved serves what it holds, as before. Still pass `path_prefix` for the
 folders a task needs: the scope is what keeps one campaign out of another's
 brief.
 
+**One file at a time.** `POST /api/ingest/file` and `verilore ingest` see one
+file, not the folder. By default they store it as before and say where a folder
+sync would hold it differently: a file with no status beside approved ones, and
+the corpus's first approved file beside stored ones with none. The response's
+`warnings` name it, and `verilore ingest` prints `[WARN]`. Send
+`"hold_unmarked": true` to hold the first as a sync does. It is not the default in
+v0.12, because an integration that posts a kit one file at a time would serve
+less than it did. A sync that lets a held note go, because the last approved file
+was archived or moved, says `[WARN]` and names each note it serves again
+(`SyncSummary.promoted`).
+
 **Strict mode.** Otherwise a document with no status is approved, which suits
 a folder only reviewed files are put into. Set `VERILORE_DEFAULT_STATE=draft` on
 the server and it is the other way round: a document, or a `remember` call,
