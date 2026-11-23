@@ -17,9 +17,12 @@ from __future__ import annotations
 import asyncio
 import errno
 import os
+import shutil
 import socket
 import struct
 import sys
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -104,12 +107,16 @@ def test_this_users_own_runtime_is_accepted(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Unix sockets and modes")
-def test_a_refused_socket_folder_is_named(tmp_path, monkeypatch):
+def test_a_refused_socket_folder_is_named(tmp_path, monkeypatch, request):
     long_home = tmp_path / ("x" * 120)
     long_home.mkdir()
-    shared = tmp_path / "tmp"
-    shared.mkdir()
+    # A short folder of its own: a TMPDIR whose socket path is over the limit is
+    # passed over before its folder is checked, and pytest's own folder on CI
+    # (/tmp/pytest-of-runner/..., uid 1001) was 2 bytes over.
+    shared = Path(tempfile.mkdtemp(prefix="vl-", dir="/tmp"))
+    request.addfinalizer(lambda: shutil.rmtree(shared, ignore_errors=True))
     folder = shared / f"verilore-{os.getuid()}"
+    assert len(str(folder / ("x" * 16 + ".sock")).encode()) <= runtime._SOCKET_LIMIT
     folder.mkdir(mode=0o777)
     os.chmod(folder, 0o777)
     monkeypatch.setenv("VERILORE_STATE_DIR", str(long_home))
