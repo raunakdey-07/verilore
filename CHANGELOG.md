@@ -81,6 +81,11 @@ through [`docs/release-map.md`](docs/release-map.md).
   none. With `hold_unmarked: true` it holds the first as a sync does. Not the
   default in v0.12: an integration that posts files one at a time would serve
   less than it did.
+- **A Python without onnxruntime gets one sentence.** Where no onnxruntime
+  wheel exists (Python 3.15, as this is written) an ingest logged
+  `claim_embedding_cache_fill_failed error=ModuleNotFoundError`. It now says,
+  once, that onnxruntime is not installed, that the claims were stored, and
+  how to install it or turn the model off; `verilore doctor` says the same.
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the

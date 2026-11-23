@@ -235,7 +235,7 @@ async def backfill_claim_embeddings(db: AsyncSession, corpus_id: str) -> int:
         from verilore.api.services.embedder import explain_unavailable, model_unavailable
 
         if model_unavailable(exc):
-            explain_unavailable(logger)
+            explain_unavailable(logger, exc)
             return 0
         logger.warning(
             "claim_embedding_backfill_failed error=%s",
