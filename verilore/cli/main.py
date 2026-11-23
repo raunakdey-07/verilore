@@ -81,7 +81,10 @@ def _global_options(
     apply_to_environ()
     # A Hyper-V host's device note, written by `import onnxruntime`, is not
     # this command's output (ORT-1). The command line alone may drop it.
-    from verilore.api.services import ort_import
+    # From `verilore`, not `verilore.api.services`: that package imports the
+    # database module, which reads DATABASE_URL once, and `init --database-url`
+    # sets it after this callback.
+    from verilore import ort_import
 
     ort_import.use(ort_import.load_dropping_device_notes)
     # No subcommand means the person is looking for the first one, not making a

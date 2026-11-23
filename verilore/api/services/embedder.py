@@ -269,7 +269,7 @@ def _session_options():
     rounding error. The level a session runs at is part of how this file
     behaves, so it is stated here rather than inherited.
     """
-    from verilore.api.services import ort_import
+    from verilore import ort_import
 
     ort = ort_import.load()
 
@@ -291,7 +291,7 @@ class _OnnxBackend:
     """
 
     def __init__(self, model_name: str, *, local_files_only: bool = False) -> None:
-        from verilore.api.services import ort_import
+        from verilore import ort_import
 
         ort = ort_import.load()
 
@@ -413,7 +413,7 @@ def backend_name() -> str:
         return "torch"
     if forced in {"onnx", "onnxruntime"}:
         return "onnx"
-    from verilore.api.services import ort_import
+    from verilore import ort_import
 
     try:
         ort_import.load()

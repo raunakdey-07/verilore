@@ -277,7 +277,7 @@ def last_error() -> str | None:
     host its device warning was the only line a runtime that stopped when idle
     had written, and `runtime status` showed it as the "last error".
     """
-    from verilore.api.services.ort_import import HOST_NOTE
+    from verilore.ort_import import HOST_NOTE
 
     try:
         lines = log_path().read_text(encoding="utf-8", errors="replace").splitlines()
