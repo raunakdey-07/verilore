@@ -95,8 +95,31 @@ def _environment() -> dict[str, str]:
     return env
 
 
-def record() -> dict[str, dict[str, str]]:
-    """Run every command against a new corpus and return what each printed."""
+#: How far a recorded answer must have won by. A recall the page shows is an
+#: answer a reader should get on any machine with the same model; one that won
+#: by a hair could lose to the runner-up after a model or ranking change.
+CLEAR_MARGIN = 0.15
+
+#: What to run when the page no longer matches.
+RERECORD = "python scripts/site_record.py   (needs PostgreSQL and the model)"
+
+
+#: Asks one question the way `recall` does, and prints how clearly it was answered.
+_ASK = """
+import json, sys
+from verilore import Verilore
+response = Verilore(sys.argv[1]).memory.query(sys.argv[2])
+print(json.dumps([response.match_status, response.match_margin]))
+"""
+
+
+def record(margins: dict | None = None) -> dict[str, dict[str, str]]:
+    """Run every command against a new corpus and return what each printed.
+
+    With `margins`, each recall the page shows is asked again through the SDK
+    on the same corpus, and its `match_status` and `match_margin` are put there.
+    `recall --json` prints the canonical pack, which leaves both out.
+    """
     corpus = f"trailhead-site-{uuid.uuid4().hex[:10]}"
     env = _environment()
     runs: dict[str, dict[str, str]] = {}
@@ -107,6 +130,20 @@ def record() -> dict[str, dict[str, str]]:
         )
         text = (done.stdout + done.stderr).replace(corpus, "trailhead")
         runs[key] = {"cmd": shown, "out": clean(text), "exit": done.returncode}
+        if margins is not None and args[0] == "recall":
+            # The page's recalls take a question and nothing else.
+            asked = subprocess.run(
+                [sys.executable, "-c", _ASK, corpus, args[-1]],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=ROOT,
+                timeout=600,
+            )
+            try:
+                margins[key] = tuple(json.loads(asked.stdout))
+            except ValueError:  # it failed to run; the run above says why
+                margins[key] = (None, None)
     return runs
 
 
@@ -171,6 +208,8 @@ def differences(page: dict, live: dict) -> list[str]:
     static = _STATIC.search(PAGE.read_text(encoding="utf-8"))
     if not static or normalise(static.group(2)) != normalise(static_brief(live)):
         problems.append("brief: the step 03 text written into the page differs from the run")
+    if problems:
+        problems.append(f"If the change is intended, record the page again: {RERECORD}")
     return problems
 
 
