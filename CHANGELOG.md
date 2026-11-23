@@ -21,6 +21,16 @@ through [`docs/release-map.md`](docs/release-map.md).
   PgBouncer) no longer fails with "prepared statement already exists", and
   statements are prepared unnamed, so none pile up on its server connections.
   Every engine is opened through `db_url.async_engine_for`.
+- **A Hyper-V host's onnxruntime warning is not a command's output.** On
+  GitHub's Linux runners and other Hyper-V guests, `import onnxruntime` writes
+  "[W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping
+  pci_bus_id ..." from C++ during the import, so every command that loaded the
+  model printed it, and `verilore runtime status` showed it as the last error
+  of a runtime that had stopped because it was idle. The command line now
+  imports onnxruntime with stderr captured for the length of the import and
+  writes back everything but that line; the SDK, the server and the MCP server
+  import it plainly and leave stderr alone. The runtime's last error skips
+  onnxruntime's warnings and notes, not its errors.
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the

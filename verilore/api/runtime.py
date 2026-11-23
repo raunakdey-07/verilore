@@ -271,7 +271,14 @@ _LOG_KEEP = 16_000
 
 
 def last_error() -> str | None:
-    """The last line the latest runtime wrote to its log, or None when it wrote nothing."""
+    """The last line the latest runtime wrote to its log, or None when it wrote nothing.
+
+    Not a note onnxruntime writes as it loads ([W:], [I:], [V:]): on a Hyper-V
+    host its device warning was the only line a runtime that stopped when idle
+    had written, and `runtime status` showed it as the "last error".
+    """
+    from verilore.ort_import import HOST_NOTE
+
     try:
         lines = log_path().read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -280,7 +287,7 @@ def last_error() -> str | None:
     for line in lines:
         if line.startswith("--- start "):
             since = []
-        elif line.strip():
+        elif line.strip() and not HOST_NOTE.match(line):
             since.append(line.strip())
     return since[-1] if since else None
 
