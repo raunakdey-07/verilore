@@ -197,24 +197,60 @@ def test_faint_text_is_readable():
             assert ratio >= 4.5, f"--{text} on --{ground} is {ratio:.2f}:1"
 
 
-def test_every_terminal_output_is_what_the_command_prints():
-    """Re-runs every command the page shows, on a new corpus, with the model."""
+def _site_record():
     sys.path.insert(0, str(ROOT / "scripts"))
     try:
         import site_record
     finally:
         sys.path.remove(str(ROOT / "scripts"))
-    problems = site_record.differences(site_record.shown(), site_record.record())
+    return site_record
+
+
+def _with_the_model(runs: dict) -> dict:
+    """The live runs, or a skip where the model is missing and the run said so offline."""
+    import offline_model
+
+    from verilore.api.services.embedder import MODEL_UNAVAILABLE, RUNTIME_MISSING
+
+    without = [
+        k for k, r in runs.items() if MODEL_UNAVAILABLE in r["out"] or RUNTIME_MISSING in r["out"]
+    ]
+    if without and offline_model.enabled():
+        pytest.skip(offline_model.REASON)
+    assert not without, f"the page is recorded with the model, and {without} ran without it"
+    return runs
+
+
+def test_every_terminal_output_is_what_the_command_prints():
+    """Re-runs every command the page shows, on a new corpus, with the model."""
+    site_record = _site_record()
+    margins: dict = {}
+    live = _with_the_model(site_record.record(margins))
+    problems = site_record.differences(site_record.shown(), live)
     assert not problems, "\n\n".join(problems)
+    # A recall the page shows answering won clearly, so a model update cannot
+    # swap it for the runner-up. The abstention it shows is an abstention.
+    # The margin itself is missing on some databases (#38), and that is not
+    # a near-tie: a near-tie is `ambiguous`, which fails here.
+    for key, (status, margin) in margins.items():
+        assert status in ("confident", "abstained"), (key, status, margin)
+        if status == "confident" and margin is not None:
+            assert margin > site_record.CLEAR_MARGIN, (key, margin)
+
+
+def test_a_difference_says_how_to_record_the_page_again():
+    site_record = _site_record()
+    shown = site_record.shown()
+    changed = {key: dict(run) for key, run in shown.items()}
+    changed["review"]["out"] += "\nsomething new"
+    problems = site_record.differences(shown, changed)
+    assert problems[-1].endswith(site_record.RERECORD)
+    assert "python scripts/site_record.py" in problems[-1]
 
 
 def test_a_hosts_runtime_notes_are_not_the_commands_output():
     """ONNX Runtime prints a device warning on Hyper-V hosts (GitHub's runners, WSL)."""
-    sys.path.insert(0, str(ROOT / "scripts"))
-    try:
-        import site_record
-    finally:
-        sys.path.remove(str(ROOT / "scripts"))
+    site_record = _site_record()
     note = (
         "\x1b[0;93m2026-11-21 09:56:38.424775748 [W:onnxruntime:Default, device_discovery.cc:95 "
         'GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/x" because filename "x" '
