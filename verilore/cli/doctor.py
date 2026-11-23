@@ -240,6 +240,10 @@ def check_embedding_model() -> tuple[bool, str, str]:
         if embedder.dimension > 0:
             return True, f"{embedder.dimension}-dim model loaded", ""
     except Exception as exc:  # noqa: BLE001 - the failure text is the fix
+        from verilore.api.services.embedder import runtime_missing
+
+        if runtime_missing(exc):
+            return False, "", "pip install onnxruntime, or set VERILORE_LEXICAL=1 (not installed)"
         return False, "", f"install the model or set VERILORE_LEXICAL=1 ({type(exc).__name__})"
     return False, "", "the embedding model could not be loaded"
 

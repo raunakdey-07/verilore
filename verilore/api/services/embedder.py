@@ -448,30 +448,61 @@ MODEL_UNAVAILABLE = (
 )
 
 
-def model_unavailable(exc: BaseException) -> bool:
-    """Whether `exc`, or anything that caused it, says the model could not be fetched."""
+#: What to say when the model's runtime is not installed at all. A Python with
+#: no onnxruntime wheel (3.15, at the time of writing) falls back to the torch
+#: backend, which a default install does not have either, and the log said
+#: `claim_embedding_cache_fill_failed error=ModuleNotFoundError`.
+RUNTIME_MISSING = (
+    "The embedding model needs onnxruntime, which is not installed for this Python. "
+    "Your documents and claims were stored; recall ranks them by their words. Set "
+    "VERILORE_LEXICAL=1 to stop trying, or install it (`pip install onnxruntime`) and "
+    "run `verilore reindex <corpus>`."
+)
+#: The packages either backend loads the model with.
+_MODEL_PACKAGES = frozenset(
+    {"onnxruntime", "sentence_transformers", "torch", "transformers", "tokenizers"}
+)
+
+
+def _causes(exc: BaseException):
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        if type(current).__name__ in _UNAVAILABLE:
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def runtime_missing(exc: BaseException) -> bool:
+    """Whether `exc`, or anything that caused it, is a model package that is not installed."""
+    return any(
+        isinstance(cause, ModuleNotFoundError)
+        and (cause.name or "").split(".")[0] in _MODEL_PACKAGES
+        for cause in _causes(exc)
+    )
+
+
+def model_unavailable(exc: BaseException) -> bool:
+    """Whether `exc`, or anything that caused it, says the model could not be fetched or run."""
+    for cause in _causes(exc):
+        if type(cause).__name__ in _UNAVAILABLE:
             return True
         # transformers and sentence-transformers say it in an OSError.
-        if isinstance(current, OSError) and "huggingface.co" in str(current):
+        if isinstance(cause, OSError) and "huggingface.co" in str(cause):
             return True
-        current = current.__cause__ or current.__context__
-    return False
+    return runtime_missing(exc)
 
 
 _TOLD = False
 
 
-def explain_unavailable(logger) -> None:
-    """Log `MODEL_UNAVAILABLE` once per process: one line, not one per document."""
+def explain_unavailable(logger, exc: BaseException | None = None) -> None:
+    """Log why there is no model once per process: one line, not one per document."""
     global _TOLD
     if not _TOLD:
         _TOLD = True
-        logger.warning(MODEL_UNAVAILABLE)
+        missing = exc is not None and runtime_missing(exc)
+        logger.warning(RUNTIME_MISSING if missing else MODEL_UNAVAILABLE)
 
 
 def load_backend(model_name: str, *, local_files_only: bool = False):
