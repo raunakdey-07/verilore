@@ -110,6 +110,13 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ### Changed
 
+- **The landing page's test says how to fix it, and what it cannot test.** A
+  recall the page shows answering must have won by more than 0.15
+  (`site_record.CLEAR_MARGIN`), so a model update cannot swap it for the
+  runner-up; a difference ends with the command that records the page again;
+  a run without the model fails saying so, and is skipped with
+  `VERILORE_TEST_OFFLINE=1`.
+
 - **The landing page shows only what the tool prints.** Every terminal run on
   it is recorded from the command it names on the new `examples/trailhead`
   kit by `scripts/site_record.py`, and `tests/test_site.py` re-runs them, checks

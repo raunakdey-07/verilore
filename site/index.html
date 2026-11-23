@@ -342,7 +342,7 @@ Not included: 2 draft, 2 rejected.</pre></div>
  },
  "review": {
   "cmd": "verilore review --corpus trailhead",
-  "out": "Review for \"trailhead\": 4 to look at.\n\nDrafts waiting for approval (4): not served.\n  - Our voice is bold, cheeky and loud.  [brand/drafts/voice-refresh.md, d2b7231dbc7d]\n  - Always open with a pun.  [brand/drafts/voice-refresh.md, b00d22f1239e]\n  - Our voice is warm, plain and confident.  [notes/kickoff-2026.md, dd3fb0ec7e44]\n  - The Trailhead 2 bike weighs 10.4 kilograms.  [notes/kickoff-2026.md, bae2056194ea]",
+  "out": "Review for \"trailhead\": 4 to look at.\n\nDrafts waiting for approval (4): not served.\n  - Our voice is bold, cheeky and loud.  [brand/drafts/voice-refresh.md, 4409945b521f]\n  - Always open with a pun.  [brand/drafts/voice-refresh.md, 2d8cfd91ef27]\n  - Our voice is warm, plain and confident.  [notes/kickoff-2026.md, d8d2cf52e741]\n  - The Trailhead 2 bike weighs 10.4 kilograms.  [notes/kickoff-2026.md, e8904d978f9a]",
   "exit": 0
  },
  "brief": {
@@ -352,12 +352,12 @@ Not included: 2 draft, 2 rejected.</pre></div>
  },
  "check": {
   "cmd": "echo \"Meet the curated Trailhead 2: just 10.4 kg, launching 20 March 2027.\" | verilore check --corpus trailhead --path-prefix brand --path-prefix campaigns/spring -",
-  "out": "3 problem(s) against 7 approved lines:\n- The draft uses \"curated\", which an approved rule bans.\n    rule: Never use the word \"curated\" in copy.  [brand/guide.md, 2c436fd6e06a]\n- The draft says 10.4 kg where approved memory says 9.8 kilograms (weight).\n    rule: The Trailhead 2 bike weighs 9.8 kilograms.  [brand/specs.md, 7fee0488cbc2]\n- The draft states the date 20 March 2027, and no approved line does.\n    rule: none; state it only if a person approves it\nNeeds a reviewer: check cannot test this 1 rule exactly.\n- Never promise free shipping in ads.  [brand/guide.md]",
+  "out": "3 problem(s) against 7 approved lines:\n- The draft uses \"curated\", which an approved rule bans.\n    rule: Never use the word \"curated\" in copy.  [brand/guide.md, 466ce6091db2]\n- The draft says 10.4 kg where approved memory says 9.8 kilograms (weight).\n    rule: The Trailhead 2 bike weighs 9.8 kilograms.  [brand/specs.md, e66694cb18d1]\n- The draft states the date 20 March 2027, and no approved line does.\n    rule: none; state it only if a person approves it\nNeeds a reviewer: check cannot test this 1 rule exactly.\n- Never promise free shipping in ads.  [brand/guide.md]",
   "exit": 1
  },
  "recall-voice": {
   "cmd": "verilore recall --corpus trailhead \"What does our brand voice sound like?\"",
-  "out": "Our voice is warm, plain and direct.\n   source: brand/guide.md @ 0bea2d9e1ba5 (claim 82ae229a0d42)\n   time:   true as of 2026-11-21 09:30 UTC\n\nAsk for the basis with: verilore explain \"<question>\"",
+  "out": "Our voice is warm, plain and direct.\n   source: brand/guide.md @ b5c056ea0c80 (claim f6bb90fd876c)\n   time:   true as of 2026-11-23 18:22 UTC\n\nclear answer (margin 0.926)\n\nAsk for the basis with: verilore explain \"<question>\"",
   "exit": 0
  },
  "recall-ceo": {
