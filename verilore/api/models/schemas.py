@@ -36,6 +36,10 @@ class IngestFileRequest(BaseModel):
         description="Raw Markdown content (frontmatter + body)",
     )
     path: str | None = Field(None, max_length=2048, description="File path for reference")
+    #: Hold a document that declares no status as a draft when the corpus holds
+    #: one that declares `status: approved`, as a folder sync does. Off by
+    #: default in v0.12: such a document is served as before, with a warning.
+    hold_unmarked: bool = False
     corpus: str = Field(
         "default",
         min_length=1,
@@ -201,6 +205,9 @@ class SyncResponse(BaseModel):
     #: Documents that declare no status beside ones that declare `status:
     #: approved`; they are held as drafts until someone marks them.
     unmarked: list[str] = Field(default_factory=list)
+    #: Documents the last sync held as drafts that this one serves as approved,
+    #: because no document declares `status: approved` any more.
+    promoted: list[str] = Field(default_factory=list)
 
 
 # --- Context packing ---

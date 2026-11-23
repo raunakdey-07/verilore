@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import heapq
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -269,6 +270,64 @@ def _supersession_order(repo_path: Path, md_files: list[Path]) -> list[str]:
 
 #: The ingest stored a document without a vector because the model could not load.
 EMBEDDING_UNAVAILABLE = "embedding_unavailable"
+
+
+async def _stored_metadata(db, corpus_id: str) -> dict[str, dict]:
+    """Each stored document's metadata, from its latest version, by path.
+
+    A deleted document is left out. The metadata holds the document's own
+    frontmatter and, for one that declared no status, the `default_status` a
+    folder sync gave it (`markdown_claims.unmarked_state`).
+    """
+    rows = await db.execute(
+        text("""
+            SELECT d.path, v.metadata
+            FROM memory_documents AS d
+            JOIN LATERAL (
+                SELECT mv.metadata, mv.event
+                FROM memory_versions AS mv
+                WHERE mv.corpus_id = d.corpus_id AND mv.memory_document_id = d.id
+                ORDER BY mv.version_number DESC
+                LIMIT 1
+            ) AS v ON TRUE
+            WHERE d.corpus_id = :corpus AND v.event <> 'DELETED'
+            """),
+        {"corpus": corpus_id},
+    )
+    return {row.path: dict(row.metadata or {}) for row in rows}
+
+
+def _unmarked_warnings(path: str, own: dict, others: dict[str, dict], *, held: bool) -> list[dict]:
+    """Where one file ingested alone is not held the way a folder sync holds it."""
+    if os.getenv(markdown_claims.DEFAULT_STATE_ENV, "").strip():
+        return []
+    approved = [p for p, m in others.items() if "approved" in markdown_claims.declared_states(m)]
+    warnings: list[dict] = []
+    if not markdown_claims.declared_states(own) and approved and not held:
+        # Served as approved; a sync of the folder would hold it as a draft.
+        warnings.append(
+            {"code": "unmarked_beside_approved", "path": path, "line": None, "field": approved[0]}
+        )
+    if "approved" in markdown_claims.declared_states(own) and not approved:
+        left = sorted(
+            p
+            for p, m in others.items()
+            if not markdown_claims.declared_states(m)
+            and m.get(markdown_claims.DEFAULT_STATUS_KEY) != "draft"
+        )
+        if left:
+            # The corpus's first approved document: the ones already stored
+            # without a status were stored as approved, and stay so.
+            warnings.append(
+                {
+                    "code": "unmarked_still_approved",
+                    "path": path,
+                    "line": None,
+                    "field": ", ".join(left),
+                }
+            )
+    return warnings
+
 
 #: Warnings that explain a document rather than say something went wrong with it.
 _INFORMATIONAL_WARNINGS = frozenset(
@@ -936,6 +995,7 @@ class IngestionService:
         supersedes_claim_id: str | None = None,
         topic_key: str | None = None,
         embed_chunks: bool | None = None,
+        unmarked_rule: str | None = None,
     ) -> dict:
         """Ingest a single Markdown file into the given corpus.
 
@@ -951,18 +1011,44 @@ class IngestionService:
 
         `embed_chunks` asks for a vector for every chunk as well as every claim.
         See `sync_repo` for why that is not the default.
+
+        `unmarked_rule` compares one file with the documents the corpus holds,
+        the way a folder sync compares the files of a folder
+        (`markdown_claims.unmarked_state`). None (the default, and what
+        `remember` passes: an approved statement it writes declares no status)
+        reads nothing. `"warn"` keeps the document's state as it always was and
+        warns where a folder sync would differ: a document that declares no
+        status beside approved ones, which a sync would hold as a draft, and the
+        corpus's first approved document, beside stored ones that declare none.
+        `"hold"` also holds the first as a draft, as a sync does.
         """
+        path = path or "unknown"
         async with session_scope() as db:
-            return await self._ingest_content(
+            unmarked = None
+            others: dict[str, dict] = {}
+            own: dict = {}
+            if unmarked_rule:
+                async with db.begin():
+                    stored = await _stored_metadata(db, corpus_id)
+                others = {p: m for p, m in stored.items() if p != path}
+                own = parse_markdown(content)[0]
+                if unmarked_rule == "hold":
+                    unmarked = markdown_claims.unmarked_state([*others.values(), own])
+            result = await self._ingest_content(
                 db,
                 content,
-                path or "unknown",
+                path,
                 corpus_id,
                 owner_principal_id,
                 supersedes_claim_id=supersedes_claim_id,
                 topic_key=topic_key,
                 embed_chunks=embed_chunks,
+                unmarked=unmarked,
             )
+        if unmarked_rule and result.get("success"):
+            for warning in _unmarked_warnings(path, own, others, held=unmarked is not None):
+                result.setdefault("warnings", []).append(warning)
+        return result
 
     async def ingest_repo(
         self,
@@ -1073,6 +1159,20 @@ class IngestionService:
             if unmarked and not markdown_claims.declared_states(metadata)
         )
         async with sync_session_scope() as db:
+            # The rule is worked out again on every sync, so it can let a held
+            # draft go: archive or move the last file that says `status:
+            # approved`, and the unmarked notes beside it are served as approved
+            # on the next sync. That is a change a reader acts on; it is named.
+            promoted: list[str] = []
+            if not unmarked:
+                async with db.begin():
+                    stored = await _stored_metadata(db, corpus_id)
+                promoted = sorted(
+                    rel
+                    for rel, metadata in declared.items()
+                    if not markdown_claims.declared_states(metadata)
+                    and (stored.get(rel) or {}).get(markdown_claims.DEFAULT_STATUS_KEY) == "draft"
+                )
             for rel_path in order:
                 source_paths.add(rel_path)
                 try:
@@ -1200,6 +1300,14 @@ class IngestionService:
                     )
                 deleted = removed
 
+        for rel in promoted:
+            warnings.append({"code": "unmarked_now_approved", "path": rel, "line": None})
+            if len(errors) < MAX_SYNC_ERRORS:
+                errors.append(
+                    f"{rel}: served as approved again: no file in the folder says "
+                    "`status: approved` now"
+                )
+
         await self._refresh_planner_statistics(corpus_id, added + changed + deleted)
 
         duration_ms = int((time.perf_counter() - start) * 1000)
@@ -1225,6 +1333,8 @@ class IngestionService:
             # Documents that declare no status beside ones that declare
             # `status: approved`: held as drafts until someone marks them.
             "unmarked": unmarked_paths,
+            # Held as drafts by the last sync, served as approved by this one.
+            "promoted": promoted,
             "document_results": documents,
             "warnings": warnings,
             "chunk_count": total_chunks,

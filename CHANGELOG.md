@@ -71,6 +71,16 @@ through [`docs/release-map.md`](docs/release-map.md).
   of 24 questions differently. Ties now follow the claims' keys, paths and
   text, in the ranking and in the queries that look for a claim's neighbours
   (#38).
+- **A held note is named, whichever way it arrives.** A folder sync that lets
+  a held draft go (the last file that says `status: approved` was archived or
+  moved) serves the unmarked notes beside it as approved again; it said
+  `[OK]`, and now says `[WARN]` and names each one (`SyncSummary.promoted`).
+  The one-file route (`POST /api/ingest/file`, `verilore ingest`) warns where
+  a folder sync would hold a file differently: a file with no status beside
+  approved ones, and the corpus's first approved file beside stored ones with
+  none. With `hold_unmarked: true` it holds the first as a sync does. Not the
+  default in v0.12: an integration that posts files one at a time would serve
+  less than it did.
 - **The TestPyPI check installs from TestPyPI.** It gave uv both indexes, and
   uv keeps to the first index that has a package: once verilore was on PyPI, a
   version only on TestPyPI was never found (v0.12.1's check failed though the
