@@ -2,6 +2,19 @@
 
 > See the [integration guide](guide.md) for wiring Verilore into a content-generation app.
 
+## Status at v0.12.2
+
+v0.12.2 works with a hosted database: a Neon URL, `-pooler` host included,
+works with every command (`test_hosted_database_urls.py`). `check` passes a
+true discount or difference and reports a wrong one against the lines it
+compares (`test_check_differences.py`); "X, not Y" and "such as" ban only what
+the rule names, and `IG`, `X` and `insta` find their channels' rules
+(`test_check_rule_edges.py`, `test_check_false_positives.py`). The same kit
+gives the same answers in every database (`test_answer_order.py`). Posting a
+kit one file at a time warns where a folder sync would hold a note, and
+`hold_unmarked: true` holds it (`test_unmarked_order.py`). Still open for the
+pipeline: settling what `review` shows through the API (#29).
+
 ## Status at v0.12.1
 
 v0.12.1 fixes what Team 052's evaluation of 20 November found. `check` no
