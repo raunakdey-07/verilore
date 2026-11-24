@@ -29,6 +29,7 @@ relationship between the two numbering systems.
 | — | First PyPI release; one-command setup; every platform tested; claim-key, withholding and extraction fixes | `v0.11.0` |
 | — | Brief, check and review; Word, PowerPoint and PDF; lines that end; drafts from agents | `v0.12.0` |
 | — | Team 052's evaluation: sibling prices, eight more rules, unmarked files, the runtime | `v0.12.1` |
+| — | Hosted databases, discounts and differences, rule edges, one order for ties, the one-file route | `v0.12.2` |
 
 ### The trust boundary, stated here
 
@@ -72,9 +73,9 @@ the existing `M015` / `M015.1` pattern for the same release line and is recorded
 
 ## Current release
 
-**The current release is `v0.12.1`**, tagged at `77bbfbf` and published on PyPI.
-`pyproject.toml` says `0.12.1` and `CHANGELOG.md` has its `[v0.12.1]` entry.
-`v0.12.0`, the release it fixes, is tagged at `0918618`. Install from PyPI:
+**The release being prepared is `v0.12.2`**: `pyproject.toml` says `0.12.2` and
+`CHANGELOG.md` has its `[v0.12.2]` entry. The owner tags it. The current release
+on PyPI is `v0.12.1`, tagged at `77bbfbf`. Install from PyPI:
 
 ```
 uv tool install --python 3.13 verilore
@@ -85,8 +86,22 @@ on PyPI. `v0.10.0`, tagged at `1fad1e8`, was never published on PyPI and
 installs from its tag
 (`uv tool install git+https://github.com/raunakdey-07/verilore@v0.10.0`).
 
-`v0.11.0`, `v0.12.0` and `v0.12.1` have no milestone identifier: their work was tracked as
+`v0.11.0`, `v0.12.0`, `v0.12.1` and `v0.12.2` have no milestone identifier: their work was tracked as
 GitHub issues, which the changelog names entry by entry.
+
+### What v0.12.2 changed
+
+**Hosted databases and fewer false findings.** A Neon URL failed every command
+but `init`: SQLAlchemy handed libpq's `sslmode` to asyncpg. libpq's keys now go
+to asyncpg's own reader, and statements are prepared unnamed, so a pooler in
+transaction mode works. `check` passes "Save £3 on Monzo Perks" and "£10
+cheaper than Monzo Max" when true and reports them when not; "Use bold, not
+cold" bans nothing, and `--channel IG` finds Instagram's rules. Tied answers
+follow their keys, paths and text, not random ids, so a kit gives the same
+answers in every database. The one-file route warns where a folder sync would
+hold a note, and a sync that lets one go says `[WARN]`. The command line drops
+onnxruntime's `GetPciBusId` warning, and the runtime client checks who is
+listening.
 
 ### What v0.12.1 changed
 

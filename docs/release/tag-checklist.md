@@ -3,12 +3,12 @@
 The list of things that must be true before a tag exists, re-run for every
 tag. The owner alone decides when to cut one.
 
-State when `v0.12.1` was prepared:
+State when `v0.12.2` was prepared:
 
 | | |
 |---|---|
-| latest tag | **`v0.12.0`**, at `0918618` |
-| `pyproject.toml` version | `0.12.1`, the release being prepared |
+| latest tag | **`v0.12.1`**, at `77bbfbf` |
+| `pyproject.toml` version | `0.12.2`, the release being prepared |
 | schema head | `016`, unchanged since `v0.10.0` |
 | migrations shipped since the last tag | none |
 | runtime dependencies added | none |

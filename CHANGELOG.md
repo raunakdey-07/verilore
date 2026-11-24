@@ -6,6 +6,43 @@ through [`docs/release-map.md`](docs/release-map.md).
 
 ## [Unreleased]
 
+## [v0.12.2] - 2026-11-24
+
+Hosted databases, fewer false findings, and the same answers everywhere. A
+hosted PostgreSQL URL such as Neon's works with every command, through a
+pooler too. `check` reads a discount or a difference as one, and bans only
+what a rule names. The same kit gives the same answers in every database. A
+note held as a draft is named however it arrives, and a Hyper-V host's
+onnxruntime warning is no longer every command's output.
+
+### Upgrading from v0.12.1
+
+- **No schema change.** There is no new migration; the head stays
+  `016_hoist_scope_initplan`. Nothing to reindex.
+- **The async driver prepares statements unnamed** (`statement_cache_size=0`),
+  so it works behind a pooler in transaction mode. Measured on a direct
+  database with 1,500 claims, sync, recall, `brief`, `check` and `pack` take
+  the same time either way.
+- **`check` reports differently.** A discount or a difference is no longer
+  compared as a price: a true one passes, a wrong one is a finding against the
+  two lines it compares, and a made-up one is still reported. "X, not Y" bans
+  Y only when it is a spelling of X, and a "such as" list is read only after a
+  word about language. `--channel IG`, `X` or `insta` finds those channels'
+  rules.
+- **A sync that lets a held note go says `[WARN]`, not `[OK]`**, and names
+  each note it serves again (`SyncSummary.promoted`). With `--strict`, that
+  exits 1.
+- **One file at a time warns where a folder sync would hold.**
+  `POST /api/ingest/file` and `verilore ingest` store a file as before and
+  name it in `warnings`; send `"hold_unmarked": true` to hold it as a sync
+  does. Nothing is held that v0.12.1 served.
+- **Tied answers come in one order.** Claims that score the same are ordered by
+  their keys, paths and text, so a recall that cut a tie may list different
+  lines than v0.12.1 did, once, and then the same in every database.
+- **Lexical recall answers a question that names a day or a month**, where it
+  abstained.
+- **On Linux, the runtime client talks only to a runtime of the same user.**
+
 ### Fixed
 
 - **A hosted database's URL works.** Neon's URL ends

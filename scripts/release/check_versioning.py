@@ -165,10 +165,13 @@ def main() -> None:
 
     # v0.10.0 was once staged during M016 and folded into v0.9.0; it is now a real
     # release, so the absence checks were removed.
-    require(pyproject, r'^version = "0\.12\.1"$', "package version is v0.12.1")
+    require(pyproject, r'^version = "0\.12\.2"$', "package version is v0.12.2")
+    require(changelog, r"^## \[v0\.12\.2\]", "v0.12.2 changelog entry")
+    require(changelog, r"^### Upgrading from v0\.12\.1$", "v0.12.2 leads with its upgrade notes")
+    require_absent(changelog, r"RELEASE-DATE", "the v0.12.2 entry has no date yet")
+    # A patch release may not erase the one it follows.
     require(changelog, r"^## \[v0\.12\.1\]", "v0.12.1 changelog entry")
-    require(changelog, r"^### Upgrading from v0\.12\.0$", "v0.12.1 leads with its upgrade notes")
-    require_absent(changelog, r"RELEASE-DATE", "the v0.12.1 entry has no date yet")
+    require(changelog, r"^### Upgrading from v0\.12\.0$", "v0.12.1 keeps its upgrade notes")
     # A patch release may not erase the minor release it follows.
     require(changelog, r"^## \[v0\.12\.0\]", "v0.12.0 changelog entry")
     require(changelog, r"^### Upgrading from v0\.11\.0$", "v0.12.0 keeps its upgrade notes")
@@ -187,7 +190,7 @@ def main() -> None:
     )
     require(
         readme,
-        r"\[Current release: v0\.12\.1\]\(docs/release-map\.md\)",
+        r"\[Current release: v0\.12\.2\]\(docs/release-map\.md\)",
         "README release-map link",
     )
     # v0.11.0 is the first release on PyPI. The README installs it by name, and a
