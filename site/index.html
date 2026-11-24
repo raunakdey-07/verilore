@@ -77,7 +77,8 @@ h2 { margin: 0; font-size: clamp(28px, 3.4vw, 42px); line-height: 1.1; font-weig
 .lead { margin: 0; font-size: 17px; line-height: 1.6; color: var(--muted); }
 .note { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--faint); }
 .hero .note { margin-top: 28px; }
-section.block { padding-bottom: var(--gap); scroll-margin-top: 24px; }
+section.block { padding-bottom: var(--gap); }
+section.block, #try { scroll-margin-top: 24px; }
 .split { display: flex; flex-wrap: wrap; gap: clamp(28px, 5vw, 64px); align-items: flex-start; }
 .side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .exhibit { flex: 1.5 1 520px; min-width: 0; }
@@ -429,7 +430,15 @@ Not included: 2 draft, 2 rejected.</pre></div>
     trySection.inert = !open;
     tryLink.setAttribute('aria-expanded', String(open));
     $('try-label').textContent = open ? 'hide the runs' : 'see it run';
-    if (open) trySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (open) {
+      // To where the section stands once it has slid up into place. Measured
+      // now, mid-slide, it is 24px low, and the heading ended above the window.
+      var style = getComputedStyle(trySection);
+      var slide = style.transform && style.transform !== 'none' ? new DOMMatrixReadOnly(style.transform).m42 : 0;
+      var top = trySection.getBoundingClientRect().top + window.scrollY - slide - (parseFloat(style.scrollMarginTop) || 0);
+      var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: top, behavior: still ? 'auto' : 'smooth' });
+    }
   }
   tryLink.addEventListener('click', function () { setOpen(!trySection.classList.contains('open')); });
 
